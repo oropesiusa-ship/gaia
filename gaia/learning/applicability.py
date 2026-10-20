@@ -25,7 +25,7 @@ def assess(scope, requested=None, cfg=None):
     else:
         transfer = "SAME_WORKLOAD"
     cfg = cfg or {}
-    stale_keys = {"benchmark_hash", "workload", "trainer_family", "source_hash", "gaia_version", "quality_threshold", "baseline_version"}
+    stale_keys = {"environment_hash", "benchmark_hash", "workload", "trainer_family", "source_hash", "gaia_version", "quality_threshold", "baseline_version"}
     if cfg.get("stale_on_runtime_change", True):
         stale_keys.add("runtime_hash")
     if cfg.get("stale_on_hardware_change", True):
