@@ -135,8 +135,17 @@ class LearningTests(unittest.TestCase):
     def test_quality_guard_failure_is_informative_negative(self):
         exp = fixture("REJECTED")
         exp["confirmation"]["candidate_reached"] = 2
+        exp["confirmation"]["pairs"] = 2
+        for field in ("candidate_costs", "baseline_costs"):
+            exp["confirmation"][field] = exp["confirmation"][field][:2]
         item = learn([source(exp)])["records"][0]
         self.assertEqual(item["claim"]["effect"], "QUALITY_GUARD_NOT_MET")
+
+    def test_paired_cost_count_cannot_exceed_successful_quality_trials(self):
+        exp = fixture("REJECTED")
+        exp["confirmation"]["candidate_reached"] = 2
+        with self.assertRaises(ValueError):
+            source(exp)
 
     def test_failed_execution_does_not_claim_a_runtime_cause(self):
         exp = fixture("REJECTED")
