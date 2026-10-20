@@ -105,6 +105,8 @@ def validate_source(value):
             trials = confirmation["trial_count"]
             if type(n) is not int or type(trials) is not int or not 0 <= n <= trials or any(type(confirmation[k]) is not int or not 0 <= confirmation[k] <= trials for k in ("candidate_reached", "baseline_reached")):
                 raise ValueError("Invalid paired sample counts")
+            if n > min(confirmation["candidate_reached"], confirmation["baseline_reached"]):
+                raise ValueError("Valid cost pairs cannot exceed successful trials")
             if any(not isinstance(confirmation[k], list) or len(confirmation[k]) != n or any(not finite(x) or x <= 0 for x in confirmation[k]) for k in ("candidate_costs", "baseline_costs")):
                 raise ValueError("Invalid confirmation samples")
             if not finite(confirmation["min_gain"]) or not 0 < confirmation["min_gain"] < 1:
