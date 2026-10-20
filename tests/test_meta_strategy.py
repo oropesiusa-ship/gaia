@@ -400,6 +400,29 @@ class SchemaHistoryAuditTests(unittest.TestCase):
         result = plan(p)
         self.assertNotIn("PRIVATE_CANARY_06", provenance.canonical_json(result).decode())
 
+    def test_resealed_learning_strings_cannot_be_private_output_channels(self):
+        from gaia.learning.schema import seal as seal_learning
+        for field in ("outcome", "cost", "negative_scope"):
+            run = knowledge(experiment())
+            for category in ("records", "knowledge"):
+                updated = []
+                for item in run[category]:
+                    e = item["supporting_evidence"][0]
+                    if field == "outcome":
+                        e["outcome"] = "PRIVATE_CANARY_06"
+                        if category == "knowledge":
+                            item["quality"]["independent_positive_count"] = 0
+                    elif field == "cost":
+                        e["confirmation"]["candidate_costs"][0] = "PRIVATE_CANARY_06"
+                        e["measurement_hash"] = provenance.digest({"experiment": e["experiment_identity"], "measurements": e["confirmation"]})
+                    else:
+                        item["claim"]["negative_reuse_scope"] = "PRIVATE_CANARY_06"
+                    updated.append(seal_learning(item))
+                run[category] = updated
+            run["run_hash"] = provenance.digest({k: v for k, v in run.items() if k != "run_hash"})
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                plan(runs=[run])
+
     def test_audit_reproduces_and_rejects_added_instructions(self):
         from tools.audit_meta_strategy import audit_document, source_policy
         p = target()[0]

@@ -4,7 +4,7 @@ import re
 from ..diagnosis.schema import validate as validate_diagnosis
 from ..learning.engine import settings as learning_settings
 from ..learning.applicability import assess
-from ..learning.schema import HASH, HIERARCHY, validate as validate_learning, valid_context
+from ..learning.schema import HASH, HIERARCHY, finite, validate as validate_learning, valid_context
 from ..prioritization.schema import validate as validate_priority
 from ..prioritization.targets import CLASSES as TARGETS
 from ..provenance import digest
@@ -60,6 +60,22 @@ def ingest(priority, learning_runs, context, diagnoses, analysis_mode):
             raise ValueError("Invalid learning source hash")
         for item in run["records"] + run["knowledge"]:
             validate_learning(item)
+            if item["claim"].get("negative_reuse_scope", "NONE") not in ("NONE", "HISTORICAL_REJECTION_ONLY", "EXACT_CANDIDATE_EQUIVALENT_CONTEXT_ONLY"):
+                raise ValueError("Unknown negative evidence scope")
+            for e in item["supporting_evidence"]:
+                if e["outcome"] not in ("ACCEPTED", "REJECTED", "INCONCLUSIVE") or e["rollback"] not in ("NONE", "VERIFICATION", "ADVERSE", "UNKNOWN") or type(e["promotion"]) is not bool:
+                    raise ValueError("Invalid historical outcome")
+                screen = e["screen"]
+                if screen["status"] not in ("ok", "error", "invalid", "timeout") or type(screen["reached"]) is not bool:
+                    raise ValueError("Invalid historical screen")
+                if any(v is not None and (not finite(v) or v <= 0) for v in (screen["cost_s"], screen["baseline_cost_s"], e["ratio"], e["upper95"])):
+                    raise ValueError("Non-numeric historical measurement")
+                confirmation = e["confirmation"]
+                if confirmation is not None:
+                    if (confirmation["decision"] not in ("accepted", "rejected", "deferred", "pareto_alternative")
+                            or any(type(confirmation[k]) is not int or confirmation[k] < 0 for k in ("pairs", "trial_count", "candidate_reached", "baseline_reached"))
+                            or any(not isinstance(confirmation[k], list) or len(confirmation[k]) != confirmation["pairs"] or any(not finite(v) or v <= 0 for v in confirmation[k]) for k in ("candidate_costs", "baseline_costs"))):
+                        raise ValueError("Invalid paired historical measurements")
             if item["learning_id"] in items and items[item["learning_id"]] != item:
                 raise ValueError("Conflicting immutable knowledge identity")
             items[item["learning_id"]] = item
