@@ -69,7 +69,7 @@ def build(evaluation, evidence, cfg):
             mapped = {"MEMORY_AVAILABLE_LOW": "MEMORY_PRESSURE", "STORAGE_AVAILABLE_LOW": "STORAGE_PRESSURE",
                       "GPU_MEMORY_AVAILABLE_LOW": "GPU_MEMORY_PRESSURE", "HIGH_MEASUREMENT_VARIABILITY": "MEASUREMENT_NOISE",
                       "QUALITY_REGRESSION": "QUALITY_REGRESSION", "CAPABILITY_UNAVAILABLE": "CAPABILITY_GAP",
-                      "WORKLOAD_INSTABILITY": "UNKNOWN_CAUSE"}
+                      "WORKLOAD_INSTABILITY": "UNKNOWN_CAUSE", "RESOURCE_AVAILABILITY_CHANGED": "UNKNOWN_CAUSE"}
             primary = mapped.get(kind, "ENVIRONMENT_CHANGE")
             kinds = [primary] + (["UNKNOWN_CAUSE"] if primary != "UNKNOWN_CAUSE" else [])
         issue_hypotheses = []

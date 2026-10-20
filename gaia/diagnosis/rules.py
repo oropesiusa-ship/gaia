@@ -15,6 +15,7 @@ RULES = {
     "RULE_EXECUTION_001": "Recorded workload failed or has error status",
     "RULE_CAPABILITY_001": "Required CPU/sandbox capability unavailable, excluding frozen/unconfigured capabilities",
     "RULE_ENVIRONMENT_001": "v0.2 comparison reports identity changes",
+    "RULE_RESOURCE_CHANGE_001": "Noise-aware change of recorded available resources; no causal attribution",
 }
 MEASURE = "/sections/measurements/"
 
@@ -107,6 +108,12 @@ def evaluate(current, baseline, cfg, evidence):
     comparison = compare(baseline, current, cfg["performance_regression_relative"]) if baseline is not None else None
     signals["runtime_changed"] = bool(comparison and comparison["runtime_changed"])
     if comparison:
+        for entry in comparison["measurements"]:
+            if entry["metric"] in ("resources.system_ram_available_bytes", "resources.filesystem_available_bytes") and entry["classification"] == "POSSIBLY_SIGNIFICANT":
+                metric_name = entry["metric"].split(".", 1)[1]
+                refs = [evidence.add(role, MEASURE + "resources/statistics/" + metric_name + "/median",
+                                     "available resource changed beyond descriptive noise band", "availability", kind="CONTEXTUAL") for role in ("baseline", "current")]
+                issue("RESOURCE_AVAILABILITY_CHANGED", "RULE_RESOURCE_CHANGE_001", refs, entry)
         for name in ("runtime", "hardware", "source"):
             if comparison[name + "_changed"]:
                 path = {"runtime": "/runtime_identity/stable_hash", "hardware": "/host_identity/stable_hash",
