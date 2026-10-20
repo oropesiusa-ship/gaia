@@ -102,6 +102,16 @@ class RuleTests(unittest.TestCase):
         self.assertIn("MEASUREMENT_NOISE", kinds(result))
         self.assertIn("HIGH_MEASUREMENT_VARIABILITY", {i["kind"] for i in result["issues"]})
 
+    def test_variability_scope_does_not_conflate_evaluator_cpu_and_wall(self):
+        value = fixture()
+        metric(value, "workload", "evaluator_cpu_s", [.5, 1, 1.5, 2, 2.5])
+        result = diagnose(reseal(value))
+        issue = next(i for i in result["issues"] if i["kind"] == "HIGH_MEASUREMENT_VARIABILITY")
+        self.assertEqual(issue["details"]["metric"], "evaluator_cpu_s")
+        self.assertNotIn("PERFORMANCE_REGRESSION", {i["kind"] for i in result["issues"]})
+        noise = next(h for h in result["hypotheses"] if h["kind"] == "MEASUREMENT_NOISE")
+        self.assertFalse(noise["contradictions"])
+
     def test_D_runtime_change_and_slowdown_plausible_not_proven(self):
         baseline, current = fixture(), fixture()
         current["observation_id"] = "o000002"
