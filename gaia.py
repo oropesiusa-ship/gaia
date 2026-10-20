@@ -215,6 +215,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.epilog = "Arranque automático: bootstrap | doctor | appliance-bootstrap | appliance-rootfs | appliance-image | appliance-verify | appliance-recovery | gaia-transformer-baseline | gaia-transformer-lab | gaia-transformer-benchmark | gaia-transformer-prepare | gaia-transformer-run | gaia-transformer-observe | gaia-transformer-research | gaia-transformer-meta. --no-bootstrap delante del comando usa el runtime/estado manual."
     sub = p.add_subparsers(dest="cmd", required=True)
+    if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "prioritize", "priorities", "priority"):
+        from gaia.prioritization.cli import register as register_priority
+        register_priority(sub, ROOT)
     if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "diagnose", "diagnoses", "diagnosis"):
         from gaia.diagnosis.cli import register as register_diagnosis
         register_diagnosis(sub, ROOT)
@@ -252,7 +255,7 @@ def main():
     pr.add_argument("--seeds", type=int, default=12)
     pr.set_defaults(f=cmd_prove)
     a = p.parse_args()
-    if getattr(a, "observation_command", False) or getattr(a, "diagnosis_command", False):
+    if getattr(a, "observation_command", False) or getattr(a, "diagnosis_command", False) or getattr(a, "priority_command", False):
         sys.exit(a.f(a) or 0)
     # El help y el bootstrap funcionan incluso sin NumPy en el Python de arranque.
     global config, engine, readiness, report

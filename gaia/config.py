@@ -4,6 +4,11 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    "prioritization": {
+        "large_regression_relative": 0.30, "min_impact_for_p1": "HIGH",
+        "max_cost_for_p1": "LOW", "blocking_priority_boost": True,
+        "frozen_component_policy": "DEFER",
+    },
     "diagnosis": {
         "memory_available_low_ratio": 0.10, "gpu_memory_available_low_ratio": 0.10,
         "storage_available_low_ratio": 0.05, "swap_consumption_bytes": 64 * 2**20,
