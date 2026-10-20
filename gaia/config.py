@@ -4,6 +4,11 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    "learning": {
+        "minimum_evidence_for_consolidation": 1, "minimum_independent_replications": 2,
+        "stale_on_runtime_change": True, "stale_on_hardware_change": True,
+        "contradiction_confidence_penalty": 1, "higher_lr_factor": 1.10,
+    },
     "prioritization": {
         "large_regression_relative": 0.30, "min_impact_for_p1": "HIGH",
         "max_cost_for_p1": "LOW", "blocking_priority_boost": True,
