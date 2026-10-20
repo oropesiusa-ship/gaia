@@ -4,6 +4,14 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    "diagnosis": {
+        "memory_available_low_ratio": 0.10, "gpu_memory_available_low_ratio": 0.10,
+        "storage_available_low_ratio": 0.05, "swap_consumption_bytes": 64 * 2**20,
+        "cpu_utilization_high": 90.0, "process_cpu_wall_high": 0.75,
+        "process_cpu_wall_low": 0.30, "rss_growth_relative": 0.20,
+        "quality_regression_relative": 0.02, "performance_regression_relative": 0.15,
+        "max_noise_cv": 0.10, "confidence_min_evidence": 3,
+    },
     "observation": {
         "quick_samples": 3, "full_samples": 5, "sample_interval_ms": 100,
         "stability_cv_threshold": 0.10, "significant_relative_change": 0.15,
