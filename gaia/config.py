@@ -4,6 +4,12 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    "meta_strategy": {
+        "replication_bonus": 4, "exact_repeat_penalty": 20, "information_value_weight": 3,
+        "improvement_potential_weight": 1, "cost_penalty": 2, "risk_penalty": 3,
+        "verification_bonus": 2, "exploitation_bonus": 3, "knowledge_validation_bonus": 3,
+        "exploration_floor": 1, "max_candidate_plans": 24, "max_trials_per_plan": 20,
+    },
     "learning": {
         "minimum_evidence_for_consolidation": 1, "minimum_independent_replications": 2,
         "stale_on_runtime_change": True, "stale_on_hardware_change": True,
