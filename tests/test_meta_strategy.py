@@ -79,11 +79,22 @@ class StrategyCases(unittest.TestCase):
 
     def test_C_strong_exact_rejection_blocks_accidental_repeat_not_region(self):
         result = plan(runs=[knowledge(experiment("REJECTED"))])
-        negative = next(p for p in result["candidate_plans"] if "META_NEGATIVE_001" in p["rule_ids"])
+        negative = next(p for p in result["candidate_plans"] if "META_NEGATIVE_001" in p["rule_ids"] and p["duplication"]["risk"] == "HIGH")
         self.assertIn("EXACT_REJECTED_CONFIGURATION", negative["blocked_by"])
         self.assertNotIn(negative["plan_id"], result["ranking"])
         self.assertLess(negative["utility"]["components"]["duplication"], 0)
         self.assertTrue(result["ranking"])
+
+    def test_rejected_exact_point_cannot_reenter_via_region_summary(self):
+        run = knowledge(experiment("REJECTED"))
+        result = plan(runs=[run])
+        reference_hash = run["records"][0]["claim"]["configuration_hash"]
+        exact_repeats = [p for p in result["candidate_plans"] if p["candidate_variation"]["reference_configuration_hash"] == reference_hash and p["candidate_variation"]["kind"] == "REPEAT_REFERENCE_CONFIGURATION"]
+        self.assertTrue(exact_repeats)
+        self.assertTrue(all("EXACT_REJECTED_CONFIGURATION" in p["blocked_by"] for p in exact_repeats))
+        nearby = [p for p in result["candidate_plans"] if p["novelty"] == "NEAR_REPEAT" and p["mode"] == "EXPLORE"]
+        self.assertTrue(nearby)
+        self.assertTrue(all(not p["blocked_by"] for p in nearby))
 
     def test_D_noisy_blocker_favors_measurement_refinement(self):
         p, _ = target(noisy=True)
