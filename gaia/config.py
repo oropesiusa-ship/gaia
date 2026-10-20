@@ -4,6 +4,11 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    "observation": {
+        "quick_samples": 3, "full_samples": 5, "sample_interval_ms": 100,
+        "stability_cv_threshold": 0.10, "significant_relative_change": 0.15,
+        "include_workload": True, "max_duration_seconds": 60,
+    },
     # El estado se separa por workload: nunca se comparan ni mezclan campañas distintas.
     "workload": {"id": "numpy_mlp", "state_dir": "state"},
     "benchmark_profile": "hard",   # "easy" = MLP rápido (se satura en ~15 experimentos)
