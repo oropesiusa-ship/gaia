@@ -61,7 +61,7 @@ def validate(value):
         computed = assess([evidence[e] for e in h["supports"]], [evidence[e] for e in h["contradictions"]],
                           stable=basis["stable_measurement"], searched=bool(h["contradiction_search"]),
                           alternative_weakened=basis["alternative_weakened"], missing_critical=basis["missing_critical"],
-                          minimum_independent=basis["minimum_independent"], unknown=h["kind"] == "UNKNOWN_CAUSE")
+                          minimum_independent=basis["minimum_independent"], unknown=h["kind"] == "UNKNOWN_CAUSE", rule_ids=h["rule_ids"])
         if computed != basis or h["confidence"] != computed["level"]:
             raise ValueError("Inconsistent hypothesis confidence")
     for issue in issues.values():
