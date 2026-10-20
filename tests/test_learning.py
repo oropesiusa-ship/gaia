@@ -120,6 +120,17 @@ class LearningTests(unittest.TestCase):
         self.assertEqual(item["claim_type"], "INCONCLUSIVE_RESULT")
         self.assertEqual(item["claim"]["outcome"], "INCONCLUSIVE")
 
+    def test_pareto_tradeoff_not_mislabeled_as_unresolved_cost_interval(self):
+        exp = fixture()
+        exp["outcome"] = "INCONCLUSIVE"
+        exp["promotion"] = False
+        exp["confirmation"]["decision"] = "pareto_alternative"
+        item = learn([source(exp)])["records"][0]
+        self.assertEqual(item["claim_type"], "INCONCLUSIVE_RESULT")
+        self.assertEqual(item["claim"]["effect"], "RESOURCE_TRADEOFF_UNRESOLVED")
+        self.assertIn("resource_tradeoff_resolution", item["supporting_evidence"][0]["missing_evidence"])
+        self.assertNotIn("interval_below_acceptance_threshold", item["supporting_evidence"][0]["missing_evidence"])
+
     def test_F_negative_exact_configuration_not_regional_ban(self):
         item = exact(learn([source(fixture("REJECTED"))]))
         self.assertEqual(item["claim_type"], "REJECTED_DIRECTION")

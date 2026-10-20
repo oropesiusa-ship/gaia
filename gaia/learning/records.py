@@ -33,6 +33,8 @@ def interpretation(exp):
     if exp["outcome"] == "ACCEPTED":
         return "OBSERVED_EFFECT", "CONFIRMED_LOWER_COST", "MEDIUM"
     if exp["outcome"] == "INCONCLUSIVE":
+        if c and c["decision"] == "pareto_alternative":
+            return "INCONCLUSIVE_RESULT", "RESOURCE_TRADEOFF_UNRESOLVED", "LOW"
         if c and c["ratio"] is not None and c["ratio"] < 1 - c["min_gain"]:
             return "PROMISING_DIRECTION", "FAVORABLE_SIGNAL_UNRESOLVED_INTERVAL", "LOW"
         return "INCONCLUSIVE_RESULT", "UNRESOLVED_EFFECT", "VERY_LOW"
@@ -60,7 +62,7 @@ def make_record(exp, cfg):
                 "upper95": exp["confirmation"]["upper95"] if exp["confirmation"] else None,
                 "screen": exp["screen"], "confirmation": exp["confirmation"], "promotion": exp["promotion"], "rollback": exp["rollback"],
                 "artifacts": exp["artifacts"], "ledger_refs": exp["ledger_refs"],
-                "missing_evidence": ["independent_replication"] + (["interval_below_acceptance_threshold"] if exp["outcome"] == "INCONCLUSIVE" else [])}
+                "missing_evidence": ["independent_replication"] + (["resource_tradeoff_resolution" if effect == "RESOURCE_TRADEOFF_UNRESOLVED" else "interval_below_acceptance_threshold"] if exp["outcome"] == "INCONCLUSIVE" else [])}
     contrary = [evidence] if exp["rollback"] in ("ADVERSE", "UNKNOWN") else []
     repeated = bool(exp["confirmation"] and exp["confirmation"]["pairs"] >= 3)
     return seal({"learning_id": "l" + digest({"evidence_hash": exp["evidence_hash"], "experiment_identity": exact, "rules": cfg})[:24],
