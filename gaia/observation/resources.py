@@ -21,10 +21,12 @@ def snapshot(root, start_wall, start_cpu, previous=None):
     delta = total - previous[0] if previous else 0
     used = 100 * (1 - (idle - previous[1]) / delta) if delta > 0 else None
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024)
+    storage = filesystem(root)
     value = {"wall_s": now - start_wall, "process_cpu_s": cpu - start_cpu,
              "process_rss_bytes": status.get("VmRSS"), "process_lifetime_peak_rss_bytes": status.get("VmHWM", peak),
              "system_ram_available_bytes": mem.get("MemAvailable"), "swap_available_bytes": mem.get("SwapFree"),
-             "system_cpu_utilization_percent": used, "filesystem_free_bytes": filesystem(root)["free_bytes"],
+             "system_cpu_utilization_percent": used, "filesystem_free_bytes": storage["free_bytes"],
+             "filesystem_available_bytes": storage["available_bytes"],
              "load_average": list(os.getloadavg()) if hasattr(os, "getloadavg") else None}
     return value, (total, idle)
 
