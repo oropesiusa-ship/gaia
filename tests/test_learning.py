@@ -455,6 +455,22 @@ class AuditCLITests(unittest.TestCase):
             store.ingest([source(fixture("REJECTED", run=3, evidence=3))])
             self.assertEqual(len(audit_store(tmp)), 3)
 
+    def test_audit_cli_reproduces_exported_sequential_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = LearningStore(root / "state")
+            args = []
+            for i, exp in enumerate((fixture(), fixture(run=2, evidence=2, variation=.01), fixture("REJECTED", run=3, evidence=3)), 1):
+                s = source(exp)
+                source_path, run_path = root / f"source-{i}.json", root / f"run-{i}.json"
+                source_path.write_bytes(provenance.canonical_json(s))
+                run_path.write_bytes(provenance.canonical_json(store.ingest([s])["run"]))
+                args += ["--source", str(source_path), "--run", str(run_path)]
+            proc = subprocess.run([sys.executable, "-B", "-W", "error::ResourceWarning", str(ROOT / "tools/audit_learning.py"), *args],
+                                  capture_output=True, text=True, timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertEqual(len(json.loads(proc.stdout)["runs"]), 3)
+
     def test_cli_real_test_b_records_queries_show_and_errors(self):
         with tempfile.TemporaryDirectory() as tmp:
             def cli(*args, expected=0):

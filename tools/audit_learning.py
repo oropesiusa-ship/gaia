@@ -87,7 +87,11 @@ def main():
             result["runs"] += audit_store(args.state_dir)
         if args.run:
             sources = [load_source(p) for p in args.source]
-            result["runs"] += [audit_run(json.loads(p.read_bytes()), sources) for p in args.run]
+            previous = {}
+            for path in args.run:
+                run = json.loads(path.read_bytes())
+                result["runs"].append(audit_run(run, sources, previous.values()))
+                previous.update({k["learning_id"]: k for k in run["knowledge"]})
         result["audit_hash"] = digest(result)
         if args.output:
             with args.output.open("xb") as stream:

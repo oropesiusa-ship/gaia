@@ -26,8 +26,6 @@ def consolidate(records, cfg):
         if accepted and rejected:
             contrary += rejected
         contrary = list({e["evidence_hash"]: e for e in contrary}.values())
-        independent = {e["execution_hash"] for e in evidence}
-        independent_positive = {e["execution_hash"] for e in accepted}
         distinct_count = independent_count(evidence)
         positive_count = independent_count(accepted)
         replicated = (key[1] == "EXACT_CONFIGURATION" and positive_count >= cfg["minimum_independent_replications"])
