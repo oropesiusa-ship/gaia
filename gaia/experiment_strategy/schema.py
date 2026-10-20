@@ -61,6 +61,8 @@ def validate(value):
                 raise ValueError("Plan deviates from closed scientific template")
         if plan["candidate_variation"]["kind"] != spec["candidate_variation"]["kind"]:
             raise ValueError("Invalid candidate comparison")
+        if plan["class"] in ("CONTROL_EXPERIMENT", "BASELINE_RECONFIRMATION") and plan["candidate_variation"]["reference_configuration_hash"] != plan["baseline"]["configuration_hash"]:
+            raise ValueError("Identical-baseline control references a different candidate")
         if plan["mode"] == "EXPLOIT" and (not plan["knowledge_refs"] or any(k["stale"] or k["effective_status"] == "CONTRADICTED" or k["applicability"] != "EXACT_CONTEXT" for k in plan["knowledge_refs"])):
             raise ValueError("Exploitation of stale/contradicted/unbound knowledge")
         estimates = plan["estimates"]

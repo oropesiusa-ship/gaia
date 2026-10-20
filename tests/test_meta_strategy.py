@@ -228,6 +228,12 @@ class PolicyAndDimensionsTests(unittest.TestCase):
             self.assertLessEqual(p["stopping_rules"]["max_evidence_budget"], self.cfg["max_trials_per_plan"])
             self.assertFalse(p["stopping_rules"]["automatic_extension"])
 
+    def test_baseline_reconfirmation_is_identical_baseline_not_accepted_candidate(self):
+        result = plan(runs=[knowledge(experiment(), experiment(run=2, evidence=2, variation=.01))])
+        control = next(p for p in result["candidate_plans"] if p["class"] == "BASELINE_RECONFIRMATION")
+        self.assertEqual(control["candidate_variation"]["reference_configuration_hash"], control["baseline"]["configuration_hash"])
+        self.assertTrue(control["duplication"]["intentional"])
+
     def test_historical_cost_not_invented_future_seconds(self):
         self.assertIsNotNone(self.p["estimates"]["historical_candidate_cost_median_s"])
         self.assertIsNone(self.p["estimates"]["future_seconds_estimate"])

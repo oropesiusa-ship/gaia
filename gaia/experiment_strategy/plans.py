@@ -45,6 +45,8 @@ def build(inputs, context, analysis_mode, cfg):
             if not candidates:
                 raise ValueError("Knowledge lacks its raw learning records")
             reference_hash, baseline_hash = candidates[0]["claim"]["configuration_hash"], candidates[0]["claim"]["baseline_hash"]
+            if cls in ("CONTROL_EXPERIMENT", "BASELINE_RECONFIRMATION"):
+                reference_hash = baseline_hash
             if not HASH.fullmatch(reference_hash) or not HASH.fullmatch(baseline_hash):
                 raise ValueError("Invalid known configuration reference")
             costs = [v for e in knowledge["supporting_evidence"] if e["confirmation"] for v in e["confirmation"]["candidate_costs"]]
@@ -53,7 +55,7 @@ def build(inputs, context, analysis_mode, cfg):
             if view["contradicted"] or view["assessment"]["status"] == "STALE":
                 confidence = "LOW"
             novelty = "EXACT_REPEAT" if cls in ("REPLICATION", "BASELINE_RECONFIRMATION") or cls == "DISCRIMINATION" and not factorial or accidental else "KNOWN_REGION"
-            intentional = cls == "REPLICATION" or cls == "DISCRIMINATION" and not factorial
+            intentional = cls in ("REPLICATION", "BASELINE_RECONFIRMATION") or cls == "DISCRIMINATION" and not factorial
             negative_scope = knowledge["claim"].get("negative_reuse_scope", "NONE")
             if accidental:
                 novelty, duplicate_risk = "EXACT_REPEAT", "HIGH"
