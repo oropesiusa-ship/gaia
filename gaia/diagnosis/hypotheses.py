@@ -115,22 +115,28 @@ def build(evaluation, evidence, cfg):
                         contradictions += negative(ref(name), "no measured swap-occupancy or repeated peak-RSS increase")
             elif hypothesis_kind == "RUNTIME_REGRESSION":
                 supports += [e for i in evaluation["issues"] if i["kind"] == "RUNTIME_CHANGED" for e in i["evidence_refs"]]
-            elif hypothesis_kind == "MEASUREMENT_NOISE" and stable:
-                contradictions += negative(ref("wall_cv"), "stable wall samples weaken measurement-noise explanation", "STRONG")
+            elif hypothesis_kind == "MEASUREMENT_NOISE":
+                searches.append({"check": "variability_scope", "result": issue["details"].get("metric", "wall_s")})
             if stable and hypothesis_kind not in ("MEASUREMENT_NOISE", "UNKNOWN_CAUSE"):
                 searches.append({"check": "measurement_noise_alternative", "result": "WEAKENED_BY_STABLE_WALL"})
             hid = f"h{len(hypotheses) + 1:04d}"
             supports = list(dict.fromkeys(supports))
             contradictions = list(dict.fromkeys(contradictions))
             # Identity/occupancy/saturation evidence alone is observational, never a controlled intervention.
-            critical_missing = not stable or (hypothesis_kind in ("COMPUTE_PRESSURE", "RESOURCE_CONTENTION") and ratio is None)
+            attribution_stable = stable
+            if hypothesis_kind in ("COMPUTE_PRESSURE", "RESOURCE_CONTENTION"):
+                attribution_stable = stable and signals["workload_cpu_stable"]
+                searches.append({"check": "workload_cpu_stability", "result": "STABLE" if signals["workload_cpu_stable"] else "UNSTABLE_OR_MISSING"})
+            if hypothesis_kind == "MEASUREMENT_NOISE":
+                attribution_stable = False
+            critical_missing = not attribution_stable or (hypothesis_kind in ("COMPUTE_PRESSURE", "RESOURCE_CONTENTION") and ratio is None)
             rule_ids = [issue["rule_id"]]
             related_rule = {"COMPUTE_PRESSURE": "RULE_CPU_001", "RESOURCE_CONTENTION": "RULE_CPU_001",
                             "MEMORY_PRESSURE": "RULE_MEMORY_001", "RUNTIME_REGRESSION": "RULE_ENVIRONMENT_001"}.get(hypothesis_kind)
             if related_rule and related_rule not in rule_ids:
                 rule_ids.append(related_rule)
             basis = assess([evidence.by_id(e) for e in supports], [evidence.by_id(e) for e in contradictions],
-                           stable=stable, searched=bool(searches), alternative_weakened=stable,
+                           stable=attribution_stable, searched=bool(searches), alternative_weakened=stable,
                            missing_critical=critical_missing, minimum_independent=cfg["confidence_min_evidence"], unknown=hypothesis_kind == "UNKNOWN_CAUSE", rule_ids=rule_ids)
             hypothesis = {"hypothesis_id": hid, "issue_id": issue["issue_id"], "kind": hypothesis_kind,
                           "claim": CLAIMS[hypothesis_kind], "causality": "NOT_ESTABLISHED", "rule_ids": rule_ids,

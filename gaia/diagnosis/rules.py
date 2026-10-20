@@ -7,7 +7,7 @@ RULE_VERSION = "diagnostic_rules_v1"
 RULES = {
     "RULE_PERFORMANCE_001": "Stable successful same-protocol workload: significant wall increase",
     "RULE_QUALITY_001": "Stable successful same-protocol workload: significant quality decrease",
-    "RULE_NOISE_001": "Repeated workload wall CV exceeds configured threshold",
+    "RULE_NOISE_001": "Repeated workload metric CV exceeds configured threshold; scope remains metric-specific",
     "RULE_MEMORY_001": "System MemAvailable/total below threshold; not MemFree",
     "RULE_CPU_001": "System CPU high; workload CPU evidence evaluated independently",
     "RULE_STORAGE_001": "Filesystem available/total below threshold; no storage causation implied",
@@ -52,8 +52,13 @@ def evaluate(current, baseline, cfg, evidence):
                         "wall CV compared with max_noise_cv", "stability")
     signals["wall_cv"] = {"value": cv, "evidence": cv_e}
     signals["stable"] = stable
-    if wall.get("count", 0) >= 3 and cv is not None and cv > cfg["max_noise_cv"]:
-        issue("HIGH_MEASUREMENT_VARIABILITY", "RULE_NOISE_001", [cv_e], {"cv": cv, "threshold": cfg["max_noise_cv"]})
+    for name in ("wall_s", "t_train", "evaluator_cpu_s", "descendant_cpu_s_lower_bound", "process_cpu_s", "peak_rss_mb", "final_acc"):
+        stats = statistics(current, "workload", name)
+        metric_cv = number(stats.get("coefficient_of_variation"))
+        if stats.get("count", 0) >= 3 and metric_cv is not None and metric_cv > cfg["max_noise_cv"]:
+            ref = evidence.add("current", MEASURE + "workload/statistics/" + name + "/coefficient_of_variation",
+                               "variability is specific to this metric, not proof that all wall measurements are noisy", "stability")
+            issue("HIGH_MEASUREMENT_VARIABILITY", "RULE_NOISE_001", [ref], {"metric": name, "cv": metric_cv, "threshold": cfg["max_noise_cv"]})
     if not stable:
         missing.append("stable_successful_workload_wall_samples")
     cpu = metric("cpu_system", "resources", "system_cpu_utilization_percent", "cpu_system", "system CPU utilization relative to configured high threshold")
@@ -64,6 +69,9 @@ def evaluate(current, baseline, cfg, evidence):
     wall_s = metric("wall", "workload", "wall_s", "cpu_workload", "wall denominator for workload CPU/wall ratio")
     signals["cpu_ratio"] = cpu_s / wall_s if cpu_s is not None and wall_s and wall_s > 0 else None
     signals["exact_cpu"] = exact
+    cpu_stats = statistics(current, "workload", "process_cpu_s" if exact else "descendant_cpu_s_lower_bound")
+    cpu_cv = number(cpu_stats.get("coefficient_of_variation"))
+    signals["workload_cpu_stable"] = cpu_stats.get("count", 0) >= 3 and cpu_cv is not None and cpu_cv <= cfg["max_noise_cv"]
     if cpu is not None and cpu >= cfg["cpu_utilization_high"]:
         issue("SYSTEM_CPU_UTILIZATION_HIGH", "RULE_CPU_001", [signals["cpu_system"]["evidence"]], {"percent": cpu})
     available = metric("memory_available", "resources", "system_ram_available_bytes", "memory", "MemAvailable compared with total RAM, not free pages")
