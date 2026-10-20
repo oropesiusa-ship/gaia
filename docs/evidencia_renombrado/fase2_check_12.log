@@ -1,0 +1,9 @@
+usage: gaia.py [-h] [--profile PROFILE] [--minutes MINUTES]
+
+Modo B GPU: hipótesis falsables, contrastes pareados y memoria sin promoción
+directa.
+
+options:
+  -h, --help         show this help message and exit
+  --profile PROFILE  perfil del catálogo, por defecto selección automática
+  --minutes MINUTES  presupuesto de investigación (1..60)

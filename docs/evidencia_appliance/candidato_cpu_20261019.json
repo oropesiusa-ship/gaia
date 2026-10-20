@@ -1,0 +1,68 @@
+{
+  "status": "CPU_DELIVERY_CANDIDATE_VALIDATED_AWAITING_OWNER_SIGNATURE",
+  "profile": "cpu-delivery-candidate",
+  "image_dir": ".gaia/reports/20261019T075104Z-0bda6b85",
+  "image_bytes": 22577938432,
+  "image_sha256": "195cd3661217bd6cc4de8af38e314786a097994940cd61288ed4d1de2a9ed4de",
+  "core_manifest_sha256": "8592b02e4403081aacbfa12b7edf23b2d545b197b34971245ae60eff5a663f81",
+  "native_packages_removed": 34,
+  "native_packages_retained_same_versions": 174,
+  "autoremove_used": false,
+  "host_packages_modified": false,
+  "persistent_runtime": {
+    "repetitions_ok": 3,
+    "uid": 997,
+    "python": "3.14.4",
+    "pip_check": "No broken requirements found.",
+    "interpreter_ldd_has_missing_libraries": false,
+    "profile_authority": "L0",
+    "vm_alive_after_readiness_seconds": 10,
+    "test_shutdown": "host QMP quit, not physical power-loss acceptance",
+    "report": ".gaia/reports/20261019T080658Z-5d9d1767/REPORT.md"
+  },
+  "vm_matrix": {
+    "distinct_scenarios": 10,
+    "repetitions_each": 3,
+    "boots": 63,
+    "reports": [
+      ".gaia/reports/20261019T081025Z-4e6e623f/REPORT.md",
+      ".gaia/reports/20261019T083236Z-4b77c01a/REPORT.md"
+    ]
+  },
+  "invalid_signature_rejection": {
+    "repetitions_ok": 3,
+    "target_unchanged": true,
+    "report": ".gaia/reports/20261019T085227Z-678598b8/REPORT.md"
+  },
+  "cleanup": {
+    "continuous_authorization": true,
+    "first_removed_files": 147,
+    "first_freed_allocated_bytes": 84787912704,
+    "first_after_free_bytes": 103532826624,
+    "first_report": ".gaia/reports/20261019T071450Z-23655ad1/REPORT.md",
+    "second_removed_files": 33,
+    "second_freed_allocated_bytes": 8650797056,
+    "second_report": ".gaia/reports/20261019T085951Z-6e28bdb0/REPORT.md",
+    "signed_reference_and_last_repaired_target_preserved": true
+  },
+  "selftest": {
+    "tests_ok": 224,
+    "seconds": 27.284,
+    "skips": 0,
+    "report": ".gaia/reports/20261019T085227Z-7811da92/REPORT.md"
+  },
+  "signing_request": {
+    "manifest": ".gaia/reports/20261019T085624Z-4770def7/install-bundle/install-manifest.json",
+    "manifest_sha256": "7ccd1891e65f62160f083488438202f9707f033cefe4eadf4d412cfcc5a7ad26",
+    "fingerprint": "6BF5C62DC530889F3D7C644F678D00EC8B5BF748",
+    "purpose": "lab",
+    "signature_received": false,
+    "procedure": "docs/APPLIANCE_FIRMA_CANDIDATO_CPU.md"
+  },
+  "private_key_used_by_agent": false,
+  "physical_media_formatted": false,
+  "gpu_validated": false,
+  "signed_positive_install_repair_current_candidate": false,
+  "s1_complete": false,
+  "f1_complete": false
+}

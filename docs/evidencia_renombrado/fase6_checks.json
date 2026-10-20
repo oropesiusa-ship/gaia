@@ -1,0 +1,251 @@
+[
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-baseline",
+      "--help"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_00.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-baseline",
+      "--unknown-rename-check"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_01.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-lab",
+      "--help"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_02.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-lab",
+      "--unknown-rename-check"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_03.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-benchmark",
+      "--help"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_04.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-benchmark",
+      "--unknown-rename-check"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_05.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-prepare",
+      "--help"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_06.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-prepare",
+      "--unknown-rename-check"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_07.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-run",
+      "--help"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_08.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-run",
+      "--unknown-rename-check"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_09.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-observe",
+      "--help"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_10.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-observe",
+      "--unknown-rename-check"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_11.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-research",
+      "--help"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_12.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-research",
+      "--unknown-rename-check"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_13.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-meta",
+      "--help"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_14.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-meta",
+      "--unknown-rename-check"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_15.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-baseline",
+      "--steps",
+      "0"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_16.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-observe",
+      "--steps",
+      "0"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_17.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-prepare",
+      "--minutes",
+      "0"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_18.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-run",
+      "--max-experiments",
+      "0"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_19.log"
+  },
+  {
+    "command": [
+      "python3",
+      "gaia.py",
+      "gaia-transformer-research",
+      "--minutes",
+      "0"
+    ],
+    "expected": 2,
+    "returncode": 2,
+    "log": "docs/evidencia_renombrado/fase6_check_20.log"
+  },
+  {
+    "command": [
+      "/home/mingororo/Projects/GAIA/.gaia/venvs/gaia-transformer-cuda-pascal-df1f7863934daabc/bin/python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests"
+    ],
+    "expected": 0,
+    "returncode": 0,
+    "log": "docs/evidencia_renombrado/fase6_check_21.log"
+  }
+]

@@ -1,0 +1,24 @@
+[Unit]
+Description=GAIA persistent offline L0 runtime candidate
+Requires=gaia-guardian.service gaia-offline.service
+After=gaia-guardian.service gaia-offline.service
+RequiresMountsFor=/core /data
+
+[Service]
+User=gaia
+Group=gaia
+Environment=HOME=/data/agent
+Environment=PYTHONNOUSERSITE=1
+ExecStart=/opt/gaia/venv/bin/python -I /core/runtime.py
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+PrivateDevices=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+ReadWritePaths=/data/agent
+StandardOutput=journal+console
+StandardError=journal+console
+Restart=no

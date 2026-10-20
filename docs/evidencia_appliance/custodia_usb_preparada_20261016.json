@@ -1,0 +1,26 @@
+{
+  "status": "CUSTODY_CONTAINERS_PREPARED",
+  "operator_report": ".gaia/signing-usb-preparation.json",
+  "operator_status": "CUSTODY_USB_PREPARED",
+  "prepared_roles": ["primary", "backup"],
+  "container_format": "LUKS2/Argon2id + ext4",
+  "filesystem_validation_source": "successful helper completion and operator terminal transcript of e2fsck; no decrypted filesystem inspected by agent",
+  "agent_postcheck": {
+    "metadata_only": true,
+    "identities_match_authorized_targets": true,
+    "both_report_crypto_LUKS": true,
+    "both_unmounted": true,
+    "both_mappers_closed": true,
+    "private_material_accessed": false
+  },
+  "roles": [
+    {"role": "primary", "bytes": 31457280000, "filesystem_label": "GAIA-KEY-PRIMARY", "closed": true},
+    {"role": "backup", "bytes": 31457280000, "filesystem_label": "GAIA-KEY-BACKUP", "closed": true}
+  ],
+  "private_keys_generated": false,
+  "owner_fingerprint_confirmed": false,
+  "private_key_backup_tested": false,
+  "next_human_step": "Generate the dedicated Ed25519 key in the primary, export public material, back up custody and prove backup signing with the primary closed",
+  "s1_complete": false,
+  "f1_complete": false
+}

@@ -1,0 +1,357 @@
+[
+  {
+    "original": ".gitignore",
+    "current": ".gitignore",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/__init__.py",
+    "current": "gaia/__init__.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/bootstrap.py",
+    "current": "gaia/bootstrap.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/bootstrap_profiles.json",
+    "current": "gaia/bootstrap_profiles.json",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/bootstrap_tools.json",
+    "current": "gaia/bootstrap_tools.json",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/config.py",
+    "current": "gaia/config.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/cuda_probe.py",
+    "current": "gaia/cuda_probe.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/engine.py",
+    "current": "gaia/engine.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/genome.py",
+    "current": "gaia/genome.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/integrity.py",
+    "current": "gaia/integrity.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/meta.py",
+    "current": "gaia/meta.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/mutate.py",
+    "current": "gaia/mutate.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/observe_worker.py",
+    "current": "gaia/observe_worker.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/protected/__init__.py",
+    "current": "gaia/protected/__init__.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/protected/benchmark.py",
+    "current": "gaia/protected/benchmark.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/protected/evaluator.py",
+    "current": "gaia/protected/evaluator.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/protected/guard.py",
+    "current": "gaia/protected/guard.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/protected/runtime.py",
+    "current": "gaia/protected/runtime.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/protected/task.py",
+    "current": "gaia/protected/task.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/protected/worker.py",
+    "current": "gaia/protected/worker.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/readiness.py",
+    "current": "gaia/readiness.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/report.py",
+    "current": "gaia/report.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/research.py",
+    "current": "gaia/research.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/search.py",
+    "current": "gaia/search.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/snippets.py",
+    "current": "gaia/snippets.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/stats.py",
+    "current": "gaia/stats.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/store.py",
+    "current": "gaia/store.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/__init__.py",
+    "current": "gaia/gaia_transformer/__init__.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/baseline_worker.py",
+    "current": "gaia/gaia_transformer/baseline_worker.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/benchmark_state.py",
+    "current": "gaia/gaia_transformer/benchmark_state.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/campaign.py",
+    "current": "gaia/gaia_transformer/campaign.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/campaign_store.py",
+    "current": "gaia/gaia_transformer/campaign_store.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/corpus_v1.json",
+    "current": "gaia/gaia_transformer/corpus_v1.json",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/data.py",
+    "current": "gaia/gaia_transformer/data.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/genome.py",
+    "current": "gaia/gaia_transformer/genome.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/__init__.py",
+    "current": "gaia/gaia_transformer/lab/__init__.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/benchmark.py",
+    "current": "gaia/gaia_transformer/lab/benchmark.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/calibration.py",
+    "current": "gaia/gaia_transformer/lab/calibration.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/candidate.py",
+    "current": "gaia/gaia_transformer/lab/candidate.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/evaluator.py",
+    "current": "gaia/gaia_transformer/lab/evaluator.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/guard.py",
+    "current": "gaia/gaia_transformer/lab/guard.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/monitor.py",
+    "current": "gaia/gaia_transformer/lab/monitor.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/sandbox.py",
+    "current": "gaia/gaia_transformer/lab/sandbox.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/validation.py",
+    "current": "gaia/gaia_transformer/lab/validation.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/lab/worker.py",
+    "current": "gaia/gaia_transformer/lab/worker.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/meta_tasks.py",
+    "current": "gaia/gaia_transformer/meta_tasks.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/meta_tasks_v1.json",
+    "current": "gaia/gaia_transformer/meta_tasks_v1.json",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/metastudy.py",
+    "current": "gaia/gaia_transformer/metastudy.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/model.py",
+    "current": "gaia/gaia_transformer/model.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/observation.py",
+    "current": "gaia/gaia_transformer/observation.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/observe_worker.py",
+    "current": "gaia/gaia_transformer/observe_worker.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/phase1.py",
+    "current": "gaia/gaia_transformer/phase1.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/profiling.py",
+    "current": "gaia/gaia_transformer/profiling.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/research.py",
+    "current": "gaia/gaia_transformer/research.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/search_strategy.py",
+    "current": "gaia/gaia_transformer/search_strategy.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia/tinygpt/trainer.py",
+    "current": "gaia/gaia_transformer/trainer.py",
+    "identity_only": true
+  },
+  {
+    "original": "gaia.py",
+    "current": "gaia.py",
+    "identity_only": true
+  },
+  {
+    "original": "requirements/tinygpt-cuda-pascal-py314.lock",
+    "current": "requirements/gaia-transformer-cuda-pascal-py314.lock",
+    "identity_only": true
+  },
+  {
+    "original": "tests/gpu_campaign_recovery_check.py",
+    "current": "tests/gpu_campaign_recovery_check.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_bootstrap.py",
+    "current": "tests/test_bootstrap.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_core.py",
+    "current": "tests/test_core.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_cuda_bootstrap.py",
+    "current": "tests/test_cuda_bootstrap.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_research.py",
+    "current": "tests/test_research.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_tinygpt_calibration.py",
+    "current": "tests/test_gaia_transformer_calibration.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_tinygpt_campaign.py",
+    "current": "tests/test_gaia_transformer_campaign.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_tinygpt_data.py",
+    "current": "tests/test_gaia_transformer_data.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_tinygpt_lab.py",
+    "current": "tests/test_gaia_transformer_lab.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_tinygpt_metastudy.py",
+    "current": "tests/test_gaia_transformer_metastudy.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_tinygpt_model.py",
+    "current": "tests/test_gaia_transformer_model.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_tinygpt_profiling.py",
+    "current": "tests/test_gaia_transformer_profiling.py",
+    "identity_only": true
+  },
+  {
+    "original": "tests/test_tinygpt_research.py",
+    "current": "tests/test_gaia_transformer_research.py",
+    "identity_only": true
+  }
+]

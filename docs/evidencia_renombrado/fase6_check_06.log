@@ -1,0 +1,15 @@
+usage: gaia.py [-h] [--profile PROFILE] [--minutes MINUTES]
+               [--max-experiments MAX_EXPERIMENTS]
+               [--research-after RESEARCH_AFTER]
+
+Prepara puertas CUDA y ejecuta campaña GaiaTransformer sobre benchmark
+congelado.
+
+options:
+  -h, --help            show this help message and exit
+  --profile PROFILE     perfil del catálogo, por defecto selección automática
+  --minutes MINUTES     presupuesto total incluidas puertas (1..60)
+  --max-experiments MAX_EXPERIMENTS
+                        experimentos nuevos (1..1000)
+  --research-after RESEARCH_AFTER
+                        disparar Modo B tras N experimentos sin mejora

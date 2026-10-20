@@ -1,0 +1,40 @@
+{
+  "status": "VM_SIGNED_RECOVERY_VALIDATED",
+  "purpose": "lab",
+  "profile": "vm-cpu-l0",
+  "fingerprint": "6BF5C62DC530889F3D7C644F678D00EC8B5BF748",
+  "manifest_sha256": "0d0333fc6a7035cb7367b09b1ba160daadc2d1fad99971528a6b62705e25b0a2",
+  "signature_sha256": "c49876bcbc035d43f157f1001ce8930c3af13817d98da7a3756c760ffa6edc0e",
+  "image_sha256": "216be2f81c1ec29a726859085d6f89d9caadf911489c1090b829a93a05275c6f",
+  "signature_report": ".gaia/reports/20261018T194012Z-42a20cef/REPORT.md",
+  "final_report": ".gaia/reports/20261018T203350Z-9e9b020a/REPORT.md",
+  "provenance_chain": [
+    ".gaia/reports/20261018T194147Z-3dd692af/REPORT.md",
+    ".gaia/reports/20261018T201343Z-e5cd54a4/REPORT.md",
+    ".gaia/reports/20261018T203350Z-9e9b020a/REPORT.md"
+  ],
+  "verified_installations": 3,
+  "verified_system_repairs": 3,
+  "independent_post_operation_boots": 6,
+  "all_repairs_preserved_data": true,
+  "ledger_sequence_after_install": 1,
+  "ledger_sequence_after_repair_boot": 2,
+  "second_install_console_result_recovered": true,
+  "recovered_install_whole_target_compared_to_signed_raw": true,
+  "selftest": {
+    "tests_ok": 215,
+    "seconds": 29.697,
+    "skips": 0,
+    "report": ".gaia/reports/20261018T210144Z-2d7effcc/REPORT.md"
+  },
+  "private_key_used_by_agent": false,
+  "physical_media_installed": false,
+  "s1_complete": false,
+  "f1_complete": false,
+  "remaining": [
+    "release profile and construction-only toolchain removal",
+    "final S1 acceptance review and physical recovery-medium preparation",
+    "owner declaration of independent key backup and external fingerprint record",
+    "S0/S2-S4 physical acceptance and F2-F8 only after F1 closes"
+  ]
+}

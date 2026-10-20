@@ -1,0 +1,102 @@
+# Python and test/tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.venv*/
+
+# Operational GAIA runtime (root paths, not documentary examples)
+/.gaia/
+/state/
+/state_*/
+/STOP
+/NEEDS_HUMAN.md
+/REPORT.md
+
+# Generated files and runtime artifacts
+*.log
+*.tmp
+*.temp
+*.bak
+*.pid
+*.lock
+*.sqlite
+*.db
+*.img
+*.iso
+*.qcow2
+*.raw
+*.rootfs
+*.tar
+*.tar.gz
+*.tar.zst
+*.ext4
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Intentional static assets, fixtures, evidence summaries and dependency locks.
+# These exceptions do not admit operational state trees or .gaia/.
+!/tests/**
+!/docs/**
+!/examples/**
+!/archives/text_prototype/**
+!/keys/**
+!/requirements/**
+
+# This reserved directory contains a static explanation, not a campaign state.
+!/state_gaia_transformer_cuda/
+/state_gaia_transformer_cuda/*
+!/state_gaia_transformer_cuda/README.md
+
+# Caches remain ignored even inside the static trees above.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# Offline private custody; public material in keys/ remains eligible.
+# Environments/editor state are not static fixtures, even under docs/tests.
+.venv/
+venv/
+env/
+.venv*/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+gnupg/
+private-keys-v1.d/
+openpgp-revocs.d/
+*.rev
+*.private.asc
+*.secret.asc

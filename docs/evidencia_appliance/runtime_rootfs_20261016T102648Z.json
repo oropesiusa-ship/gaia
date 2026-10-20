@@ -1,0 +1,35 @@
+{
+  "status": "RUNTIME_ARTIFACT_VERIFIED",
+  "build_report": ".gaia/reports/20261016T102648Z-70fc2c5a/REPORT.md",
+  "build_manifest": ".gaia/reports/20261016T102648Z-70fc2c5a/rootfs-manifest.json",
+  "artifact": ".gaia/reports/20261016T102648Z-70fc2c5a/rootfs.tar",
+  "rootfs_sha256": "c9d9a64c740454fa431828ac905992e094429f926e3afdd199b6bb33b00375e1",
+  "rootfs_bytes": 7817448960,
+  "installed_debian_packages": 208,
+  "build_seconds": 413.34,
+  "build_tmpdir": "/var/tmp",
+  "automatic_tmpdir_selection": true,
+  "verification": {
+    "full_artifact_sha256_recomputed": true,
+    "digest_matches_build_manifest_and_report": true,
+    "artifact_size_matches_manifest": true,
+    "tar_inventory_and_runtime_match_manifest": true,
+    "tar_extracted_on_host": false,
+    "smoke_reexecuted_during_verification": false
+  },
+  "runtime": {
+    "status": "GAIA_RUNTIME_CPU_SMOKE_OK",
+    "python": "3.14.4",
+    "executable": "/opt/gaia/venv/bin/python",
+    "numpy": "2.3.5",
+    "torch": "2.14.0+cu126",
+    "cuda_runtime": "12.6",
+    "uid": 997,
+    "logits_shape": [2, 16, 256],
+    "gpu_tested": false
+  },
+  "s1_complete": false,
+  "bootable_media": false,
+  "physical_media_written_during_verification": false,
+  "next_stage": "UEFI A/B images, CORE/guardian, offline policy and VM acceptance scenarios"
+}

@@ -1,0 +1,21 @@
+{
+  "spec": {
+    "version": "structured_bytes/v1",
+    "context": 64,
+    "train_records": 4096,
+    "validation_records": 256,
+    "audit_records": 256,
+    "train_seed": 1701,
+    "validation_seed": 2903,
+    "audit_seed": 3907
+  },
+  "splits": {
+    "train": {"sha256": "3abd85feda06aea7f0dd6b6fc6058a20c039a19af20931b6a46164c59c1833c8", "bytes": 266240, "records": 4096},
+    "validation": {"sha256": "7970f4f848afb155aeb4b9646d484614349611a5b121ddbd295506a7ad249359", "bytes": 16640, "records": 256},
+    "audit": {"sha256": "fa8100de66ae30ee19d50780644df76ae8035c80f999fd5c2c565956c4d93e17", "bytes": 16640, "records": 256}
+  },
+  "record_bytes": 65,
+  "alphabet_hex": "61626364656630313233343536373839",
+  "domains": {"train": "54", "validation": "56", "audit": "41"},
+  "sha256": "11d89e90478527ba77648d5a45be459c55133e12bb1b4463adf3901cb5d44285"
+}

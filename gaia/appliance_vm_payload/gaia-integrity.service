@@ -1,0 +1,10 @@
+[Unit]
+Description=Verify VM CORE foundation
+RequiresMountsFor=/core
+Before=gaia-offline.service gaia-guardian.service gaia-vm-probe.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/core
+ExecStart=/usr/bin/sha256sum --check /core/SHA256SUMS
+RemainAfterExit=yes

@@ -1,0 +1,31 @@
+{
+  "status": "S1_PARTIAL_VM_VALIDATED_AWAITING_EXTERNAL_TRUST",
+  "s1_complete": false,
+  "f1_complete": false,
+  "profile": "vm-cpu-l0",
+  "source_rootfs_sha256": "c9d9a64c740454fa431828ac905992e094429f926e3afdd199b6bb33b00375e1",
+  "image_dir": ".gaia/reports/20261016T113055Z-a9d2a6f2",
+  "disk_bytes": 22577938432,
+  "disk_sha256": "70e179153afb5ab30df4848547fbbce20c7dfdf6589b701b6c88048add5d0fa6",
+  "release_image": false,
+  "signed": false,
+  "foundation_report": ".gaia/reports/20261016T113805Z-8b0ffd12/REPORT.md",
+  "boot_selection_report": ".gaia/reports/20261016T115050Z-d3c87053/REPORT.md",
+  "corrupted_candidate_report": ".gaia/reports/20261016T120518Z-56fab0d3/REPORT.md",
+  "scenarios": [
+    {"name": "foundation", "repetitions_ok": 3, "boots": 3},
+    {"name": "normal-A", "repetitions_ok": 3, "boots": 3},
+    {"name": "normal-B", "repetitions_ok": 3, "boots": 3},
+    {"name": "attempt-exhaustion", "repetitions_ok": 3, "boots": 12, "slot_sequence": ["B", "B", "B", "A"]},
+    {"name": "interrupted-publication", "repetitions_ok": 3, "boots": 3, "scope": "partial staging files; not a killed transactional publisher"},
+    {"name": "corrupted-B", "repetitions_ok": 3, "boots": 12, "expected_failures": 9, "successful_fallbacks": 3}
+  ],
+  "total_boots_in_successful_runs": 36,
+  "successful_guest_evaluations": 27,
+  "expected_injected_boot_failures": 9,
+  "selftest": {"tests_ok": 183, "seconds": 26.669, "skips": 0, "report": ".gaia/reports/20261016T121413Z-d376a187/REPORT.md"},
+  "host_preflight_report": ".gaia/reports/20261016T121537Z-beaec2e4/REPORT.md",
+  "physical_media_written": false,
+  "human_input_required": ["release public key and owner-confirmed fingerprint", "trusted external signing environment and offline private-key custody on separate medium"],
+  "pending": ["trusted recovery medium and installation in VM", "DATA corruption and backup restoration", "health-gated blessing/promotion", "interrupted transactional publication", "release CORE/authorization policy", "release toolchain removal and signing", "physical S0/S2-S4"]
+}

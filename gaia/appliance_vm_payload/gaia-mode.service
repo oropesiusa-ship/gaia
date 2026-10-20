@@ -1,0 +1,13 @@
+[Unit]
+Description=Select the fixed GAIA boot mode
+Requires=gaia-integrity.service gaia-offline.service
+After=gaia-integrity.service gaia-offline.service
+RequiresMountsFor=/core /data
+
+[Service]
+Type=oneshot
+ExecStart=/opt/gaia/venv/bin/python -I /core/boot_mode.py
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

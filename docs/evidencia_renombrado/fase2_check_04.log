@@ -1,0 +1,7 @@
+usage: gaia.py [-h] [--profile PROFILE]
+
+Provisiona GAIA automáticamente o diagnostica su entorno local.
+
+options:
+  -h, --help         show this help message and exit
+  --profile PROFILE  perfil del catálogo, por defecto selección automática

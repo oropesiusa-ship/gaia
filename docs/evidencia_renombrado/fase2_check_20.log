@@ -1,0 +1,2 @@
+usage: gaia.py [-h] [--profile PROFILE] [--minutes MINUTES]
+gaia.py: error: minutes debe ser 1..60

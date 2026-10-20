@@ -1,0 +1,27 @@
+[benchmark] trial-0001 seed=0 validation: ok loss=0.05255102565284796 reached=True
+[benchmark] trial-0002 seed=0 validation: ok loss=0.05255102565284796 reached=True
+[benchmark] trial-0003 seed=0 validation: ok loss=0.05255102565284796 reached=True
+[benchmark] trial-0004 seed=0 validation: ok loss=0.05255102565284796 reached=True
+[benchmark] trial-0005 seed=0 validation: ok loss=0.05255102565284796 reached=True
+[benchmark] trial-0006 seed=0 validation: ok loss=0.05255102565284796 reached=True
+[benchmark] trial-0007 seed=4000 validation: ok loss=0.033774612873665316 reached=True
+[benchmark] trial-0008 seed=4000 validation: ok loss=0.033774612873665316 reached=True
+[benchmark] trial-0009 seed=4001 validation: ok loss=0.0393148860087492 reached=True
+[benchmark] trial-0010 seed=4001 validation: ok loss=0.0393148860087492 reached=True
+[benchmark] trial-0011 seed=4002 validation: ok loss=0.031818594949238305 reached=True
+[benchmark] trial-0012 seed=4002 validation: ok loss=0.031818594949238305 reached=True
+[benchmark] trial-0013 seed=4003 validation: ok loss=0.028391196921865886 reached=True
+[benchmark] trial-0014 seed=4003 validation: ok loss=0.028391196921865886 reached=True
+[benchmark] trial-0015 seed=4004 validation: ok loss=0.047030509626408395 reached=True
+[benchmark] trial-0016 seed=4004 validation: ok loss=0.047030509626408395 reached=True
+[benchmark] trial-0017 seed=4000 validation: ok loss=0.033774612873665316 reached=True
+[benchmark] trial-0018 seed=4000 validation: ok loss=0.033774612873665316 reached=True
+[benchmark] trial-0019 seed=4001 validation: ok loss=0.0393148860087492 reached=True
+[benchmark] trial-0020 seed=4001 validation: ok loss=0.0393148860087492 reached=True
+[benchmark] trial-0021 seed=4002 validation: ok loss=0.031818594949238305 reached=True
+[benchmark] trial-0022 seed=4002 validation: ok loss=0.031818594949238305 reached=True
+[benchmark] trial-0023 seed=4003 validation: ok loss=0.028391196921865886 reached=True
+[benchmark] trial-0024 seed=4003 validation: ok loss=0.028391196921865886 reached=True
+[benchmark] trial-0025 seed=4004 validation: ok loss=0.047030509626408395 reached=True
+[benchmark] trial-0026 seed=4004 validation: ok loss=0.047030509626408395 reached=True
+[GaiaTransformer campaña] e00002: {'heads': [2, 4]}

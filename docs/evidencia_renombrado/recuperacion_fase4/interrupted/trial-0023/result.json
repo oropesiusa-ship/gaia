@@ -1,0 +1,186 @@
+{
+  "status": "ok",
+  "valid": true,
+  "error": null,
+  "stage": "complete",
+  "candidate_sha256": "97d9f9976c95c4c58f5de68d5db769751d045ce5f543488fea9ebebc2f3d4f71",
+  "spec": {
+    "seed": 4003,
+    "steps": 300,
+    "eval_every": 25,
+    "split": "validation",
+    "target_loss": 0.2596790841227193,
+    "hits_needed": 2
+  },
+  "target_calibrated": false,
+  "reached": true,
+  "steps": 125,
+  "curve": [
+    {
+      "step": 0,
+      "loss": 5.524227357580893,
+      "logits_sha256": "cc730aa404a96681da15f5945a5d8eb05d8f26add0fa417c84570ec2b16a2dfb"
+    },
+    {
+      "step": 25,
+      "loss": 2.621544332784868,
+      "logits_sha256": "9719ca440ec81ed15d1cebd22aac8ff781f971a3213642757ce5732ce5c32652"
+    },
+    {
+      "step": 50,
+      "loss": 1.6804793886019866,
+      "logits_sha256": "668894a7babd9697e3b32aa8e7f820a21b36dd0e98b8b36c558366a7e9b8d321"
+    },
+    {
+      "step": 75,
+      "loss": 0.2912881031679918,
+      "logits_sha256": "d634487080c5ad367650a2364267bd14146ae134fd5dbf2026d79c72e1afda53"
+    },
+    {
+      "step": 100,
+      "loss": 0.06069014503244913,
+      "logits_sha256": "5b26314478a9b5891d913cfd45cadb9f8915c565c056ce14a71ca953d3600d4c"
+    },
+    {
+      "step": 125,
+      "loss": 0.028391196921865886,
+      "logits_sha256": "31a9bdb37dcbb51b8e0d3c01dd56debe0e76521e8c38aae5bf08357e8b2d759e"
+    }
+  ],
+  "t_init_s": 2.296475556999212,
+  "t_train_s": 6.188216288002877,
+  "t_eval_s": 0.23969492399919545,
+  "t_metric_s": 0.008087753991276259,
+  "cost_s": 8.732474522992561,
+  "protected_sha256": {
+    "gaia/gaia_transformer/corpus_v1.json": "9a0c2ea2f646e92d4b7665c80f97d02c85fac6243f43dc2181ec22bf1c1723be",
+    "gaia/gaia_transformer/data.py": "8bf6cc87fee32b6bec2e1bcb9ca00dd2812d440f92734732e523a101d999ab58",
+    "gaia/gaia_transformer/lab/__init__.py": "524fde41d1bf2ea4b96e9c8d30776f3797d73ecc6404e8e948efd3d00c5bd567",
+    "gaia/gaia_transformer/lab/benchmark.py": "45bb0eb41b4d6b5c7b007509fdbbfd293449cd96793c5bba666fd2b3b3edff53",
+    "gaia/gaia_transformer/lab/calibration.py": "c6b03dc99df9f6e56e93aacb58527c32a28641ed4eff95acef61b7801b8ed3b5",
+    "gaia/gaia_transformer/lab/candidate.py": "77c4d0d1e66b8e8f728c42c425c334d5b1aa185682f70d0aaf2c8048c1ce48ba",
+    "gaia/gaia_transformer/lab/evaluator.py": "5091aaceb26827fa7c09a006610bb366776a3743cfb5c17bfe05a9355730c33a",
+    "gaia/gaia_transformer/lab/guard.py": "3148e7fdc21e0050d403b8078c62d3604f8e5871eb8d29697d5b2a2a5a2af3b3",
+    "gaia/gaia_transformer/lab/monitor.py": "6571400fa5ce825b5f0ce75a2d80c7868fb6b6403b519b00fa319e08dcbd8f9a",
+    "gaia/gaia_transformer/lab/sandbox.py": "8cb53091927c60ad6a7a1b8e70766eebb9db335c8c7d86d65b1b020e0b8985e2",
+    "gaia/gaia_transformer/lab/validation.py": "ae7ba2ac345b867b98009b0e6d3e96351c05a127a602adf827422884e151ac93",
+    "gaia/gaia_transformer/lab/worker.py": "280b92a2fd3fe2ccc496dddde69e577d56427f9df33daa200aad849313ad295c",
+    "gaia/gaia_transformer/model.py": "e85f42981f8536cc1a1aaddecd26b86fdf4c494f3b13027baa959a6edcdf569b",
+    "gaia/gaia_transformer/phase1.py": "8230f1a8296403c8fafb8be238d444811a488246f38bc39d66bff751f7796b63",
+    "gaia/gaia_transformer/trainer.py": "95a46fd26c0fa64dbdb44f65c4d4a6e2ee8147f1e03797d5962ed13578e77e64",
+    "gaia/protected/runtime.py": "d240b208b78d1bbc56c63d64aed0861b74bc30aae48999f3991db8a44aff9cfc"
+  },
+  "limits": {
+    "ram_mb": 3000,
+    "vram_mb": 3000,
+    "disk_mb": 500,
+    "seconds": 20
+  },
+  "isolation": {
+    "mode": "bwrap",
+    "reason": null,
+    "network_namespace": true,
+    "pid_namespace": true
+  },
+  "corpus_sha256": "11d89e90478527ba77648d5a45be459c55133e12bb1b4463adf3901cb5d44285",
+  "supervisor_pid": 45311,
+  "handshake": {
+    "environment_keys": [
+      "CUBLAS_WORKSPACE_CONFIG",
+      "CUDA_DEVICE_ORDER",
+      "CUDA_VISIBLE_DEVICES",
+      "HOME",
+      "LC_CTYPE",
+      "MKL_NUM_THREADS",
+      "OMP_NUM_THREADS",
+      "OPENBLAS_NUM_THREADS",
+      "PATH",
+      "PWD",
+      "PYTHONHASHSEED",
+      "TMPDIR",
+      "TORCHINDUCTOR_CACHE_DIR"
+    ],
+    "event": "READY",
+    "gpu_uuid": "7f51f56b-b660-40c6-3248-47101541b887",
+    "input_fields": [
+      "contexts",
+      "train"
+    ],
+    "isolation": {
+      "host_files_hidden": true,
+      "network_isolated": true,
+      "parent_hidden": true
+    },
+    "pid_in_namespace": 2,
+    "runtime": {
+      "executable": "/usr/bin/python3.14",
+      "machine": "x86_64",
+      "numpy": "2.3.5",
+      "numpy_file": "/home/mingororo/Projects/GAIA/.gaia/venvs/gaia-transformer-cuda-pascal-df1f7863934daabc/lib/python3.14/site-packages/numpy/__init__.py",
+      "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+      "prefix": "/home/mingororo/Projects/GAIA/.gaia/venvs/gaia-transformer-cuda-pascal-df1f7863934daabc",
+      "python": "3.14.4",
+      "torch": {
+        "arch_list": [
+          "sm_50",
+          "sm_60",
+          "sm_70",
+          "sm_75",
+          "sm_80",
+          "sm_86",
+          "sm_90"
+        ],
+        "capability": [
+          6,
+          1
+        ],
+        "cuda": "12.6",
+        "cuda_available": true,
+        "device": "NVIDIA GeForce GTX 1060 6GB",
+        "file": "/home/mingororo/Projects/GAIA/.gaia/venvs/gaia-transformer-cuda-pascal-df1f7863934daabc/lib/python3.14/site-packages/torch/__init__.py",
+        "version": "2.14.0+cu126"
+      }
+    }
+  },
+  "worker_runtime": {
+    "executable": "/usr/bin/python3.14",
+    "machine": "x86_64",
+    "numpy": "2.3.5",
+    "numpy_file": "/home/mingororo/Projects/GAIA/.gaia/venvs/gaia-transformer-cuda-pascal-df1f7863934daabc/lib/python3.14/site-packages/numpy/__init__.py",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "prefix": "/home/mingororo/Projects/GAIA/.gaia/venvs/gaia-transformer-cuda-pascal-df1f7863934daabc",
+    "python": "3.14.4",
+    "torch": {
+      "arch_list": [
+        "sm_50",
+        "sm_60",
+        "sm_70",
+        "sm_75",
+        "sm_80",
+        "sm_86",
+        "sm_90"
+      ],
+      "capability": [
+        6,
+        1
+      ],
+      "cuda": "12.6",
+      "cuda_available": true,
+      "device": "NVIDIA GeForce GTX 1060 6GB",
+      "file": "/home/mingororo/Projects/GAIA/.gaia/venvs/gaia-transformer-cuda-pascal-df1f7863934daabc/lib/python3.14/site-packages/torch/__init__.py",
+      "version": "2.14.0+cu126"
+    }
+  },
+  "allocator_peak_mb": 100.0,
+  "final_loss": 0.028391196921865886,
+  "peak_rss_mb": 1376.4375,
+  "peak_vram_nvml_mb": 238.0,
+  "peak_disk_mb": 0.553314208984375,
+  "monitor_samples": 419,
+  "gpu_process_seen": true,
+  "sampling_interval_s": 0.02,
+  "worker_returncode": 0,
+  "stderr_excerpt": "",
+  "wall_s": 9.563646369999333,
+  "temporary_files_removed": true
+}

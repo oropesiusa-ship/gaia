@@ -1,0 +1,6 @@
+[bootstrap] GAIA_TRANSFORMER_BASELINE_READY: /tmp/tmp7zq3wg1n/.gaia/reports/20261016T080233Z-9368507d/REPORT.md
+[bootstrap] FAILED: /tmp/tmpryll5sg3/.gaia/reports/20261016T080233Z-e1fcfebf/REPORT.md
+[bootstrap] La verificación no confirmó la baseline.
+[bootstrap] GPU_LAB_READY: /tmp/tmph96t76cb/.gaia/reports/20261016T080233Z-a2650891/REPORT.md
+[bootstrap] FAILED: /tmp/tmp9xyml418/.gaia/reports/20261016T080233Z-c5dbc5d6/REPORT.md
+[bootstrap] El laboratorio GPU no pasó su validación.
