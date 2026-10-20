@@ -158,6 +158,8 @@ class SamplingTests(unittest.TestCase):
         self.assertIsNotNone(value["samples"][-1]["system_cpu_utilization_percent"])
         self.assertGreater(value["samples"][-1]["wall_s"], value["samples"][0]["wall_s"])
         self.assertGreater(value["statistics"]["filesystem_free_bytes"]["median"], 0)
+        self.assertLessEqual(value["statistics"]["filesystem_available_bytes"]["median"],
+                             value["statistics"]["filesystem_free_bytes"]["median"])
 
     def test_deadline_bounds_sampling(self):
         value = resources.collect(ROOT, 30, 100, 0.1, time.perf_counter() - 1)
