@@ -12,6 +12,17 @@ def build(inputs, context, analysis_mode, cfg):
     plans, exclusions = [], []
     record_map = {r["learning_id"]: r for r in inputs["records"]}
     context_hash = digest(context) if context is not None else None
+    rejected_points = {}
+    for v in inputs["views"]:
+        k = v["item"]
+        if (not v["superseded"] and not v["contradicted"] and v["assessment"]["transferability"] == "EXACT_CONTEXT"
+                and k["claim"]["subject"] == "EXACT_CONFIGURATION" and k["claim_type"] == "REJECTED_DIRECTION"
+                and k["claim"].get("negative_reuse_scope") == "EXACT_CANDIDATE_EQUIVALENT_CONTEXT_ONLY"):
+            for r in k["claim"]["record_refs"]:
+                if r in record_map:
+                    point = (record_map[r]["claim"]["configuration_hash"], record_map[r]["claim"]["baseline_hash"])
+                    rejected_points.setdefault(point, []).append({"learning_id": k["learning_id"], "hash": k["hash"],
+                        "claim_type": k["claim_type"], "effective_status": k["status"], "applicability": "EXACT_CONTEXT", "stale": False})
     def target_ref(t):
         return {"priority_id": priority["prioritization_id"], "priority_hash": priority["prioritization_hash"],
                 "target_id": t["target_id"], "target_class": t["target_class"], "component_id": t["component_id"],
@@ -55,6 +66,21 @@ def build(inputs, context, analysis_mode, cfg):
             if cls in ("PARAMETER_LOCAL_SEARCH", "EXPLOITATION"):
                 novelty = "NEAR_REPEAT" if knowledge["claim"]["subject"] == "EXACT_CONFIGURATION" else "KNOWN_REGION"
                 duplicate_risk = "MEDIUM"  # Symbolic variations cannot certify a new config hash yet.
+            if cls == "EXPLORATION" and not accidental:
+                novelty, duplicate_risk = "NEAR_REPEAT", "MEDIUM"
+            # A regional summary must not smuggle a known exact rejection back
+            # into ranking as an apparently inconclusive paired repeat.
+            if ((reference_hash, baseline_hash) in rejected_points and spec["candidate_variation"]["kind"] == "REPEAT_REFERENCE_CONFIGURATION"
+                    and not view["contradicted"]):
+                blocked.append("EXACT_REJECTED_CONFIGURATION")
+                accidental = True
+                novelty, duplicate_risk, intentional = "EXACT_REPEAT", "HIGH", False
+                negative_scope = "EXACT_CANDIDATE_EQUIVALENT_CONTEXT_ONLY"
+                spec["variables"] = ["accidental_exact_configuration_repeat"]
+                spec["design"] = "PAIRED_REPLICATION"
+                information, improvement = "LOW", "LOW"
+                refs += rejected_points[(reference_hash, baseline_hash)]
+                refs = [r for _, r in sorted({r["hash"]: r for r in refs}.items())]
         if cls == "EXPLORATION" and not knowledge:
             novelty = "UNKNOWN"  # No history is not proof of a genuinely new region.
         if factorial:
@@ -97,6 +123,9 @@ def build(inputs, context, analysis_mode, cfg):
         if factorial:
             plan["rationale"].append("CO_CHANGED_LR_WD_ARE_CONFOUNDING_NOT_ESTABLISHED_INTERACTION")
             plan["rule_ids"].append("META_FACTORIAL_001")
+        if "EXACT_REJECTED_CONFIGURATION" in blocked and "META_NEGATIVE_001" not in plan["rule_ids"]:
+            plan["rule_ids"].append("META_NEGATIVE_001")
+            plan["rationale"].append("EXACT_NEGATIVE_EVIDENCE_OVERRIDES_REGIONAL_REUSE")
         if blocked:
             plan["rule_ids"].append("META_AUTHORITY_001")
         components = score(plan, cfg)
@@ -130,6 +159,7 @@ def build(inputs, context, analysis_mode, cfg):
                 add(t, "DISCRIMINATION", "META_CONTRADICTION_001", "CONFLICTING_EVIDENCE_MUST_BE_DISCRIMINATED_NOT_EXPLOITED", view)
             elif k["claim_type"] == "REJECTED_DIRECTION":
                 add(t, "EXPLORATION", "META_NEGATIVE_001", "EXACT_NEGATIVE_REPEAT_NOT_A_REGIONAL_BAN", view, accidental=True)
+                add(t, "EXPLORATION", "META_EXPLORE_001", "NEARBY_SYMBOLIC_VARIATION_NOT_EXCLUDED_BY_ONE_NEGATIVE_POINT", view)
             elif k["claim_type"] in ("PROMISING_DIRECTION", "INCONCLUSIVE_RESULT"):
                 add(t, "DISCRIMINATION", "META_INCONCLUSIVE_001", "FAVORABLE_OR_UNRESOLVED_RESULT_NEEDS_DISCRIMINATING_EVIDENCE", view)
             elif k["claim"]["subject"] == "EXACT_CONFIGURATION" and k["claim_type"] == "OBSERVED_EFFECT":
