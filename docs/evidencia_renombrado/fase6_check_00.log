@@ -1,0 +1,13 @@
+usage: gaia.py [-h] [--profile PROFILE] [--steps STEPS] [--seed SEED]
+               [--repeats REPEATS]
+
+Entrena la baseline GaiaTransformer CUDA fija y verifica causalidad, pérdida
+privada y repetibilidad.
+
+options:
+  -h, --help         show this help message and exit
+  --profile PROFILE  perfil del catálogo, por defecto selección automática
+  --steps STEPS      pasos de la baseline fija (20..10000)
+  --seed SEED
+  --repeats REPEATS  repeticiones de la misma semilla (2..5), más una semilla
+                     distinta

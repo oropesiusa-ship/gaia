@@ -1,0 +1,11 @@
+[Unit]
+Description=Offline VM policy
+DefaultDependencies=no
+Requires=gaia-integrity.service
+After=local-fs.target gaia-integrity.service
+Before=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /core/offline.sh
+RemainAfterExit=yes

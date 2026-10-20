@@ -1,0 +1,76 @@
+{
+  "stage": "F1/S1 build-host preflight",
+  "status": "BLOCKED_BUILD_PREREQUISITES",
+  "started_utc": "2026-10-16T09:46:41Z",
+  "host_os": "Ubuntu 26.04.1 LTS",
+  "architecture": "x86_64",
+  "python": "3.14.4",
+  "uid": 1000,
+  "kvm_present": true,
+  "kvm_access_rw": true,
+  "workspace_free_space_observed": "158 GiB (df rounded)",
+  "media": [
+    {
+      "role": "appliance target",
+      "observed_path": "/dev/sdb",
+      "model": "ST1000DM003-1ER162",
+      "size_bytes": 1000204886016,
+      "transport": "sata",
+      "whole_disk_erase_authorized": true,
+      "identity_must_be_revalidated_before_writing": true
+    },
+    {
+      "role": "installer and recovery",
+      "observed_path": "/dev/sdd",
+      "model": "ST9250315AS",
+      "size_bytes": 250059350016,
+      "transport": "usb",
+      "whole_disk_erase_authorized": true,
+      "identity_must_be_revalidated_before_writing": true
+    }
+  ],
+  "available_commands": {
+    "unshare": "/usr/bin/unshare",
+    "bwrap": "/usr/bin/bwrap",
+    "openssl": "/usr/bin/openssl",
+    "apt-get": "/usr/bin/apt-get",
+    "dpkg-query": "/usr/bin/dpkg-query",
+    "mkfs.vfat": "/usr/sbin/mkfs.vfat",
+    "mkfs.ext4": "/usr/sbin/mkfs.ext4",
+    "sfdisk": "/usr/sbin/sfdisk",
+    "losetup": "/usr/sbin/losetup"
+  },
+  "commands_not_found_in_path": [
+    "mmdebstrap", "qemu-system-x86_64", "qemu-img", "smartctl", "bootctl",
+    "ukify", "systemd-repart", "newuidmap", "newgidmap", "xorriso", "mformat"
+  ],
+  "blockers": [
+    {
+      "command": "sudo -n -l",
+      "result": "interactive authentication is required"
+    },
+    {
+      "command": "unshare --user --map-root-user --mount true",
+      "result": "write failed /proc/self/uid_map: Operation not permitted"
+    },
+    {
+      "command": "dpkg-query -W -f='${binary:Package} ${Version} ${Status}\\n' mmdebstrap qemu-system-x86 qemu-utils ovmf smartmontools systemd-boot-efi systemd-ukify uidmap xorriso mtools dosfstools",
+      "result": "mmdebstrap, qemu-system-x86, qemu-utils, ovmf, smartmontools, systemd-boot-efi, systemd-ukify and uidmap not found; mtools/xorriso not installed; dosfstools 4.2-1.2build1 installed"
+    }
+  ],
+  "package_candidates_from_current_apt_cache": {
+    "mmdebstrap": "1.5.7-3",
+    "qemu-system-x86": "1:10.2.1+ds-1ubuntu3.2",
+    "qemu-utils": "1:10.2.1+ds-1ubuntu3.2",
+    "ovmf": "2025.11-3ubuntu7.3",
+    "smartmontools": "7.5-2",
+    "uidmap": "1:4.17.4-2ubuntu3",
+    "mtools": "4.0.49-1"
+  },
+  "candidate_versions_are_not_an_appliance_lock": true,
+  "package_installation_performed": false,
+  "physical_disk_writes_performed": false,
+  "images_built": 0,
+  "vm_scenarios_executed": 0,
+  "runtime_tests_repeated": false
+}

@@ -1,0 +1,37 @@
+{
+  "status": "OWNER_PUBLIC_KEY_MATCHES_PIN_BACKUP_PENDING",
+  "report": ".gaia/reports/20261016T133757Z-78fc1d87/REPORT.md",
+  "fingerprint": "6BF5C62DC530889F3D7C644F678D00EC8B5BF748",
+  "algorithm": "OpenPGP v4 Ed25519 signing primary",
+  "public_exports_identical": true,
+  "public_files": {
+    "keys/gaia-release-signing.pub.asc": {
+      "bytes": 409,
+      "sha256": "b615950bc31e716939fb61b34abdb5bd6d4dd8d24d4105fa9e6ecff32de907fe"
+    },
+    "keys/gaia-release-signing.pub.gpg": {
+      "bytes": 242,
+      "sha256": "a358214217109bc06bd0c7d684962ca87b8555099f063175b068654f250f138f"
+    },
+    "keys/gaia-release-signing.fingerprint.txt": {
+      "bytes": 41,
+      "sha256": "70449f4493cf01c4809c32e0e729af5c3b11b99dff10e5d6e87ef33d998bb42a"
+    }
+  },
+  "backup_challenge": {
+    "manifest": "keys/gaia-custody-backup-check.json",
+    "sha256": "fadea1478c89e8d891b7f753c094b3b2f080b3ee4379a1a99a468cddd5c81552",
+    "purpose": "lab",
+    "public_artifact_hashes_validated": true,
+    "signature_received": false,
+    "human_procedure": "docs/APPLIANCE_BACKUP_CLAVE.md",
+    "bash_blocks_syntax_checked": 2,
+    "bash_blocks_executed_by_agent": false
+  },
+  "private_key_used_by_agent": false,
+  "owner_signature_verified": false,
+  "backup_tested": false,
+  "external_record_confirmation_pending": true,
+  "s1_complete": false,
+  "f1_complete": false
+}

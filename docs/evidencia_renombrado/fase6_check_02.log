@@ -1,0 +1,7 @@
+usage: gaia.py [-h] [--profile PROFILE]
+
+Valida el laboratorio GPU con baseline, aislamiento y casos de fallo reales.
+
+options:
+  -h, --help         show this help message and exit
+  --profile PROFILE  perfil del catálogo, por defecto selección automática

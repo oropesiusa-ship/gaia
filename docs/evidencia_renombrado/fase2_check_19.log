@@ -1,0 +1,4 @@
+usage: gaia.py [-h] [--profile PROFILE] [--minutes MINUTES]
+               [--max-experiments MAX_EXPERIMENTS]
+               [--research-after RESEARCH_AFTER]
+gaia.py: error: max-experiments debe ser 1..1000 y minutes 1..60

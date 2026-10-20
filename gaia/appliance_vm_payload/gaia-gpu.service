@@ -1,0 +1,12 @@
+[Unit]
+Description=Load fixed NVIDIA modules and create compute device nodes
+Requires=gaia-integrity.service gaia-offline.service
+After=gaia-integrity.service gaia-offline.service
+Before=gaia-runtime.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/modprobe nvidia
+ExecStart=/usr/sbin/modprobe nvidia_uvm
+ExecStart=/usr/bin/nvidia-modprobe -u -c 0
+RemainAfterExit=yes

@@ -1,0 +1,30 @@
+{
+  "status": "STATE_INTEGRITY_OK",
+  "state": "state_gaia_transformer_cuda_df1f7863934daabc",
+  "baseline_sha256": "d0b32da1824bee59bf942d85f707dc8710247f4c0ce52afcdb2dc7a0125cad9a",
+  "target_loss": 0.2596790841227193,
+  "reference_cost_s": 4.019073079005466,
+  "versions": [
+    "v0000"
+  ],
+  "champion": "v0000",
+  "ledger_records": 8,
+  "experiments": [
+    {
+      "id": "e00001",
+      "decision": "rejected"
+    },
+    {
+      "id": "e00002",
+      "decision": "aborted"
+    }
+  ],
+  "gates": {
+    "G0_runtime": true,
+    "G1_correctness": true,
+    "G2_reliability": true,
+    "G3_integrity": true,
+    "G4_controls": true,
+    "G5_budget": true
+  }
+}

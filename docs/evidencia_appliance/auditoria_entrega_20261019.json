@@ -1,0 +1,29 @@
+{
+  "status": "DELIVERY_WORKSPACE_BLOCKED",
+  "report": ".gaia/reports/20261019T063855Z-8cc06d99/REPORT.md",
+  "next_step_document": "docs/CIERRE_S1_ENTREGA.md",
+  "scope": "release-candidate preparation after successful signed VM recovery",
+  "workspace_free_bytes_approx": 18744590336,
+  "estimated_build_peak_bytes": 77729471488,
+  "proposed_reclaim_bytes_approx": 72145850368,
+  "proposal_retention_decision_pending": true,
+  "preserve": [
+    "current signed image and all its links, bundle and signatures",
+    "last repaired VM target",
+    "runtime rootfs tar and provenance",
+    "public keys, source, audit logs and manifests",
+    "project states, corpora, checkpoints and archives",
+    "offline private custody USBs"
+  ],
+  "proposed_candidates": [
+    "regenerable bundle.ext4 cache",
+    "two superseded base RAW images and their completed disposable dependents",
+    "identified ESP staging FAT files"
+  ],
+  "artifacts_deleted_in_audit": false,
+  "host_packages_purged": false,
+  "physical_media_written": false,
+  "private_keys_accessed": false,
+  "s1_complete": false,
+  "f1_complete": false
+}

@@ -1,0 +1,149 @@
+== Inicialización: construyendo línea base y calibrando el benchmark ==
+[calibración main] objetivo=0.7126 (calidad ref 0.7176); coste base=0.649s, variabilidad (CV)=2.9%
+[calibración audit] objetivo=0.7216 (calidad ref 0.7266); coste base=0.565s, variabilidad (CV)=10.5%
+Campeón v0000 · referencia 0.668s · objetivo de calidad 0.7126 · parada manual: crea el archivo STOP
+e00001 [         rejected] sgd/relu/float64/naive/randint h96x2 b64 lr0.05            no alcanza el objetivo dentro de 0.87s (acc 0.704)
+e00002 [         rejected] sgd/relu/float64/naive/randint h64x2 b64 lr0.05            no alcanza el objetivo dentro de 0.87s (acc 0.712)
+e00003 [         rejected] sgd/relu/float64/fused/randint h64x2 b64 lr0.05            sin mejora verificable (coste 0.994x, IC sup. 1.066)
+e00004 [         rejected] adam/tanh/float64/naive/permutation h128x3 b32 lr0.0004726 no alcanza el objetivo dentro de 0.87s (acc 0.466)
+e00005 [         rejected] adam/relu/float32/naive/permutation h48x1 b64 lr0.003002   no alcanza el objetivo dentro de 0.87s (acc 0.701)
+
+*** MEJORA VERIFICADA ***
+Nueva versión estable v0001 (coste 0.801x del campeón anterior; IC95% sup. 0.911; 9 pares; RAM 0.999x)
+Procedencia: known · operadores: ['backward', 'lr'] · sgd/relu/float64/fused/randint h64x2 b64 lr0.08292
+e00007 [         rejected] sgd/relu/float64/fused/randint h64x2 b64 lr0.08292         no alcanza el objetivo dentro de 0.65s (acc 0.705)
+e00008 [         rejected] adam/relu/float64/fused/randint h64x2 b64 lr0.05           no alcanza el objetivo dentro de 0.65s (acc 0.676)
+e00009 [         rejected] sgd/relu/float64/fused/randint h64x2 b64 lr0.05            cribado: 0.651s no mejora la referencia 0.498s
+e00010 [         rejected] sgd/relu/float32/fused/randint h64x2 b64 lr0.05            cribado: 0.510s no mejora la referencia 0.498s
+e00011 [         rejected] sgd/relu/float64/fused/randint h64x3 b64 lr0.05            no alcanza el objetivo dentro de 0.65s (acc 0.695)
+e00012 [         rejected] sgd/relu/float64/fused/randint h64x2 b64 lr0.0397          no alcanza el objetivo dentro de 0.65s (acc 0.709)
+e00013 [         rejected] momentum/leaky/float32/fused/permutation h256x2 b512 lr0.0 no alcanza el objetivo dentro de 0.65s (acc 0.500)
+e00014 [         rejected] sgd/relu/float64/naive/randint h64x2 b64 lr0.05            no alcanza el objetivo dentro de 0.65s (acc 0.681)
+e00015 [         rejected] sgd/leaky/float64/fused/randint h64x2 b64 lr0.05           no alcanza el objetivo dentro de 0.65s (acc 0.706)
+
+*** MEJORA VERIFICADA ***
+Nueva versión estable v0002 (coste 0.344x del campeón anterior; IC95% sup. 0.366; 4 pares; RAM 1.096x)
+Procedencia: known · operadores: ['random_global'] · momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504
+e00017 [         rejected] sgd/relu/float64/fused/randint h64x2 b64 lr0.05            no alcanza el objetivo dentro de 0.22s (acc 0.636)
+e00018 [         rejected] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504    cribado: 0.171s no mejora la referencia 0.169s
+
+*** MEJORA VERIFICADA ***
+Nueva versión estable v0003 (coste 0.634x del campeón anterior; IC95% sup. 0.926; 5 pares; RAM 1.0x)
+Procedencia: generated · operadores: ['crossover', 'lit'] · momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 lits=1
+e00020 [         rejected] adam_inplace/gelu/float64/naive/permutation h16x2 b16 lr0. no alcanza el objetivo dentro de 0.17s (acc 0.656)
+e00021 [         deferred] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 li mejora probable (0.927x) pero no concluyente (IC sup. 1.019)
+e00022 [         rejected] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01629 li no alcanza el objetivo dentro de 0.17s (acc 0.713)
+e00023 [         rejected] momentum/tanh/float64/fused/randint h128x2 b64 lr0.01504 l cribado: 0.180s no mejora la referencia 0.134s
+e00024 [         rejected] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 li no alcanza el objetivo dentro de 0.17s (acc 0.619)
+e00025 [         rejected] adam_inplace/leaky/float64/naive/permutation h16x3 b256 lr no alcanza el objetivo dentro de 0.17s (acc 0.322)
+e00026 [         rejected] sgd/relu/float64/naive/permutation h128x2 b32 lr1.293      no alcanza el objetivo dentro de 0.17s (acc 0.656)
+e00027 [         rejected] momentum/leaky/float64/naive/randint h128x3 b128 lr0.01057 no alcanza el objetivo dentro de 0.17s (acc 0.257)
+e00028 [         rejected] sgd/tanh/float32/fused/randint h256x3 b256 lr0.1652        no alcanza el objetivo dentro de 0.17s (acc 0.722)
+e00029 [         rejected] momentum/tanh/float32/fused/randint h96x2 b64 lr0.01504    sin mejora verificable (coste 1.142x, IC sup. 1.413)
+
+*** MEJORA VERIFICADA ***
+Nueva versión estable v0004 (coste 0.868x del campeón anterior; IC95% sup. 0.933; 10 pares; RAM 1.0x)
+Procedencia: generated · operadores: ['crossover', 'drop'] · momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 lits=1 drop=loss,wd
+e00031 [         rejected] sgd/tanh/float32/fused/randint h192x3 b512 lr0.0005867     no alcanza el objetivo dentro de 0.13s (acc 0.118)
+e00032 [         rejected] sgd/tanh/float64/fused/randint h96x2 b64 lr0.01504         no alcanza el objetivo dentro de 0.13s (acc 0.549)
+e00033 [         rejected] adam/leaky/float32/naive/randint h32x2 b64 lr0.09947       no alcanza el objetivo dentro de 0.13s (acc 0.580)
+e00034 [         rejected] momentum/tanh/float64/fused/randint h96x2 b128 lr0.01504 l cribado: 0.107s no mejora la referencia 0.097s
+e00035 [         rejected] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 li cribado: 0.118s no mejora la referencia 0.097s
+e00036 [         rejected] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 li no alcanza el objetivo dentro de 0.13s (acc 0.701)
+e00037 [         rejected] momentum/tanh/float64/naive/randint h96x2 b128 lr0.01504   no alcanza el objetivo dentro de 0.13s (acc 0.715)
+e00038 [         rejected] momentum/gelu/float32/fused/permutation h64x3 b256 lr0.307 no alcanza el objetivo dentro de 0.13s (acc 0.647)
+e00039 [         rejected] adam_inplace/gelu/float64/naive/randint h32x2 b256 lr0.248 no alcanza el objetivo dentro de 0.13s (acc 0.621)
+e00040 [         rejected] momentum/tanh/float64/fused/permutation h96x2 b64 lr0.0150 cribado: 0.122s no mejora la referencia 0.097s
+e00041 [         rejected] momentum/tanh/float32/naive/randint h96x2 b64 lr0.01504    cribado: 0.114s no mejora la referencia 0.100s
+e00042 [         rejected] momentum/tanh/float64/fused/randint h96x2 b128 lr0.01504 l cribado: 0.103s no mejora la referencia 0.100s
+e00043 [         rejected] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 li cribado: 0.099s no mejora la referencia 0.100s
+e00044 [         deferred] momentum/tanh/float64/fused/randint h32x2 b64 lr0.01504 li mejora probable (0.913x) pero no concluyente (IC sup. 1.138)
+e00045 [         rejected] momentum/tanh/float64/fused/randint h96x2 b64 lr0.03089 li no alcanza el objetivo dentro de 0.13s (acc 0.701)
+e00046 [         deferred] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 li mejora probable (0.931x) pero no concluyente (IC sup. 0.997)
+e00047 [         rejected] momentum/tanh/float64/fused/randint h96x2 b64 lr0.01504 li no alcanza el objetivo dentro de 0.13s (acc 0.151)
+e00048 [         deferred] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01504   mejora probable (0.801x) pero no concluyente (IC sup. 1.006)
+e00049 [         deferred] adam/leaky/float32/naive/permutation h32x2 b128 lr0.01432  mejora probable (0.887x) pero no concluyente (IC sup. 1.103)
+e00050 [         deferred] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01474   mejora probable (0.808x) pero no concluyente (IC sup. 0.960)
+e00051 [         deferred] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01474 d mejora probable (0.863x) pero no concluyente (IC sup. 1.070)
+e00052 [         rejected] adam/gelu/float32/fused/randint h48x3 b32 lr0.5024         no alcanza el objetivo dentro de 0.13s (acc 0.147)
+e00053 [         rejected] momentum/relu/float32/fused/permutation h96x1 b256 lr0.000 no alcanza el objetivo dentro de 0.13s (acc 0.124)
+e00054 [         deferred] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01474 d mejora probable (0.848x) pero no concluyente (IC sup. 1.007)
+e00055 [         deferred] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01474   mejora probable (0.910x) pero no concluyente (IC sup. 1.157)
+e00056 [         deferred] momentum/tanh/float64/fused/randint h32x2 b64 lr0.01504 li mejora probable (0.882x) pero no concluyente (IC sup. 1.063)
+e00057 [         rejected] momentum/tanh/float64/naive/randint h32x2 b64 lr0.01504    sin mejora verificable (coste 0.971x, IC sup. 1.215)
+e00058 [         deferred] momentum/tanh/float32/fused/permutation h96x2 b128 lr0.014 mejora probable (0.806x) pero no concluyente (IC sup. 1.056)
+e00059 [         rejected] sgd/gelu/float32/fused/randint h64x3 b64 lr0.3644          no alcanza el objetivo dentro de 0.13s (acc 0.444)
+
+*** MEJORA VERIFICADA ***
+Nueva versión estable v0005 (coste 0.681x del campeón anterior; IC95% sup. 0.917; 10 pares; RAM 0.952x)
+Procedencia: generated · operadores: ['drop'] · momentum/tanh/float32/fused/permutation h96x2 b128 lr0.01474 drop=clip
+-- ciclo de metaoptimización (Nivel 4) --
+   estrategia v2: ['adoptada', 'adoptada', 'descartada'] (evaluaciones nuevas del paisaje: 354, 368s)
+e00061 [         rejected] momentum/gelu/float32/naive/permutation h32x1 b16 lr0.0648 no alcanza el objetivo dentro de 0.08s (acc 0.638)
+e00062 [         rejected] momentum/tanh/float64/fused/randint h32x2 b64 lr0.01474    no alcanza el objetivo dentro de 0.08s (acc 0.712)
+e00063 [         rejected] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01474 d cribado: 0.076s no mejora la referencia 0.061s
+e00064 [         rejected] momentum/leaky/float64/fused/randint h32x2 b64 lr0.01504   no alcanza el objetivo dentro de 0.08s (acc 0.631)
+e00065 [         rejected] momentum/tanh/float64/fused/randint h32x2 b512 lr0.01504   no alcanza el objetivo dentro de 0.08s (acc 0.499)
+e00066 [         rejected] momentum/tanh/float32/fused/randint h32x2 b64 lr0.01853    cribado: 0.074s no mejora la referencia 0.061s
+e00067 [         rejected] momentum/tanh/float64/fused/randint h32x2 b16 lr0.01504 li no alcanza el objetivo dentro de 0.08s (acc 0.697)
+e00068 [         rejected] momentum/leaky/float32/fused/randint h96x1 b512 lr0.01007  no alcanza el objetivo dentro de 0.08s (acc 0.168)
+e00069 [         rejected] sgd/relu/float64/naive/permutation h16x1 b1024 lr0.06824   no alcanza el objetivo dentro de 0.08s (acc 0.376)
+e00070 [         rejected] adam_inplace/relu/float64/naive/randint h16x2 b1024 lr0.00 no alcanza el objetivo dentro de 0.08s (acc 0.126)
+e00071 [         rejected] adam/relu/float32/naive/randint h16x2 b256 lr0.000246      no alcanza el objetivo dentro de 0.08s (acc 0.308)
+e00072 [         rejected] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01474 d cribado: 0.062s no mejora la referencia 0.061s
+e00073 [         rejected] momentum/leaky/float64/fused/randint h192x3 b16 lr0.000117 no alcanza el objetivo dentro de 0.08s (acc 0.120)
+e00074 [         rejected] momentum/relu/float32/fused/randint h96x2 b128 lr0.01474   no alcanza el objetivo dentro de 0.08s (acc 0.644)
+e00075 [         rejected] adam/gelu/float32/naive/permutation h128x1 b16 lr0.002939  no alcanza el objetivo dentro de 0.08s (acc 0.586)
+e00076 [         rejected] sgd/leaky/float64/naive/permutation h64x1 b256 lr0.5223    no alcanza el objetivo dentro de 0.08s (acc 0.717)
+e00077 [         rejected] momentum/relu/float32/fused/randint h256x3 b1024 lr0.00393 no alcanza el objetivo dentro de 0.08s (acc 0.264)
+e00078 [         rejected] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01474 d cribado: 0.069s no mejora la referencia 0.061s
+e00079 [         rejected] sgd/leaky/float32/fused/permutation h192x2 b1024 lr0.02106 no alcanza el objetivo dentro de 0.08s (acc 0.190)
+e00080 [         rejected] momentum/tanh/float64/fused/randint h16x2 b64 lr0.01504 li no alcanza el objetivo dentro de 0.08s (acc 0.711)
+e00081 [         rejected] adam/leaky/float32/fused/randint h64x3 b512 lr0.2693       no alcanza el objetivo dentro de 0.08s (acc 0.117)
+e00082 [         rejected] momentum/relu/float32/fused/permutation h96x3 b1024 lr0.00 no alcanza el objetivo dentro de 0.08s (acc 0.107)
+e00083 [         rejected] momentum/tanh/float32/fused/randint h96x2 b64 lr0.01474 dr cribado: 0.086s no mejora la referencia 0.061s
+e00084 [         rejected] momentum/tanh/float32/fused/randint h96x2 b128 lr0.01474 d no alcanza el objetivo dentro de 0.08s (acc 0.705)
+e00085 [         rejected] adam_inplace/tanh/float64/fused/permutation h96x3 b256 lr0 no alcanza el objetivo dentro de 0.08s (acc 0.691)
+e00086 [         rejected] sgd/relu/float64/fused/randint h16x2 b32 lr0.004654        no alcanza el objetivo dentro de 0.08s (acc 0.209)
+e00087 [         rejected] adam/gelu/float32/fused/randint h256x2 b128 lr0.09563      no alcanza el objetivo dentro de 0.08s (acc 0.495)
+e00088 [         rejected] sgd/leaky/float32/naive/permutation h16x2 b512 lr0.0001533 no alcanza el objetivo dentro de 0.08s (acc 0.124)
+e00089 [         rejected] adam/relu/float32/fused/randint h96x3 b64 lr0.009396       no alcanza el objetivo dentro de 0.08s (acc 0.469)
+e00090 [         rejected] momentum/tanh/float32/naive/randint h96x2 b128 lr0.01474   cribado: 0.079s no mejora la referencia 0.061s
+e00091 [         rejected] sgd/relu/float64/naive/randint h64x2 b128 lr0.001194       no alcanza el objetivo dentro de 0.08s (acc 0.123)
+e00092 [         rejected] sgd/leaky/float64/fused/randint h64x1 b32 lr0.3066         no alcanza el objetivo dentro de 0.08s (acc 0.659)
+e00093 [         rejected] adam/tanh/float32/fused/randint h32x2 b64 lr0.01504        no alcanza el objetivo dentro de 0.08s (acc 0.685)
+e00094 [         rejected] adam_inplace/relu/float32/fused/randint h192x1 b64 lr0.101 no alcanza el objetivo dentro de 0.08s (acc 0.586)
+e00095 [         rejected] sgd/tanh/float32/fused/randint h96x2 b128 lr0.01474        no alcanza el objetivo dentro de 0.08s (acc 0.408)
+e00096 [         rejected] momentum/tanh/float32/fused/randint h32x2 b64 lr0.01504    cribado: 0.068s no mejora la referencia 0.061s
+
+*** MEJORA VERIFICADA ***
+Nueva versión estable v0006 (coste 0.477x del campeón anterior; IC95% sup. 0.589; 5 pares; RAM 0.834x)
+Procedencia: known · operadores: ['depth', 'sampler'] · momentum/tanh/float64/fused/permutation h32x1 b64 lr0.01504
+e00098 [         rejected] sgd/leaky/float32/fused/randint h96x1 b128 lr0.01474       no alcanza el objetivo dentro de 0.06s (acc 0.244)
+e00099 [         rejected] momentum/gelu/float32/fused/permutation h32x1 b64 lr0.0150 no alcanza el objetivo dentro de 0.06s (acc 0.640)
+e00100 [         rejected] momentum/tanh/float64/fused/randint h32x2 b64 lr0.01504 dr no alcanza el objetivo dentro de 0.06s (acc 0.709)
+e00101 [         rejected] momentum/tanh/float64/fused/randint h32x2 b64 lr0.01504 li no alcanza el objetivo dentro de 0.05s (acc 0.710)
+e00102 [         rejected] momentum/tanh/float64/fused/randint h32x1 b64 lr0.01629 li cribado: 0.044s no mejora la referencia 0.040s
+e00103 [         rejected] momentum/tanh/float64/fused/permutation h64x1 b64 lr0.0150 no alcanza el objetivo dentro de 0.05s (acc 0.609)
+e00104 [         rejected] momentum/tanh/float32/fused/randint h96x1 b64 lr0.05141    no alcanza el objetivo dentro de 0.05s (acc 0.714)
+e00105 [         rejected] adam/relu/float32/naive/randint h128x1 b256 lr0.001178     no alcanza el objetivo dentro de 0.05s (acc 0.519)
+e00106 [         rejected] momentum/tanh/float64/fused/randint h32x2 b64 lr0.01504 li no alcanza el objetivo dentro de 0.05s (acc 0.672)
+e00107 [         rejected] momentum/tanh/float64/fused/randint h32x1 b64 lr0.01629 li cribado: 0.044s no mejora la referencia 0.040s
+e00108 [         rejected] sgd/relu/float32/naive/randint h128x1 b64 lr0.0005078      no alcanza el objetivo dentro de 0.05s (acc 0.122)
+e00109 [         rejected] momentum/tanh/float64/fused/permutation h128x1 b64 lr0.015 cribado: 0.040s no mejora la referencia 0.040s
+e00110 [         deferred] momentum/tanh/float64/fused/permutation h64x1 b64 lr0.0150 mejora probable (0.881x) pero no concluyente (IC sup. 0.996)
+e00111 [         rejected] momentum/tanh/float64/fused/randint h32x1 b128 lr0.03388   no alcanza el objetivo dentro de 0.05s (acc 0.707)
+e00112 [         rejected] adam_inplace/gelu/float32/naive/randint h16x2 b128 lr0.000 no alcanza el objetivo dentro de 0.05s (acc 0.127)
+e00113 [         rejected] momentum/gelu/float64/fused/randint h32x1 b64 lr0.01629 dr no alcanza el objetivo dentro de 0.05s (acc 0.628)
+e00114 [         rejected] momentum/relu/float32/naive/randint h64x3 b64 lr0.2534     no alcanza el objetivo dentro de 0.05s (acc 0.413)
+e00115 [         rejected] sgd/tanh/float64/fused/permutation h16x1 b64 lr0.01504     no alcanza el objetivo dentro de 0.05s (acc 0.507)
+e00116 [         rejected] momentum/tanh/float64/fused/permutation h128x2 b64 lr0.015 no alcanza el objetivo dentro de 0.05s (acc 0.714)
+e00117 [         deferred] momentum/tanh/float64/fused/permutation h64x1 b64 lr0.0150 mejora probable (0.928x) pero no concluyente (IC sup. 1.092)
+e00118 [         rejected] sgd/leaky/float64/fused/permutation h32x1 b64 lr0.003892   no alcanza el objetivo dentro de 0.05s (acc 0.138)
+e00119 [         rejected] momentum/tanh/float64/fused/permutation h32x1 b64 lr0.0150 sin mejora verificable (coste 0.998x, IC sup. 1.089)
+e00120 [         rejected] sgd/leaky/float32/fused/permutation h48x1 b32 lr0.2693     no alcanza el objetivo dentro de 0.05s (acc 0.715)
+-- ciclo de metaoptimización (Nivel 4) --
+   estrategia v2: ['descartada', 'descartada', 'descartada'] (evaluaciones nuevas del paisaje: 152, 132s)
+e00121 [         rejected] adam/gelu/float64/fused/randint h48x1 b128 lr0.5958        no alcanza el objetivo dentro de 0.04s (acc 0.423)
+
+Parada: presupuesto de tiempo/experimentos agotado.

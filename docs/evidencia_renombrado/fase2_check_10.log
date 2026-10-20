@@ -1,0 +1,9 @@
+usage: gaia.py [-h] [--profile PROFILE] [--steps STEPS]
+
+Perfila el campeón CUDA en observación separada y genera diagnóstico no
+promocional.
+
+options:
+  -h, --help         show this help message and exit
+  --profile PROFILE  perfil del catálogo, por defecto selección automática
+  --steps STEPS      pasos medidos después de 25 de calentamiento (10..300)

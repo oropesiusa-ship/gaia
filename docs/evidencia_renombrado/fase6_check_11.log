@@ -1,0 +1,2 @@
+usage: gaia.py [-h] [--profile PROFILE] [--steps STEPS]
+gaia.py: error: unrecognized arguments: --unknown-rename-check

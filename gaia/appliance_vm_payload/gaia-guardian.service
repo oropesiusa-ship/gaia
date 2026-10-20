@@ -1,0 +1,23 @@
+[Unit]
+Description=GAIA VM L0 guardian foundation
+Requires=gaia-integrity.service gaia-offline.service
+After=gaia-integrity.service gaia-offline.service
+RequiresMountsFor=/core /data
+
+[Service]
+User=gaia-guardian
+Group=gaia
+ExecStart=/opt/gaia/venv/bin/python -I /core/guardian.py
+RuntimeDirectory=gaia
+RuntimeDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+CapabilityBoundingSet=
+ReadWritePaths=/data/evidence /run/gaia
+Restart=no

@@ -1,0 +1,69 @@
+{
+  "status": "CURRENT_VM_MATRIX_VALIDATED_AWAITING_OWNER_INSTALL_SIGNATURE",
+  "s1_complete": false,
+  "f1_complete": false,
+  "profile": "vm-cpu-l0",
+  "image_dir": ".gaia/reports/20261018T182432Z-f0a96e77",
+  "image_bytes": 22577938432,
+  "image_sha256": "216be2f81c1ec29a726859085d6f89d9caadf911489c1090b829a93a05275c6f",
+  "core_manifest_sha256": "88a784fc927a5ddcda6166bc83c10482b68f968df4ca89e7fc86c820b2362dd3",
+  "release_image": false,
+  "owner_fingerprint": "6BF5C62DC530889F3D7C644F678D00EC8B5BF748",
+  "custody_signature_report": ".gaia/reports/20261016T134648Z-33248432/REPORT.md",
+  "debian_native_verifier_report": ".gaia/reports/20261018T180815Z-34059811/REPORT.md",
+  "matrix_reports": [
+    ".gaia/reports/20261018T183217Z-bc850b8c/REPORT.md",
+    ".gaia/reports/20261018T185126Z-be8e6d63/REPORT.md"
+  ],
+  "matrix": [
+    {"scenario": "normal-A", "repetitions_ok": 3, "boots": 3},
+    {"scenario": "normal-B", "repetitions_ok": 3, "boots": 3},
+    {"scenario": "attempt-exhaustion", "repetitions_ok": 3, "boots": 12},
+    {"scenario": "interrupted-publication", "repetitions_ok": 3, "boots": 3},
+    {"scenario": "corrupted-B", "repetitions_ok": 3, "boots": 12},
+    {"scenario": "data-recovery", "repetitions_ok": 3, "boots": 3},
+    {"scenario": "publication-interrupted", "repetitions_ok": 3, "boots": 6},
+    {"scenario": "health-bless", "repetitions_ok": 3, "boots": 6},
+    {"scenario": "health-reject", "repetitions_ok": 3, "boots": 12},
+    {"scenario": "usb-smoke", "repetitions_ok": 3, "boots": 3}
+  ],
+  "matrix_boots": 63,
+  "matrix_healthy_evaluations": 45,
+  "matrix_expected_injected_failures": 18,
+  "invalid_install_signature": {
+    "repetitions_ok": 3,
+    "boots": 3,
+    "target_unchanged": true,
+    "report": ".gaia/reports/20261018T192446Z-28cd9ecc/REPORT.md"
+  },
+  "selftest": {
+    "tests_ok": 213,
+    "seconds": 29.607,
+    "skips": 0,
+    "report": ".gaia/reports/20261018T192446Z-0d538e07/REPORT.md"
+  },
+  "signing_request": {
+    "report": ".gaia/reports/20261018T191315Z-018272b8/REPORT.md",
+    "manifest": ".gaia/reports/20261018T191315Z-018272b8/install-bundle/install-manifest.json",
+    "sha256": "0d0333fc6a7035cb7367b09b1ba160daadc2d1fad99971528a6b62705e25b0a2",
+    "purpose": "lab",
+    "signature_received": false,
+    "human_procedure": "docs/APPLIANCE_FIRMA_INSTALACION_VM.md"
+  },
+  "physical_media_written_by_agent": false,
+  "private_key_used_by_agent": false,
+  "custody_usb_last_metadata_state": {"primary": "closed", "backup": "closed"},
+  "human_custody_independence_confirmation_pending": true,
+  "human_external_record_confirmation_pending": true,
+  "reclaimed_failed_virtual_disks_reports": [
+    ".gaia/reports/20261018T182147Z-1407ce83/REPORT.md",
+    ".gaia/reports/20261018T192115Z-2f5ce62d/REPORT.md"
+  ],
+  "remaining": [
+    "owner signature for the concrete lab image bundle",
+    "three positive USB installations, system repairs and independent boots",
+    "release profile/toolchain removal and final acceptance",
+    "physical S0/S2-S4, NVIDIA validation, benchmark and recovery",
+    "F2-F8 after F1 acceptance"
+  ]
+}

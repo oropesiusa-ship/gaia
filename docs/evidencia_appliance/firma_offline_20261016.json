@@ -1,0 +1,40 @@
+{
+  "status": "PROCEDURE_AND_PUBLIC_VERIFIER_READY_AWAITING_OWNER_KEY",
+  "procedure": "docs/APPLIANCE_FIRMA_OFFLINE.md",
+  "owner_decisions": {
+    "key": "new dedicated GAIA OpenPGP v4 Ed25519 signing primary",
+    "signing_environment": "owner personal trusted PC",
+    "primary_custody": "dedicated LUKS2 USB formerly Ventoy",
+    "backup_custody": "separate LUKS2 USB formerly KALI LINUX",
+    "private_material_on_recovery_hdd": false,
+    "private_key_generated_by_agent": false
+  },
+  "local_checks": {
+    "gaia_public_key_files_present": false,
+    "cryptsetup_binary_available": false,
+    "custody_usb_accessed_by_agent": false,
+    "usb_formatted_by_agent": false,
+    "private_key_read_by_agent": false,
+    "host_packages_installed_by_agent": false
+  },
+  "verifier": {
+    "command": "appliance-verify",
+    "protocol": "gaia-signed-artifacts-v1",
+    "owner_pinned_full_fingerprint_required": true,
+    "private_key_generation_or_signing_supported": false,
+    "real_public_crypto_check": "passed with Debian public Ed25519 signature and tampered-content rejection; not a GAIA owner signature",
+    "real_public_crypto_report": ".gaia/reports/20261016T124245Z-b08e3dd6/REPORT.md",
+    "owner_signature_validated": false,
+    "installer_integration_complete": false
+  },
+  "selftest": {
+    "tests_ok": 191,
+    "new_public_verifier_tests": 8,
+    "seconds": 17.121,
+    "skips": 0,
+    "report": ".gaia/reports/20261016T124320Z-b4935330/REPORT.md"
+  },
+  "human_step_pending": "Generate and back up privately using the procedure; return only public keys, owner-confirmed fingerprint, public SHA256 and custody/backup-test confirmation",
+  "s1_complete": false,
+  "f1_complete": false
+}

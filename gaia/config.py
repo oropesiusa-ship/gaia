@@ -1,0 +1,65 @@
+import copy
+import json
+import os
+from pathlib import Path
+
+DEFAULTS = {
+    # El estado se separa por workload: nunca se comparan ni mezclan campañas distintas.
+    "workload": {"id": "numpy_mlp", "state_dir": "state"},
+    "benchmark_profile": "hard",   # "easy" = MLP rápido (se satura en ~15 experimentos)
+    "limits": {                      # todo ajustable sin tocar código (gaia.json)
+        "max_total_minutes": 60,     # tiempo total de una ejecución de `run`
+        "max_experiment_seconds": 20,
+        "max_ram_mb": 3000,
+        "max_disk_mb": 500,
+        "max_experiments": 100000,
+        "worker_threads": 1,
+    },
+    "acceptance": {
+        "min_gain": 0.05,            # mejora práctica mínima del coste (5 %)
+        "confirm_seeds": 5,
+        "mem_tolerance": 1.25,       # RAM máx. permitida frente al campeón
+        "screen_slack": 1.3,         # tope de cribado = 1.3 x coste del campeón
+        "t_crit_one_sided_95": {"1": 6.314, "2": 2.920, "3": 2.353, "4": 2.132, "5": 2.015,
+                                 "6": 1.943, "7": 1.895, "8": 1.860, "9": 1.833},
+    },
+    "stop": {
+        "plateau_experiments": 80,   # sin mejora verificada -> pide ayuda humana
+        "max_consecutive_infra_errors": 6,
+        "drift_tolerance": 0.35,     # deriva del reloj de referencia -> pide ayuda humana
+        "recalibrate_every": 20,
+        "min_resolvable_s": 0.06,    # por debajo, el ruido domina: benchmark saturado
+        "max_ref_spread": 0.25,
+    },
+    "meta": {"enabled": True, "every": 60, "budget": 20, "seeds": 6, "rounds": 3},
+    "research": {                    # Modo B: investigación autónoma
+        "enabled": True,
+        "trigger_after": 40,         # experimentos sin mejora antes de investigar (además del diagnóstico)
+        "max_hypotheses": 4,         # hipótesis contrastadas por ciclo
+        "min_expected_gain": 0.05,   # cota de Amdahl mínima para que merezca un experimento
+        "profile_batches": 600,
+    },
+    "readiness": {                   # puertas G0-G5 antes de una campaña
+        "reliability_runs": 5, "max_cv": 0.20, "max_warmup_ratio": 1.35,
+        "control_pairs": 5, "require_sandbox": True,
+    },
+}
+
+
+def load(root):
+    cfg = copy.deepcopy(DEFAULTS)
+    root = Path(root).resolve()
+    p = root / "gaia.json"
+    local = os.environ.get("GAIA_LOCAL_CONFIG")
+    # Una configuración administrada pertenece a una raíz concreta. No debe
+    # propagarse a otros proyectos ni a las raíces temporales de los tests.
+    if local and Path(local).resolve().parent == (root / ".gaia" / "configs").resolve():
+        p = Path(local)
+    if p.exists():
+        user = json.loads(p.read_text())
+        for k, v in user.items():
+            if isinstance(v, dict) and k in cfg:
+                cfg[k].update(v)
+            else:
+                cfg[k] = v
+    return cfg

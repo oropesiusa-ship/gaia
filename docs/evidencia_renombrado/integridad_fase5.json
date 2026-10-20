@@ -1,0 +1,77 @@
+{
+  "status": "STATE_INTEGRITY_OK",
+  "state": "state_gaia_transformer_cuda_df1f7863934daabc",
+  "baseline_sha256": "d0b32da1824bee59bf942d85f707dc8710247f4c0ce52afcdb2dc7a0125cad9a",
+  "target_loss": 0.2596790841227193,
+  "reference_cost_s": 4.019073079005466,
+  "versions": [
+    "v0000"
+  ],
+  "champion": "v0000",
+  "ledger_records": 16,
+  "experiments": [
+    {
+      "id": "e00001",
+      "decision": "rejected"
+    },
+    {
+      "id": "e00002",
+      "decision": "aborted"
+    }
+  ],
+  "gates": {
+    "G0_runtime": true,
+    "G1_correctness": true,
+    "G2_reliability": true,
+    "G3_integrity": true,
+    "G4_controls": true,
+    "G5_budget": true
+  },
+  "strategy": {
+    "version": 1,
+    "ucb_c": 1.0,
+    "p_global": 0.1,
+    "small_model_prior": 0.3
+  },
+  "meta_completed": {
+    "evidence": "/home/mingororo/Projects/GAIA/.gaia/reports/20261016T080758Z-b50b1272/meta/result.json",
+    "adopted": true,
+    "protocol_digest": "5ea0c743ad926fdf53ac6b33de5d2b94b43d2a76600e2d790fa4742b646c38aa"
+  },
+  "holdout_reuse_rejected": "Holdout v1 ya consumido; consultar el informe. Otro ajuste requiere nuevas tareas/protocolo.",
+  "meta_summary": {
+    "selected": {
+      "version": 1,
+      "ucb_c": 1.0,
+      "p_global": 0.1,
+      "small_model_prior": 0.3
+    },
+    "conclusion": "verified_transfer_on_cached_tasks",
+    "tuning_comparison": {
+      "mean_auc_diff": -0.0613707735129768,
+      "lower": -0.09488542819665545,
+      "upper": -0.027856118829298157,
+      "n": 20,
+      "critical": 3.0,
+      "supported": true
+    },
+    "transfer_comparisons": {
+      "previous": {
+        "mean_auc_diff": -0.05730434417222668,
+        "lower": -0.06809443164140322,
+        "upper": -0.046514256703050136,
+        "n": 40,
+        "critical": 2.023,
+        "supported": true
+      },
+      "random": {
+        "mean_auc_diff": -0.06412628990701556,
+        "lower": -0.07686725562914466,
+        "upper": -0.05138532418488646,
+        "n": 40,
+        "critical": 2.023,
+        "supported": true
+      }
+    }
+  }
+}

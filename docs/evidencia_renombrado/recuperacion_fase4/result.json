@@ -1,0 +1,11 @@
+{
+  "status": "RECOVERY_VERIFIED",
+  "interrupted_id": "e00002",
+  "next_id": 3,
+  "champion_before": "v0000",
+  "champion_after": "v0000",
+  "killed_pid": 44858,
+  "child_returncode": -9,
+  "recovered": 1,
+  "partial_directories_removed": 1
+}

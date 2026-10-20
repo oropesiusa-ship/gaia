@@ -1,0 +1,24 @@
+{
+  "schema": "gaia-signed-artifacts-v1",
+  "purpose": "lab",
+  "kind": "gaia-custody-backup-check-v1",
+  "challenge": "owner-public-key-validation/20261016T133757Z-78fc1d87",
+  "signing_fingerprint": "6BF5C62DC530889F3D7C644F678D00EC8B5BF748",
+  "artifacts": [
+    {
+      "name": "gaia-release-signing.pub.asc",
+      "bytes": 409,
+      "sha256": "b615950bc31e716939fb61b34abdb5bd6d4dd8d24d4105fa9e6ecff32de907fe"
+    },
+    {
+      "name": "gaia-release-signing.pub.gpg",
+      "bytes": 242,
+      "sha256": "a358214217109bc06bd0c7d684962ca87b8555099f063175b068654f250f138f"
+    },
+    {
+      "name": "gaia-release-signing.fingerprint.txt",
+      "bytes": 41,
+      "sha256": "70449f4493cf01c4809c32e0e729af5c3b11b99dff10e5d6e87ef33d998bb42a"
+    }
+  ]
+}

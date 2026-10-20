@@ -1,0 +1,131 @@
+[bootstrap] FAILED: /tmp/tmphwg3ewo5/.gaia/reports/20261016T082027Z-b3287ea0/REPORT.md
+[bootstrap] No hay perfil compatible con este workload/SO/arquitectura/Python.
+[bootstrap] download test.whl
+[bootstrap] download test.whl
+[bootstrap] download bad.whl
+STOP creado: GAIA se detendrá antes del siguiente experimento.
+STOP eliminado.
+[bootstrap] install
+[bootstrap] FAILED: /tmp/tmpi2nu1jnl/.gaia/reports/20261016T082027Z-4657d0cd/REPORT.md
+[bootstrap] El proceso terminó con código 7.
+[bootstrap] probe
+[bootstrap] FAILED: /tmp/tmp2zvvbebz/.gaia/reports/20261016T082027Z-c512b70a/REPORT.md
+[bootstrap] Tiempo límite de 0.1s agotado.
+[bootstrap] GAIA_TRANSFORMER_BASELINE_READY: /tmp/tmpo6asawmq/.gaia/reports/20261016T082039Z-814dc6a4/REPORT.md
+[bootstrap] FAILED: /tmp/tmp7qpsj0j3/.gaia/reports/20261016T082039Z-cb26c1f2/REPORT.md
+[bootstrap] La verificación no confirmó la baseline.
+[bootstrap] GPU_LAB_READY: /tmp/tmpw_n79a55/.gaia/reports/20261016T082039Z-8ec8881b/REPORT.md
+[bootstrap] FAILED: /tmp/tmpue59mohu/.gaia/reports/20261016T082039Z-788baa89/REPORT.md
+[bootstrap] El laboratorio GPU no pasó su validación.
+[bootstrap] GPU_META_COMPLETE: /tmp/tmpwk5tn0w_/.gaia/reports/20261016T082040Z-008c6c74/REPORT.md
+[bootstrap] FAILED: /tmp/tmp6btdmswf/.gaia/reports/20261016T082040Z-b9e52e87/REPORT.md
+[bootstrap] Estudio de transferencia incompleto.
+[bootstrap] GPU_OBSERVATION_READY: /tmp/tmpwz0fjq_i/.gaia/reports/20261016T082042Z-40984d28/REPORT.md
+[bootstrap] FAILED: /tmp/tmphp4o5ofh/.gaia/reports/20261016T082042Z-3ce97a5a/REPORT.md
+[bootstrap] Observación GPU incompleta.
+[bootstrap] GPU_RESEARCH_COMPLETE: /tmp/tmpgesxo_9x/.gaia/reports/20261016T082042Z-5d7cef80/REPORT.md
+[bootstrap] FAILED: /tmp/tmp9urwdrwm/.gaia/reports/20261016T082042Z-5eb5290c/REPORT.md
+[bootstrap] Investigación GPU incompleta.
+....................../home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_4oym8z11/state/tmp/trial_rtynd7s_/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name=6>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedReader name=7>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_4oym8z11/state/tmp/trial_uk70tsue/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_4oym8z11/state/tmp/trial_n9vjw6sh/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_4oym8z11/state/tmp/trial_0mjads1_/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_4oym8z11/state/tmp/trial_sdjfpj40/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_4oym8z11/state/tmp/trial_krgqlc8v/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_426qss3_/state/tmp/trial_mii4gyla/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_426qss3_/state/tmp/trial_k1hkyfdb/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/gaia/engine.py:79: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_root_426qss3_/state/tmp/trial_5grbkwof/stderr.txt'>
+  return evaluator.run_trial(src, self.bench, task, seed, seed, cap, self.lim,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.../home/mingororo/Projects/GAIA/tests/test_core.py:90: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_test_twpdf9tv/trial_r1gxur08/stderr.txt'>
+  r = evaluator.run_trial(G.render(G.new_genome()), BENCH, "main", 0, 0, 20, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:90: ResourceWarning: unclosed file <_io.BufferedWriter name=6>
+  r = evaluator.run_trial(G.render(G.new_genome()), BENCH, "main", 0, 0, 20, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:90: ResourceWarning: unclosed file <_io.BufferedReader name=7>
+  r = evaluator.run_trial(G.render(G.new_genome()), BENCH, "main", 0, 0, 20, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../home/mingororo/Projects/GAIA/tests/test_core.py:98: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_test_twpdf9tv/trial_kvcdlwme/stderr.txt'>
+  a = evaluator.run_trial(src, BENCH, "main", 3, 3, 20, LIM, TMP, target=2.0, max_batches=300)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:98: ResourceWarning: unclosed file <_io.BufferedWriter name=6>
+  a = evaluator.run_trial(src, BENCH, "main", 3, 3, 20, LIM, TMP, target=2.0, max_batches=300)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:98: ResourceWarning: unclosed file <_io.BufferedReader name=7>
+  a = evaluator.run_trial(src, BENCH, "main", 3, 3, 20, LIM, TMP, target=2.0, max_batches=300)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:99: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_test_twpdf9tv/trial_z233bu1m/stderr.txt'>
+  b = evaluator.run_trial(src, BENCH, "main", 3, 3, 20, LIM, TMP, target=2.0, max_batches=300)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:99: ResourceWarning: unclosed file <_io.BufferedWriter name=6>
+  b = evaluator.run_trial(src, BENCH, "main", 3, 3, 20, LIM, TMP, target=2.0, max_batches=300)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:99: ResourceWarning: unclosed file <_io.BufferedReader name=7>
+  b = evaluator.run_trial(src, BENCH, "main", 3, 3, 20, LIM, TMP, target=2.0, max_batches=300)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/mingororo/Projects/GAIA/tests/test_core.py:121: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_test_twpdf9tv/trial_dzt76olo/stderr.txt'>
+  r = evaluator.run_trial(slow, BENCH, "main", 0, 0, 0.3, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:121: ResourceWarning: unclosed file <_io.BufferedWriter name=6>
+  r = evaluator.run_trial(slow, BENCH, "main", 0, 0, 0.3, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:121: ResourceWarning: unclosed file <_io.BufferedReader name=7>
+  r = evaluator.run_trial(slow, BENCH, "main", 0, 0, 0.3, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./home/mingororo/Projects/GAIA/tests/test_core.py:110: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_test_twpdf9tv/trial_wn4u4ag0/stderr.txt'>
+  r = evaluator.run_trial(bad, BENCH, "main", 0, 0, 5, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:110: ResourceWarning: unclosed file <_io.BufferedWriter name=6>
+  r = evaluator.run_trial(bad, BENCH, "main", 0, 0, 5, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:110: ResourceWarning: unclosed file <_io.BufferedReader name=7>
+  r = evaluator.run_trial(bad, BENCH, "main", 0, 0, 5, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:114: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/gaia_test_twpdf9tv/trial_9zklh1gh/stderr.txt'>
+  r = evaluator.run_trial(crash, BENCH, "main", 0, 0, 5, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:114: ResourceWarning: unclosed file <_io.BufferedWriter name=6>
+  r = evaluator.run_trial(crash, BENCH, "main", 0, 0, 5, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_core.py:114: ResourceWarning: unclosed file <_io.BufferedReader name=7>
+  r = evaluator.run_trial(crash, BENCH, "main", 0, 0, 5, LIM, TMP)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.............................................................................................[Modo B GPU] optimizer_foreach: supported
+[Modo B GPU] clip_foreach: pruned
+.............../home/mingororo/Projects/GAIA/tests/test_research.py:35: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpmx9n9fvk/trial_3c3w2zsd/stderr.txt'>
+  r = ev.run_trial(G.render(G.new_genome()), json.loads(json.dumps(benchmark.DEFAULT_SPEC)), "main",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_research.py:35: ResourceWarning: unclosed file <_io.BufferedWriter name=35>
+  r = ev.run_trial(G.render(G.new_genome()), json.loads(json.dumps(benchmark.DEFAULT_SPEC)), "main",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/mingororo/Projects/GAIA/tests/test_research.py:35: ResourceWarning: unclosed file <_io.BufferedReader name=36>
+  r = ev.run_trial(G.render(G.new_genome()), json.loads(json.dumps(benchmark.DEFAULT_SPEC)), "main",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.......
+----------------------------------------------------------------------
+Ran 145 tests in 16.902s
+
+OK

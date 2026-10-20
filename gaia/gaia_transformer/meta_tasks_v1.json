@@ -1,0 +1,18 @@
+{
+  "periodic_tune": {
+    "task": "periodic_tune", "generator": "structured_bytes/v1", "context": 64,
+    "splits": {
+      "train": "3abd85feda06aea7f0dd6b6fc6058a20c039a19af20931b6a46164c59c1833c8",
+      "validation": "7970f4f848afb155aeb4b9646d484614349611a5b121ddbd295506a7ad249359"
+    },
+    "sha256": "bbab09a6815715b1f08ae59fce88f204968761f7e176017f93ceb3fa853f9d4f"
+  },
+  "counter_holdout": {
+    "task": "counter_holdout", "generator": "counter_bytes/v1", "context": 64,
+    "splits": {
+      "train": "eccdd595beb306e1f290c3701c9180d49268c9ac7a47104191df7df8025c1594",
+      "validation": "113748c32b4c8814a0305c4951f39c0c160cce52bb5d9a4fbef9ff60ce59cf5e"
+    },
+    "sha256": "8c42b5dee0ad43f44f653f23cf514f0abba56a6c190e2ddef691262c7ee559a7"
+  }
+}

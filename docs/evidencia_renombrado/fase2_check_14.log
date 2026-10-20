@@ -1,0 +1,8 @@
+usage: gaia.py [-h] [--profile PROFILE]
+
+Compara estrategias en ajuste y tarea reservada GPU, con presupuestos
+equivalentes.
+
+options:
+  -h, --help         show this help message and exit
+  --profile PROFILE  perfil del catálogo, por defecto selección automática
