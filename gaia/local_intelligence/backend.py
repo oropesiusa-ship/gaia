@@ -162,7 +162,8 @@ class IsolatedRuntimeAdapter(LocalIntelligenceBackend):
 
     def capabilities(self):
         return {'generate':True,'structured_generate':'PARSE_AND_VALIDATE_NOT_GUARANTEED_GRAMMAR','count_tokens':'WHEN_RUNTIME_ENDPOINT_AVAILABLE',
-                'tools':'FORMAT_ONLY_NO_EXECUTION','outbound_network':False,'stream_metrics':True}
+                'tools':'FORMAT_ONLY_NO_EXECUTION','outbound_network':False,'stream_metrics':True,
+                'max_context_tokens':self.stack['context'],'max_generation_tokens':self.budget['max_generation_tokens']}
 
     def metrics(self):
         return dict(self.telemetry)
