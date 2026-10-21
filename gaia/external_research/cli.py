@@ -3,10 +3,11 @@ import json
 from pathlib import Path
 
 from .. import config
-from .engine import acquire, analyze, replay
+from .engine import acquire, analyze, attach_acquisition, replay, validate_acquisition
 from .report import render
 from .request import create, observation_context
-from .schema import reference
+from .schema import artifact, reference
+from .policy import identity, settings
 from .store import ResearchStore
 
 
@@ -33,6 +34,8 @@ def register(sub, root):
             parser.add_argument("--source-class", action="append")
             parser.add_argument("--authorize-network", action="store_true")
             parser.add_argument("--freshness", default="MEDIUM")
+            parser.add_argument("--minimum-sources", type=int, default=1)
+            parser.add_argument("--require-version", action="store_true")
             parser.add_argument("--observation", type=Path)
             parser.add_argument("--strategy", type=Path)
             parser.add_argument("--diagnosis", type=Path)
@@ -44,6 +47,7 @@ def register(sub, root):
             parser.add_argument("request")
             parser.add_argument("--source", type=Path, action="append", required=True)
             parser.add_argument("--run", type=Path, help="Captured run to verify deterministically; no network")
+            parser.add_argument("--acquisition", type=Path, help="Captured fetch-phase artifact when replaying a network run")
         elif name in ("research-request", "research-source", "research-conclusion"):
             parser.add_argument("id")
         parser.set_defaults(f=lambda args, command=name: run(root, command, args), external_research_command=True)
@@ -70,7 +74,8 @@ def run(root, command, args):
                 refs.append({"kind": "DIAGNOSIS", "id": diagnosis["diagnosis_id"], "hash": diagnosis["diagnosis_hash"]})
             value = store.put(create(args.question, args.url, topics=args.topic, context=context, refs=refs,
                                      allowed_domains=args.domain, allowed_classes=args.source_class,
-                                     network_authorized=args.authorize_network, freshness=args.freshness, configuration=cfg))
+                                     network_authorized=args.authorize_network, freshness=args.freshness,
+                                     evidence_requirements={"minimum_sources": args.minimum_sources, "require_primary": True, "require_version": args.require_version}, configuration=cfg))
             output = "Research request " + value["artifact_id"] + " network_authorized=" + str(value["payload"]["network_authorized"])
         elif command in ("research-fetch", "research-run"):
             req = request(args.request)
@@ -78,17 +83,23 @@ def run(root, command, args):
                 cfg = {**cfg, "external_research": {**cfg.get("external_research", {}), "network_enabled": True}}
             store.put(req)
             sources, acquisition = acquire(req, store, cfg, offline=args.offline)
+            acquisition_artifact = artifact("ACQUISITION", {"request_ref": reference(req), "policy": identity(settings(cfg)), "result": acquisition})
+            validate_acquisition(req, acquisition_artifact)
+            store.put(acquisition_artifact)
             if command == "research-fetch":
-                value = {"request_ref": reference(req), "sources": [reference(s) for s in sources], "acquisition": acquisition}
+                value = {"request_ref": reference(req), "sources": [reference(s) for s in sources], "acquisition": acquisition, "acquisition_ref": reference(acquisition_artifact)}
                 output = json.dumps(value, indent=2)
             else:
-                value = analyze(req, sources)
+                value = attach_acquisition(analyze(req, sources), reference(acquisition_artifact))
                 store.save_run(value, req, sources)
                 output = render(value) + "\nACQUISITION: " + str(acquisition)
         elif command == "research-replay":
             req = request(args.request)
             sources = [load(p) for p in args.source]
             value = replay(req, sources, load(args.run)) if args.run else analyze(req, sources)
+            if args.acquisition:
+                acquisition = validate_acquisition(req, load(args.acquisition))
+                store.put(acquisition)
             store.save_run(value, req, sources)
             output = render(value)
         elif command in ("research-request", "research-source", "research-conclusion"):

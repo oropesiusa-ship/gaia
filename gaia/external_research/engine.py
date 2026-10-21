@@ -1,5 +1,7 @@
 """FETCH is separate from deterministic EXTRACT / ASSESS / CONCLUDE and offline replay."""
 import time
+from datetime import datetime
+import re
 
 from ..provenance import digest
 from .assessment import assess, assess_sources
@@ -11,6 +13,56 @@ from .policy import identity, settings
 from .request import validate_request
 from .schema import artifact, reference, timestamp
 from .search import DirectURLs
+
+
+def attach_acquisition(run, acquisition_ref):
+    if set(acquisition_ref) != {"id", "hash"} or not re.fullmatch(r"ac[a-f0-9]{24}", acquisition_ref["id"]) or not re.fullmatch(r"[a-f0-9]{64}", acquisition_ref["hash"]):
+        raise ValueError("Invalid acquisition reference")
+    value = dict(run)
+    value["acquisition_ref"] = dict(acquisition_ref)
+    old = value["conclusion"]
+    value["conclusion"] = artifact("CONCLUSION", {**old["payload"], "acquisition_ref": dict(acquisition_ref)},
+                                    created_at=old["created_at"], limitations=old["limitations"])
+    value["run_hash"] = digest({k: v for k, v in value.items() if k != "run_hash"})
+    return value
+
+
+def validate_acquisition(request, value):
+    from .schema import validate
+    from .policy import settings, identity
+    validate(value)
+    if value["kind"] != "ACQUISITION" or set(value["payload"]) != {"request_ref", "policy", "result"} or value["payload"]["request_ref"] != reference(request):
+        raise ValueError("Wrong acquisition request reference")
+    p = value["payload"]
+    cfg = settings({"external_research": p["policy"]["settings"]})
+    result = p["result"]
+    if p["policy"] != identity(cfg) or set(result) != {"mode", "events", "requests", "wire_bytes", "decoded_bytes", "duration_s", "stop_condition"}:
+        raise ValueError("Invalid acquisition metadata")
+    if result["mode"] not in ("OFFLINE_CACHE_ONLY", "EXPLICIT_FETCH") or result["stop_condition"] not in ("BUDGET_OR_AUTHORIZATION_LIMIT", "SOURCE_SET_EXHAUSTED"):
+        raise ValueError("Invalid acquisition mode")
+    for key, maximum in (("requests", request["payload"]["budget"]["max_requests"]), ("wire_bytes", request["payload"]["budget"]["max_total_bytes"] + cfg["max_response_bytes"]),
+                         ("decoded_bytes", request["payload"]["budget"]["max_total_bytes"] + cfg["max_decompressed_bytes"])):
+        if type(result[key]) is not int or not 0 <= result[key] <= maximum:
+            raise ValueError("Invalid acquisition accounting")
+    if result["requests"] and (not cfg["network_enabled"] or not request["payload"]["network_authorized"] or result["mode"] != "EXPLICIT_FETCH"):
+        raise ValueError("Acquisition exceeded network authorization")
+    if len({e["url"] for e in result["events"]}) != len(result["events"]):
+        raise ValueError("Duplicate acquisition URL event")
+    for event in result["events"]:
+        if event["url"] not in request["payload"]["urls"] or event["phase"] != "FETCH" or event["status"] not in ("CACHE", "FETCHED", "UNAVAILABLE", "ERROR"):
+            raise ValueError("Invalid acquisition scope/event")
+        if event["status"] in ("CACHE", "FETCHED"):
+            ref = event["source_ref"]
+            if not re.fullmatch(r"src[a-f0-9]{24}", ref["id"]) or not re.fullmatch(r"[a-f0-9]{64}", ref["hash"]):
+                raise ValueError("Invalid acquisition source reference")
+            if event["status"] == "CACHE":
+                age = (datetime.fromisoformat(event["cache_checked_at"]) - datetime.fromisoformat(event["retrieved_at"])).total_seconds()
+                maximum_age = min(cfg["cache_max_age_seconds"], cfg["high_freshness_cache_seconds"]) if request["payload"]["freshness"] == "HIGH" else cfg["cache_max_age_seconds"]
+                if not 0 <= age <= maximum_age:
+                    raise ValueError("Stale cache treated as fresh acquisition")
+        elif not re.fullmatch(r"[A-Z_]{3,80}", event["reason"]):
+            raise ValueError("Unsanitized acquisition failure")
+    return value
 
 
 def validate_sources(request, sources):
@@ -58,12 +110,19 @@ def analyze(request, sources, *, analysis_at=None):
         else:
             unsupported.append({"claim_ref": p["claim_ref"], "reason": "NOT_LOCALLY_APPLICABLE" if p["applicability"] == "NOT_APPLICABLE" else "LIMITED_EXTERNAL_SUPPORT_OR_CONTEXT"})
     found_topics = {c["payload"]["topic"] for c in claims}
+    requirements = request["payload"]["evidence_requirements"]
+    primary_topics = {c["payload"]["topic"] for c in claims if c["payload"]["source_class"].startswith("PRIMARY_")}
+    requirements_met = (found_topics == set(request["payload"]["topics"]) and len(sources) >= requirements["minimum_sources"]
+                        and (not requirements["require_primary"] or primary_topics == set(request["payload"]["topics"]))
+                        and (not requirements["require_version"] or all(c["payload"]["context"]["version"] for c in claims)))
     unknowns = ["LOCAL_BUILD_OR_EXPERIMENTAL_VALIDATION_NOT_ESTABLISHED", "PUBLISHER_INDEPENDENCE_NOT_PROVEN_BY_DISTINCT_URLS"]
     unknowns += ["NO_CATALOG_SUPPORT:" + t for t in request["payload"]["topics"] if t not in found_topics]
     if any(e["payload"]["publication_date"] is None for e in extractions):
         unknowns.append("VERIFIED_PUBLICATION_DATE_UNAVAILABLE")
     if failures:
         unknowns.append("PASSIVE_EXTRACTION_FAILED_FOR_SOME_CAPTURED_SOURCES")
+    if not requirements_met:
+        unknowns.append("REQUEST_EVIDENCE_REQUIREMENTS_NOT_SATISFIED")
     conclusion = artifact("CONCLUSION", {"request_ref": reference(request), "question": request["payload"]["question"],
                          "mode": "EVIDENCE_ONLY_MODE", "supported_claims": supported, "unsupported_claims": unsupported,
                          "unresolved_claims": unresolved, "contradictions": contradictions, "unknowns": unknowns,
@@ -73,7 +132,8 @@ def analyze(request, sources, *, analysis_at=None):
                          "confidence": "LOW" if contradictions else "MEDIUM" if any(a["payload"]["confidence"] in ("MEDIUM", "HIGH") and a["payload"]["claim_ref"] in supported for a in assessments) else "LOW" if supported else "VERY_LOW",
                          "applicability": [{"claim_ref": a["payload"]["claim_ref"], "status": a["payload"]["applicability"], "reasons": a["payload"]["applicability_reasons"]} for a in assessments],
                          "recommendation_status": "NOT_AUTHORIZED", "locally_verified_knowledge_created": False,
-                         "stop_condition": "CONTRADICTION_REQUIRES_RESOLUTION" if contradictions else "EVIDENCE_REQUIREMENTS_SATISFIED" if found_topics == set(request["payload"]["topics"]) else "NO_USEFUL_SOURCES"},
+                         "evidence_requirements_met": requirements_met,
+                         "stop_condition": "CONTRADICTION_REQUIRES_RESOLUTION" if contradictions else "EVIDENCE_REQUIREMENTS_SATISFIED" if requirements_met else "NO_USEFUL_SOURCES"},
                          created_at=analysis_at, limitations=["External report/corroboration never bypasses local hypothesis, experiment, replication and protected evaluation.",
                                                               "Unsupported for this context does not mean the external proposition is false.",
                                                               "No solution applied, experiment executed or configuration/evaluator modified.",
@@ -91,6 +151,8 @@ def replay(request, sources, original_run):
     if original_run["run_hash"] != digest({k: v for k, v in original_run.items() if k != "run_hash"}):
         raise ValueError("Research run hash mismatch")
     value = analyze(request, sources, analysis_at=original_run["analysis_at"])
+    if original_run.get("acquisition_ref"):
+        value = attach_acquisition(value, original_run["acquisition_ref"])
     excluded = {"run_hash", "cost"}
     if {k: v for k, v in value.items() if k not in excluded} != {k: v for k, v in original_run.items() if k not in excluded}:
         raise ValueError("Offline interpretation differs from captured run")
@@ -106,7 +168,8 @@ def acquire(request, store, configuration=None, *, provider=None, offline=False)
     if len(urls) > request["payload"]["budget"]["max_sources"] or any(u not in request["payload"]["urls"] for u in urls):
         raise ValueError("Provider exceeded explicit research scope")
     for url in dict.fromkeys(urls):
-        cached = store.cached(url, request["payload"]["freshness"], configuration, timestamp())
+        checked_at = timestamp()
+        cached = store.cached(url, request["payload"]["freshness"], configuration, checked_at)
         if cached:
             try:
                 validate_sources(request, sources + [cached])
@@ -114,7 +177,7 @@ def acquire(request, store, configuration=None, *, provider=None, offline=False)
                 cached = None
         if cached:
             sources.append(cached)
-            events.append({"url": url, "phase": "FETCH", "status": "CACHE", "source_ref": reference(cached), "retrieved_at": cached["created_at"]})
+            events.append({"url": url, "phase": "FETCH", "status": "CACHE", "source_ref": reference(cached), "retrieved_at": cached["created_at"], "cache_checked_at": checked_at})
             continue
         if offline:
             events.append({"url": url, "phase": "FETCH", "status": "UNAVAILABLE", "reason": "OFFLINE_CACHE_MISS"})

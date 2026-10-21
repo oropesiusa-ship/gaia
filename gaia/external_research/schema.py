@@ -9,7 +9,7 @@ from .policy import VERSION
 SCHEMA = "gaia_external_research_v1"
 BOUNDARY = {"type": "UNTRUSTED_EXTERNAL_CONTENT", "untrusted": True, "instruction_authority": "NONE"}
 REQUEST_BOUNDARY = {"type": "USER_RESEARCH_REQUEST", "untrusted": False, "instruction_authority": "REQUEST_SCOPE_ONLY"}
-PREFIXES = {"REQUEST": "rq", "SOURCE": "src", "EXTRACTION": "ex", "CLAIM": "cl", "ASSESSMENT": "as", "CONCLUSION": "rc", "CACHE": "ca"}
+PREFIXES = {"REQUEST": "rq", "SOURCE": "src", "EXTRACTION": "ex", "CLAIM": "cl", "ASSESSMENT": "as", "CONCLUSION": "rc", "CACHE": "ca", "ACQUISITION": "ac"}
 
 
 def timestamp():
