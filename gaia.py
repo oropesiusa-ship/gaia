@@ -215,6 +215,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.epilog = "Arranque automático: bootstrap | doctor | appliance-bootstrap | appliance-rootfs | appliance-image | appliance-verify | appliance-recovery | gaia-transformer-baseline | gaia-transformer-lab | gaia-transformer-benchmark | gaia-transformer-prepare | gaia-transformer-run | gaia-transformer-observe | gaia-transformer-research | gaia-transformer-meta. --no-bootstrap delante del comando usa el runtime/estado manual."
     sub = p.add_subparsers(dest="cmd", required=True)
+    if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "research-create", "research-fetch", "research-run", "research-replay", "research-requests", "research-request", "research-sources", "research-source", "research-claims", "research-conclusion"):
+        from gaia.external_research.cli import register as register_external_research
+        register_external_research(sub, ROOT)
     if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "plan-experiments", "experiment-strategies", "experiment-strategy", "strategy-metrics"):
         from gaia.experiment_strategy.cli import register as register_meta_strategy
         register_meta_strategy(sub, ROOT)
@@ -261,7 +264,7 @@ def main():
     pr.add_argument("--seeds", type=int, default=12)
     pr.set_defaults(f=cmd_prove)
     a = p.parse_args()
-    if any(getattr(a, name, False) for name in ("observation_command", "diagnosis_command", "priority_command", "learning_command", "meta_strategy_command")):
+    if any(getattr(a, name, False) for name in ("observation_command", "diagnosis_command", "priority_command", "learning_command", "meta_strategy_command", "external_research_command")):
         sys.exit(a.f(a) or 0)
     # El help y el bootstrap funcionan incluso sin NumPy en el Python de arranque.
     global config, engine, readiness, report
