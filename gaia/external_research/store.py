@@ -11,7 +11,7 @@ from ..provenance import canonical_json, digest
 from .schema import PREFIXES, artifact, reference, validate
 
 DIRECTORIES = {"REQUEST": "requests", "SOURCE": "sources", "EXTRACTION": "extractions", "CLAIM": "claims",
-               "ASSESSMENT": "assessments", "CONCLUSION": "conclusions", "CACHE": "cache"}
+               "ASSESSMENT": "assessments", "CONCLUSION": "conclusions", "CACHE": "cache", "ACQUISITION": "acquisitions"}
 
 
 class ResearchStore:
@@ -126,6 +126,10 @@ class ResearchStore:
         if run["run_hash"] != digest({k: v for k, v in run.items() if k != "run_hash"}) or run["request_ref"] != reference(request):
             raise ValueError("Research run hash mismatch")
         self.put(request)
+        if run.get("acquisition_ref"):
+            acquisition = self.read(run["acquisition_ref"]["id"])
+            if acquisition["kind"] != "ACQUISITION" or reference(acquisition) != run["acquisition_ref"] or acquisition["payload"]["request_ref"] != reference(request):
+                raise ValueError("Research acquisition phase reference mismatch")
         for source in sources:
             self.cache_source(source)
         for category in ("extractions", "claims", "assessments", "source_assessments"):

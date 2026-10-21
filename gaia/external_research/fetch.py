@@ -83,21 +83,21 @@ class Fetcher:
                 break
             wire.extend(chunk)
             self.wire_bytes += len(chunk)
-            if len(wire) > maximum:
-                raise FetchError("RESPONSE_TOO_LARGE")
             allowed_total = min(self.cfg["max_total_bytes"], self.request["payload"]["budget"]["max_total_bytes"])
             if self.wire_bytes > allowed_total:
                 raise FetchError("TOTAL_BYTE_BUDGET_EXHAUSTED")
+            if len(wire) > maximum:
+                raise FetchError("RESPONSE_TOO_LARGE")
             try:
                 decoded = decoder.decompress(chunk, self.cfg["max_decompressed_bytes"] - size + 1) if decoder else chunk
             except zlib.error as exc:
                 raise FetchError("INVALID_COMPRESSED_CONTENT") from exc
             size += len(decoded)
             self.decoded_bytes += len(decoded)
-            if size > self.cfg["max_decompressed_bytes"]:
-                raise FetchError("DECOMPRESSED_TOO_LARGE")
             if self.decoded_bytes > allowed_total:
                 raise FetchError("TOTAL_DECODED_BUDGET_EXHAUSTED")
+            if size > self.cfg["max_decompressed_bytes"]:
+                raise FetchError("DECOMPRESSED_TOO_LARGE")
             chunks.append(decoded)
         if decoder and (not decoder.eof or decoder.unused_data or decoder.unconsumed_tail):
             raise FetchError("TRUNCATED_OR_MULTIPART_GZIP_DENIED")

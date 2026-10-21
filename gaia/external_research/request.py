@@ -25,7 +25,7 @@ def valid_context(value):
 
 
 def create(question, urls, *, topics, context=None, refs=(), allowed_domains=(), allowed_classes=None,
-           network_authorized=False, allow_http=False, budget=None, freshness="MEDIUM", configuration=None, created_at=None):
+           network_authorized=False, allow_http=False, budget=None, freshness="MEDIUM", evidence_requirements=None, configuration=None, created_at=None):
     cfg = settings(configuration)
     if not isinstance(question, str) or not 8 <= len(question) <= 500 or any(ord(c) < 32 for c in question):
         raise ValueError("Explicit bounded research question required")
@@ -49,6 +49,14 @@ def create(question, urls, *, topics, context=None, refs=(), allowed_domains=(),
             raise ValueError("Request may only restrict global budgets")
     if not normalized or len(normalized) > requested["max_sources"]:
         raise ValueError("Explicit URL set exceeds source budget")
+    requirements = {"minimum_sources": 1, "require_primary": True, "require_version": False}
+    if evidence_requirements:
+        if set(evidence_requirements) - requirements.keys():
+            raise ValueError("Unknown evidence requirement")
+        requirements.update(evidence_requirements)
+    if (type(requirements["minimum_sources"]) is not int or not 1 <= requirements["minimum_sources"] <= len(normalized)
+            or type(requirements["require_primary"]) is not bool or type(requirements["require_version"]) is not bool):
+        raise ValueError("Invalid evidence requirements")
     classes = sorted(allowed_classes or SOURCE_CLASSES)
     if set(classes) - SOURCE_CLASSES:
         raise ValueError("Unknown source class")
@@ -62,7 +70,7 @@ def create(question, urls, *, topics, context=None, refs=(), allowed_domains=(),
              "CUDA_MIN_COMPUTE_CAPABILITY": ["CUDA", "compute capability", "requirements"]}
     payload = {"question": question, "urls": normalized, "topics": sorted(set(topics)), "context": context or {}, "refs": safe_refs,
                "allowed_source_classes": classes, "allowed_domains": allowed_domains, "budget": requested, "freshness": freshness,
-               "network_authorized": network_authorized, "allow_http": allow_http, "policy": identity(cfg),
+               "network_authorized": network_authorized, "allow_http": allow_http, "policy": identity(cfg), "evidence_requirements": requirements,
                "search_plan": {"provider": "EXPLICIT_URLS_OR_LOCAL_REPLAY", "terms": sorted({t for topic in topics for t in terms[topic]}),
                                "evidence_needed": ["EXACT_QUOTE", "SOURCE_IDENTITY", "VERSION_OR_SCOPE_WHEN_KNOWN"],
                                "stop_conditions": ["EVIDENCE_REQUIREMENTS_SATISFIED", "BUDGET_EXHAUSTED", "CONTRADICTION_REQUIRES_RESOLUTION", "NO_USEFUL_SOURCES"]}}
@@ -78,6 +86,7 @@ def validate_request(value):
     reproduced = create(p["question"], p["urls"], topics=p["topics"], context=p["context"], refs=p["refs"],
                         allowed_domains=p["allowed_domains"], allowed_classes=p["allowed_source_classes"],
                         network_authorized=p["network_authorized"], allow_http=p["allow_http"], budget=p["budget"], freshness=p["freshness"],
+                        evidence_requirements=p["evidence_requirements"],
                         configuration={"external_research": p["policy"]["settings"]}, created_at=value["created_at"])
     if reproduced != value:
         raise ValueError("Research request identity/policy mismatch")
