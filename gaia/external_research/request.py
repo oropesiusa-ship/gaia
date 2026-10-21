@@ -7,7 +7,7 @@ from .network import normalize_url
 from .policy import SOURCE_CLASSES, identity, settings
 from .schema import artifact, reference, validate
 
-TOPICS = {"PYTHON_GIL_CPU_THREADING", "PYTHON_FREE_THREADED_BUILD", "CUDA_MIN_COMPUTE_CAPABILITY"}
+TOPICS = {"PYTHON_GIL_CPU_THREADING", "PYTHON_FREE_THREADED_BUILD", "CUDA_MIN_COMPUTE_CAPABILITY", "LOCAL_INFERENCE_ECOSYSTEM"}
 FRESHNESS = {"NONE", "LOW", "MEDIUM", "HIGH"}
 CONTEXT = {"python_version", "python_implementation", "cuda_compute_capability", "workload"}
 
@@ -67,7 +67,8 @@ def create(question, urls, *, topics, context=None, refs=(), allowed_domains=(),
             raise ValueError("Invalid research lineage reference")
         safe_refs.append(dict(ref))
     terms = {"PYTHON_GIL_CPU_THREADING": ["Python", "threading", "GIL"], "PYTHON_FREE_THREADED_BUILD": ["Python", "free-threaded", "build"],
-             "CUDA_MIN_COMPUTE_CAPABILITY": ["CUDA", "compute capability", "requirements"]}
+              "CUDA_MIN_COMPUTE_CAPABILITY": ["CUDA", "compute capability", "requirements"],
+              "LOCAL_INFERENCE_ECOSYSTEM": ["local inference", "runtime", "model formats", "quantization", "hardware requirements"]}
     payload = {"question": question, "urls": normalized, "topics": sorted(set(topics)), "context": context or {}, "refs": safe_refs,
                "allowed_source_classes": classes, "allowed_domains": allowed_domains, "budget": requested, "freshness": freshness,
                "network_authorized": network_authorized, "allow_http": allow_http, "policy": identity(cfg), "evidence_requirements": requirements,
