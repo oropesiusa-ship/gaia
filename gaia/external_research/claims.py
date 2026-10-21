@@ -7,6 +7,7 @@ PROPOSITIONS = {
     "PYTHON_GIL_CPU_THREADING": "GIL-enabled CPython documentation reports that only one thread executes Python code at a time.",
     "PYTHON_FREE_THREADED_BUILD": "CPython documentation reports support for a free-threaded build; local build availability is not established by this report.",
     "CUDA_MIN_COMPUTE_CAPABILITY": "This source reports a minimum CUDA compute capability for its stated software/version scope.",
+    "LOCAL_INFERENCE_ECOSYSTEM": "This source reports local inference ecosystem metadata or capabilities; eligibility requires separate host-bound qualification.",
 }
 
 
@@ -32,6 +33,10 @@ def extract_claims(request, source, extracted, analysis_at):
                 match = re.search(r"(?:requires?|minimum).*?compute capability\s*(?:>=|at least|of)?\s*(\d{1,2}\.\d{1,2})", text, re.I)
                 if match:
                     value, condition = match.group(1), "VERSION_AND_HARDWARE_DEPENDENT"
+            elif topic == "LOCAL_INFERENCE_ECOSYSTEM":
+                match = re.search(r"\b(GGUF|Vulkan|ONNX|CUDA|GPTQ|AWQ|EXL[23]?|BitNet|inference)\b", text, re.I)
+                if match:
+                    value, condition = match.group(1).upper(), "UPSTREAM_REPORTED_REQUIRES_QUALIFICATION"
             if value is None:
                 continue
             payload = {"topic": topic, "normalized_proposition": PROPOSITIONS[topic], "reported_value": value,

@@ -61,6 +61,8 @@ def dependence_groups(sources, extractions):
 def applicability(claim, context):
     p = claim["payload"]
     version = p["context"]["version"]
+    if p["topic"] == "LOCAL_INFERENCE_ECOSYSTEM":
+        return "RELATED", ["ECOSYSTEM_METADATA_NOT_A_HOST_COMPATIBILITY_PROOF"]
     if p["topic"].startswith("PYTHON_"):
         if context.get("python_implementation") and context["python_implementation"] != "CPython":
             return "NOT_APPLICABLE", ["SOURCE_IS_CPYTHON_SPECIFIC"]

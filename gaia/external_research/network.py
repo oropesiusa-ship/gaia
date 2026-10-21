@@ -6,7 +6,29 @@ import re
 import socket
 import ssl
 import threading
-from urllib.parse import quote, unquote, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
+
+
+def public_discovery_query(host, path, query):
+    """Narrow additive public metadata searches; no arbitrary endpoints/credential keys."""
+    pairs = parse_qsl(query, keep_blank_values=True, strict_parsing=True)
+    if len(dict(pairs)) != len(pairs):
+        raise FetchError("QUERY_DENIED")
+    values = dict(pairs)
+    if host == "api.github.com" and path == "/search/repositories":
+        if set(values) != {"q", "per_page"} or values["per_page"] not in ("3", "5") or not re.fullmatch(r"[A-Za-z0-9 ._+-]{3,80}", values["q"]):
+            raise FetchError("QUERY_DENIED")
+    elif host == "huggingface.co" and path == "/api/models":
+        if set(values) - {"search", "author", "limit", "sort", "direction"} or values.get("limit") not in ("3", "5", "10"):
+            raise FetchError("QUERY_DENIED")
+        for key in ("search", "author"):
+            if key in values and not re.fullmatch(r"[A-Za-z0-9 ._+-]{2,80}", values[key]):
+                raise FetchError("QUERY_DENIED")
+        if values.get("sort", "downloads") not in ("downloads", "lastModified", "trendingScore") or values.get("direction", "-1") != "-1":
+            raise FetchError("QUERY_DENIED")
+    else:
+        raise FetchError("CREDENTIALS_OR_QUERY_DENIED")
+    return urlencode(sorted(values.items()))
 
 
 class FetchError(ValueError):
@@ -34,7 +56,7 @@ def normalize_url(url, *, allow_http=False, domains=()):
         parts = urlsplit(url)
         if parts.scheme not in (("https", "http") if allow_http else ("https",)):
             raise FetchError("SCHEME_DENIED")
-        if parts.username is not None or parts.password is not None or parts.query:
+        if parts.username is not None or parts.password is not None:
             raise FetchError("CREDENTIALS_OR_QUERY_DENIED")
         host = (parts.hostname or "").rstrip(".").encode("idna").decode("ascii").lower()
         port = parts.port
@@ -54,7 +76,8 @@ def normalize_url(url, *, allow_http=False, domains=()):
         if any(ord(c) < 32 or ord(c) == 127 for c in decoded) or "\\" in decoded:
             raise FetchError("INVALID_PATH")
         path = quote(decoded, safe="/:-._~!$&'()*+,;=@")
-        return urlunsplit((parts.scheme, f"[{host}]" if ":" in host else host, path, "", ""))
+        query = public_discovery_query(host, path, parts.query) if parts.query else ""
+        return urlunsplit((parts.scheme, f"[{host}]" if ":" in host else host, path, query, ""))
     except (UnicodeError, ValueError) as exc:
         if isinstance(exc, FetchError):
             raise
@@ -111,6 +134,8 @@ class PinnedConnection(http.client.HTTPConnection):
             super().close()
 
     def connect(self):
+        if self.deadline_expired:
+            raise FetchError('DURATION_BUDGET_EXHAUSTED')
         family = socket.AF_INET6 if ":" in self.address else socket.AF_INET
         sock = socket.socket(family, socket.SOCK_STREAM)
         self.transport_socket = sock
@@ -119,6 +144,8 @@ class PinnedConnection(http.client.HTTPConnection):
             sock.connect((self.address, self.port, 0, 0) if family == socket.AF_INET6 else (self.address, self.port))
             if public_ip(sock.getpeername()[0]) != self.address:
                 raise FetchError("PEER_PIN_MISMATCH")
+            if self.deadline_expired:
+                raise FetchError('DURATION_BUDGET_EXHAUSTED')
             if self.tls:
                 sock = ssl.create_default_context().wrap_socket(sock, server_hostname=self.host)
             if public_ip(sock.getpeername()[0]) != self.address:
