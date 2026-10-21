@@ -122,7 +122,8 @@ class Fetcher:
             watchdog.daemon = True
             watchdog.start()
             try:
-                connection.request(method, parts.path or "/", headers={"User-Agent": USER_AGENT, "Accept": "text/html, text/plain, application/json",
+                target = (parts.path or "/") + ("?" + parts.query if parts.query else "")
+                connection.request(method, target, headers={"User-Agent": USER_AGENT, "Accept": "text/html, text/plain, application/json",
                                                                         "Accept-Encoding": "identity", "Connection": "close"})
                 response = connection.getresponse()
                 if not connection.verified:

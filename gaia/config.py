@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    "local_intelligence": {"network_enabled": False, "installation_enabled": False, "inference_enabled": False,
+                           "selection_policy": "local_intelligence_selection_v1"},
     "external_research": {
         "network_enabled": False, "https_only": True, "timeout_seconds": 8,
         "max_sources": 4, "max_requests": 12, "max_response_bytes": 524288,

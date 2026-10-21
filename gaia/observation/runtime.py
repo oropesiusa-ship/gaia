@@ -2,6 +2,7 @@
 import hashlib
 from importlib import metadata
 import platform
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -32,7 +33,20 @@ def collect(root, cfg):
         # This identity uses logical paths and an explicit deterministic environment allowlist.
     except (ImportError, OSError, ValueError):
         identity = {"python": python, "libraries": libraries}
-    return {"python": python, "libraries": libraries, "sandbox": sandbox,
+    tools = {}
+    for name in ("cmake", "ninja", "gcc", "g++", "nvcc", "vulkaninfo", "glslc", "glslangValidator", "python3.13", "python3.12", "python3.11"):
+        binary = shutil.which(name)
+        args = [binary, "--summary"] if name == "vulkaninfo" else [binary, "--version"]
+        output = command(args, timeout=3) if binary else None
+        match=re.search(r'\b\d+(?:\.\d+){1,3}(?:[-+][A-Za-z0-9.]+)?\b',output or '')
+        tools[name] = {"present": binary is not None, "version_output": name+' '+match.group(0) if match and name != "vulkaninfo" else None}
+        if name == "vulkaninfo":
+            # Explicit driver/device summary only; never store the full report or paths.
+            fields = ("apiVersion", "driverVersion", "vendorID", "deviceID", "deviceType", "deviceName", "driverName", "driverInfo")
+            tools[name]["devices"] = [{"field": line.split("=", 1)[0].strip(), "value": line.split("=", 1)[1].strip()}
+                                      for line in (output or "").splitlines() if "=" in line and line.split("=", 1)[0].strip() in fields]
+            tools[name]["usable_probe"] = bool(tools[name]["devices"])
+    return {"python": python, "libraries": libraries, "sandbox": sandbox, "inference_tooling": tools,
             "blas_lapack": identity.get("numpy", {}).get("declared_native_backends", {}),
             "identity": identity, "identity_hash": provenance.digest(identity)}
 
