@@ -4,6 +4,10 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    "cognition": {"max_steps": 8, "max_tool_calls": 5, "max_input_tokens": 900,
+                  "max_output_tokens": 768, "retry_limit": 2, "max_duration": 180,
+                  "default_allowed_authority": ["READ_ONLY"], "network_default": False,
+                  "grounding_required_by_task_type": ["EXPLAIN", "SUMMARIZE", "SYNTHESIZE", "COMPARE", "ANALYZE", "PLAN", "ANSWER_FROM_EVIDENCE"]},
     "local_intelligence": {"network_enabled": False, "installation_enabled": False, "inference_enabled": False,
                            "selection_policy": "local_intelligence_selection_v1"},
     "external_research": {
