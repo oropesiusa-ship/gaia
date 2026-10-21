@@ -148,7 +148,8 @@ def extract(source):
     release = re.search(r"/releases/tag/(v?\d{1,3}(?:\.\d{1,3}){1,3})(?:/|$)", urlsplit(p["url"]).path)
     modified = None
     try:
-        modified = parsedate_to_datetime(p["http_metadata"].get("last-modified", "")).isoformat()
+        parsed = parsedate_to_datetime(p["http_metadata"].get("last-modified", ""))
+        modified = parsed.isoformat() if parsed.tzinfo is not None else None
     except (ValueError, TypeError, AttributeError):
         pass
     return artifact("EXTRACTION", {"source_ref": reference(source), "content_hash": p["content_hash"], "extractor_version": VERSION,
