@@ -4,6 +4,14 @@ import os
 from pathlib import Path
 
 DEFAULTS = {
+    "external_research": {
+        "network_enabled": False, "https_only": True, "timeout_seconds": 8,
+        "max_sources": 4, "max_requests": 12, "max_response_bytes": 524288,
+        "max_decompressed_bytes": 1048576, "max_total_bytes": 2097152,
+        "max_duration_seconds": 45, "max_redirects": 3, "min_interval_seconds": 0.5,
+        "cache_max_age_seconds": 86400, "high_freshness_cache_seconds": 60,
+        "max_text_chars": 150000, "max_fragments": 512,
+    },
     "meta_strategy": {
         "replication_bonus": 4, "exact_repeat_penalty": 20, "information_value_weight": 3,
         "improvement_potential_weight": 1, "cost_penalty": 2, "risk_penalty": 3,
