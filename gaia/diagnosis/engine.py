@@ -29,7 +29,7 @@ def settings(configuration=None):
     return cfg
 
 
-def diagnose(current, baseline=None, configuration=None, diagnosis_id="d000001"):
+def diagnose(current, baseline=None, configuration=None, diagnosis_id="d000001", *, verification_objective=None):
     start = time.perf_counter()
     validate_input(current)
     if baseline is not None:
@@ -37,6 +37,18 @@ def diagnose(current, baseline=None, configuration=None, diagnosis_id="d000001")
     cfg = settings(configuration)
     evidence = Evidence(current, baseline)
     evaluated = evaluate(current, baseline, cfg, evidence)
+    if verification_objective is not None:
+        if verification_objective != 'VERIFY_NUMPY_MLP_EXISTING_CRITERIA':
+            raise ValueError('Unsupported explicit verification objective')
+        # v0.2 observation is fixed-batch, not paired cost-to-target evidence.
+        # A requested verification gap is not an invented performance regression.
+        rule='RULE_OBJECTIVE_VERIFICATION_001'
+        reference=evidence.add('current','/sections/measurements/workload/status',
+            'requested paired numpy_mlp verification is not established by this observation protocol','verification',kind='CONTEXTUAL')
+        evaluated['issues'].append({'issue_id':f"i{len(evaluated['issues'])+1:04d}",'kind':'WORKLOAD_VERIFICATION_GAP',
+            'rule_id':rule,'evidence_refs':[reference],'details':{'objective':verification_objective,'scope':'MISSING_CONTROLLED_VERIFICATION_NOT_A_DETECTED_REGRESSION'}})
+        evaluated['rules_evaluated'].append(rule)
+        evaluated['rule_hash']=digest({'base':evaluated['rule_hash'],'objective':verification_objective,'rule':rule})
     hypotheses = build(evaluated, evidence, cfg)
     missing = sorted(set(evaluated["missing"] + [item for h in hypotheses for item in h["missing_evidence"]]))
     complete = evaluated["signals"]["stable"] and "complete_source_inventory" not in missing

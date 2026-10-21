@@ -23,7 +23,7 @@ class NeedsHuman(Exception):
 
 
 class Engine:
-    def __init__(self, root, cfg, log=print):
+    def __init__(self, root, cfg, log=print, *, promotion_authorizer=None):
         if cfg["workload"]["id"] != "numpy_mlp":
             raise ValueError("Workload no implementado en el motor de campañas: " + cfg["workload"]["id"] +
                              ". Para verificar la baseline GaiaTransformer/CUDA usa gaia.py gaia-transformer-baseline.")
@@ -57,6 +57,7 @@ class Engine:
         self.invocation = {}
         self._campaign_context = None
         self._proposal_context = None
+        self.promotion_authorizer = promotion_authorizer
 
     # ------------------------------------------------------------------ init
     def init(self, initialize_mvp=False):
@@ -450,6 +451,13 @@ class Engine:
         self.last_end = out
         if decision == "accepted":
             self.store.append(out)
+            authorizer = getattr(self, 'promotion_authorizer', None)
+            if authorizer is not None and authorizer(self, rec, out) is not True:
+                # Acceptance is an evaluator outcome, not publication authority.
+                # Preserve accepted evidence even when a bounded campaign forbids promotion.
+                self.hist.add(rec['genome'],screen.get('cost_s'),screen['status'],rec['parent_cost'],rec['ops'])
+                self.store.save_state(st)
+                return 'accepted_not_promoted'
             d = G.diff(self._champ_g, rec["genome"])
             ev = {"experiment": rec["id"], "hypothesis": rec["hypothesis"], "confirm": confirm,
                     **current_context,

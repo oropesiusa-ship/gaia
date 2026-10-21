@@ -215,6 +215,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.epilog = "Arranque automático: bootstrap | doctor | appliance-bootstrap | appliance-rootfs | appliance-image | appliance-verify | appliance-recovery | gaia-transformer-baseline | gaia-transformer-lab | gaia-transformer-benchmark | gaia-transformer-prepare | gaia-transformer-run | gaia-transformer-observe | gaia-transformer-research | gaia-transformer-meta. --no-bootstrap delante del comando usa el runtime/estado manual."
     sub = p.add_subparsers(dest="cmd", required=True)
+    if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "autonomy-create", "autonomy-run", "autonomy-status", "autonomy-trace", "autonomy-pause", "autonomy-resume", "autonomy-stop"):
+        from gaia.autonomy.cli import register as register_autonomy
+        register_autonomy(sub, ROOT)
     if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "cognitive-task", "cognitive-run", "cognitive-tasks", "cognitive-trace", "cognitive-result"):
         from gaia.cognition.cli import register as register_cognition
         register_cognition(sub, ROOT)
@@ -270,7 +273,7 @@ def main():
     pr.add_argument("--seeds", type=int, default=12)
     pr.set_defaults(f=cmd_prove)
     a = p.parse_args()
-    if any(getattr(a, name, False) for name in ("observation_command", "diagnosis_command", "priority_command", "learning_command", "meta_strategy_command", "external_research_command", "local_intelligence_command", "cognition_command")):
+    if any(getattr(a, name, False) for name in ("observation_command", "diagnosis_command", "priority_command", "learning_command", "meta_strategy_command", "external_research_command", "local_intelligence_command", "cognition_command", "autonomy_command")):
         sys.exit(a.f(a) or 0)
     # El help y el bootstrap funcionan incluso sin NumPy en el Python de arranque.
     global config, engine, readiness, report

@@ -35,6 +35,10 @@ def classify(document):
         from ..local_intelligence.schema import validate
         if document['kind']not in ('HOST_PROFILE','SELECTION','BENCHMARK'):raise ValueError('UNSUPPORTED_INTELLIGENCE_EVIDENCE')
         domain='intelligence';identifier='id';hashkey='hash'
+    elif schema=='gaia_closed_loop_artifact_v1':
+        from ..autonomy.schema import validate_artifact as validate
+        if document['kind']!='EXPERIMENT_REVIEW_INPUT':raise ValueError('UNSUPPORTED_AUTONOMY_EVIDENCE')
+        domain='strategy';identifier='id';hashkey='hash'
     else:raise ValueError('UNSUPPORTED_EVIDENCE_SCHEMA')
     validate(document)
     return domain,document[identifier],document[hashkey]
@@ -79,6 +83,9 @@ def project(record):
             for key in ('target_class','priority','reasons','dimensions','blocked_by'):add(f'candidate_targets.{i}.{key}',t[key])
     elif domain=='learning':
         for key in ('claim_type','confidence','replication_status','status','hierarchy','quality','claim','limitations'):add(key,d[key])
+    elif d.get('schema')=='gaia_closed_loop_artifact_v1':
+        for key in ('target','experiment_class','mode','expected_information','risks','missing_evidence'):
+            add('payload.'+key,d['payload'][key])
     elif domain=='strategy':
         for key in ('mode','analysis_mode','ranking','confidence'):add(key,d[key])
         for i,plan in enumerate(d['candidate_plans'][:2]):
