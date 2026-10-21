@@ -448,6 +448,14 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(a["freshness"], "HISTORICAL_OR_UNCERTAIN_UPDATE")
         self.assertEqual(a["confidence"], "MEDIUM")
 
+    def test_ambiguous_http_date_is_unknown_not_authority_to_break_analysis(self):
+        req = request()
+        s = source(req, modified="Mon, 01 Jan 2001 00:00:00")
+        run = analyze(req, [s], analysis_at=AT)
+        self.assertTrue(run["claims"])
+        self.assertIsNone(run["extractions"][0]["payload"]["update_date"])
+        self.assertEqual(run["assessments"][0]["payload"]["freshness"], "UNKNOWN_PUBLICATION_DATE")
+
     def test_unknown_catalog_match_is_not_invented_evidence(self):
         req = request()
         run = analyze(req, [source(req, "Some unrelated software discussion.")], analysis_at=AT)
