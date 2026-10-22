@@ -26,8 +26,13 @@ from .policy import budget_check,BudgetExceeded,disk_bytes,disk_used
 
 class BoundedEngine(engine.Engine):
     """Only restrict existing trial caps; all execution still goes through Engine/evaluator."""
+    bookkeeping=False
     def trial(self,src,seed,task='main',cap=None,**kwargs):
-        if hasattr(self,'campaign_budget'):
+        if self.bookkeeping:
+            # Re-measuring a restored champion's reference finishes a rollback: it runs under the controller's bounded
+            # bookkeeping grace and the per-trial cap, never as an experiment and never on a campaign's remaining budget.
+            contract=self.campaign_budget[0];cap=min(cap or self.lim['max_experiment_seconds'],contract['maximum_trial_seconds'])
+        elif hasattr(self,'campaign_budget'):
             contract,store,state,engine_path=self.campaign_budget
             current=store.current();budget_check(contract,current,state,engine_path)
             remaining=min(contract['maximum_wall_time'],contract['maximum_compute_budget'])-(time.time()-current['started_at'])
@@ -123,7 +128,11 @@ class Services:
         """Re-measure the current champion's screen reference (with the v0.1 drift guard when asked) and commit it.
 
         Returns the committed measurement; status is MEASURED or the v0.1 condition that requires review."""
-        version,cost,before,status,detail,at=self.remeasure(check_drift)
+        eng=self.engine()if self.surface=='numpy_mlp'else None
+        if eng is not None:eng.bookkeeping=reason=='AFTER_ROLLBACK'
+        try:version,cost,before,status,detail,at=self.remeasure(check_drift)
+        finally:
+            if eng is not None:eng.bookkeeping=False
         value={'schema':'gaia_champion_reference_v1','reason':reason,'status':status,'version':version,'cost_s':cost,'previous_cost_s':before,
             'drift_checked':check_drift,'drift_tolerance':self.configuration['engine_config']['stop']['drift_tolerance']if check_drift else None,
             'at_experiment':at,'campaign_id':self.contract['campaign_id'],'message_hash':detail,

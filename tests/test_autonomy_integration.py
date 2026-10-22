@@ -518,6 +518,24 @@ class ReferenceAndMatrixTests(Fixture):
             if e['state'].get('reference_ref')and loop.store.get(e['state']['reference_ref'])['reason']=='AFTER_ROLLBACK':e['state']['reference_ref']=events[cut-2]['state']['reference_ref']
         with self.assertRaisesRegex(ValueError,'ROLLBACK_WITHOUT_REFERENCE_REMEASUREMENT|EXPERIMENT_AFTER_ROLLBACK'):audit_references(stripped,get,evaluations)
 
+    def test_restored_reference_is_measured_even_with_an_exhausted_campaign_budget(self):
+        from types import SimpleNamespace
+        from gaia.autonomy.services import BoundedEngine
+        from gaia.autonomy.policy import BudgetExceeded
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);loop.store.event('CREATED',{'started_at':time.time()-10**5})
+        eng=BoundedEngine.__new__(BoundedEngine);eng.lim={'max_experiment_seconds':60};eng.campaign_budget=(loop.contract,loop.store,self.state,self.root/'native')
+        caps=[]
+        with patch('gaia.engine.Engine.trial',side_effect=lambda src,seed,task,cap,**k:caps.append(cap)or{'reached':True}):
+            with self.assertRaises(BudgetExceeded):eng.trial('src',1)
+            eng.bookkeeping=True;eng.trial('src',1)
+        self.assertEqual(caps,[min(60,loop.contract['maximum_trial_seconds'])])
+        # Only the post-rollback measurement is bookkeeping; admission and guards stay on the campaign budget.
+        seen=[];fake=SimpleNamespace(bookkeeping=False)
+        def remeasure(self_,check_drift):seen.append(fake.bookkeeping);return 'v0000',1.0,None,'MEASURED',None,0
+        with patch.object(FakeV2,'engine',return_value=fake),patch.object(FakeV2,'remeasure',remeasure):
+            loop.services.measure_reference('AFTER_ROLLBACK',False);loop.services.measure_reference('CAMPAIGN_ADMISSION',True)
+        self.assertEqual(seen,[True,False]);self.assertFalse(fake.bookkeeping)
+
     # ------------------------------------------------------------------ regression matrix policy
     def run_policy(self,attempts):
         lin=self.lineage();loop=self.loop(lin['lineage_id']);svc=loop.services;calls=[]
