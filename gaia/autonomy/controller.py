@@ -18,7 +18,7 @@ from .records import assemble
 from .lineage import LineageStore,LineageBusy,engine_state_dir,host_experiment_lock
 
 MAX_CANDIDATES=4
-BLOCKING=('NEEDS_RECOVERY','RECOVERY_COORDINATION_FAILED','ROLLBACK_FAILED','HEALTH_INVALID')
+BLOCKING=('NEEDS_RECOVERY','RECOVERY_COORDINATION_FAILED','ROLLBACK_FAILED','HEALTH_INVALID','REFERENCE_UNRELIABLE','REFERENCE_DRIFT')
 # Phases between an executed side effect and its learning/verification; a stop there leaves the lineage inconsistent.
 IN_FLIGHT=('EXPERIMENTING','EVALUATING','LEARNING','PROMOTING','VERIFYING','ROLLING_BACK')
 BOOKKEEPING_GRACE_S=600
@@ -138,8 +138,13 @@ class ClosedLoop:
             'hypothesis_assessments':{k:[a['status']for a in assessments].count(k)for k in ('SUPPORTED','NOT_SUPPORTED','INCONCLUSIVE')},
             'experiment_records':len(records),'plans_skipped':sum(len(c['skipped'])for c in skips),
             'plans_skipped_as_duplicates':sum(1 for c in skips for x in c['skipped']if x.get('learning_reuse')),
-            'cognitive_plan_selections':sum(1 for s in selections if s['method'].startswith('COGNITIVE')),
-            'deterministic_plan_selections':sum(1 for s in selections if s['method'].startswith('DETERMINISTIC')),
+            'deterministic_plan_selections':sum(1 for s in selections if s['method']=='DETERMINISTIC_FIRST_ELIGIBLE_PLAN'),
+            'advisory_cognitive_reviews':len(selections),
+            'advisory_reviews_citing_selected_plan':sum(1 for s in selections if s['selected_plan_id']in s.get('advisory_cited_candidates',[])),
+            'reference_measurements':len(unique('reference_ref')),
+            'regression_matrix_runs':sum(len(v['regression_matrix']['attempts'])for v in unique('verification_ref')if isinstance(v.get('regression_matrix'),dict)and'attempts'in v['regression_matrix']),
+            'regression_first_failures':sum(1 for v in unique('verification_ref')if(v.get('regression_matrix')or{}).get('first_failure_signal')),
+            'regression_transient_signals':sum(1 for v in unique('verification_ref')if((v.get('regression_matrix')or{}).get('first_failure_signal')or{}).get('transient')),
             'meta_tunes':len(unique('meta_tune_ref')),
             'learned_ranking_changed_top_plan':sum(1 for x in unique('strategy_ref')if x.get('outcome_statistics')and x['ranking'][:1]!=x['outcome_statistics']['static_ranking'][:1]),
             'strategies_with_linked_outcomes':sum(1 for x in unique('strategy_ref')if x.get('outcome_statistics',{}).get('outcomes'))}
@@ -264,6 +269,8 @@ class ClosedLoop:
                         result=svc.rollback({'before_version':health['rollback_to']},'Lineage follow-up health check failed')
                         if result['status']not in ('ROLLED_BACK','COMMITTED','SUCCESS','COMPLETED'):return self.report('FAILED','ROLLBACK_FAILED')
                         event(phase,{'rollback_ref':put('ROLLBACK',result),'rollback_count':s.get('rollback_count',0)+1,'rollback_intent':False})
+                    if self.store.current().get('rollback_ref')and not self.store.current().get('reference_after_rollback'):
+                        if self.reference_after_rollback()!='MEASURED':return self.report('STOPPED','REFERENCE_UNRELIABLE')
                     return self.report('STOPPED','HEALTH_INVALID')
             event('OBSERVING',{'iteration':1})
         elif phase=='OBSERVING':
@@ -315,7 +322,7 @@ class ClosedLoop:
             event('AUTHORIZING',{'review_ref':put('COGNITIVE_REVIEW',review),'plan_ref':put('SELECTED_PLAN',chosen['plan']),'target_ref':put('SELECTED_TARGET',chosen['target']),
                 'hypothesis_ref':put('HYPOTHESIS',chosen['hypothesis']),'preview_hash':chosen['preview_hash'],
                 'selection_ref':put('PLAN_SELECTION',{'method':review['method'],'selected_plan_id':review['selected_plan_id'],'default_plan_id':review['default_plan_id'],
-                    'cited_candidates':review['cited_candidates'],'authority':'NONE_DETERMINISTIC_GATE_FOLLOWS'})})
+                    'advisory_cited_candidates':review['advisory']['cited_candidates'],'authority':'DETERMINISTIC_RANKING_ADVISORY_REVIEW_HAS_NO_INFLUENCE'})})
         elif phase=='AUTHORIZING':
             review=get(s['review_ref']);decision=authorize(c,get(s['target_ref']),get(s['plan_ref']),review,
                 remaining=s['experiments']<c['maximum_experiments'],integrity=identities(self.root)==self.configuration['source_identity'],sandbox=provenance.bwrap_capability()['verified'])
@@ -328,6 +335,13 @@ class ClosedLoop:
                 event(phase,{'initialization_intent':True})
                 initial=svc.initialize()
                 event(phase,{'initialization_ref':put('INITIALIZATION',initial),'initialization_intent':False,'initialization_done':True})
+                self.check()
+            if self.v2 and c['mode']=='CONTROLLED_AUTONOMOUS'and c['surface']=='numpy_mlp'and not self.store.current().get('admission_reference'):
+                # Every admitted campaign re-measures the champion reference under the v0.1 drift guard before any screen.
+                measured=svc.measure_reference('CAMPAIGN_ADMISSION',True)
+                event(phase,{'admission_reference':measured['status']})
+                if measured['status']=='REFERENCE_DRIFT':return self.report('STOPPED','REFERENCE_DRIFT')
+                if measured['status']!='MEASURED':return self.report('STOPPED','REFERENCE_UNRELIABLE')
                 self.check()
             if self.v2:return self.materialize_v2(s)
             base=svc.engine().store.load_version()[0]if c['mode']=='CONTROLLED_AUTONOMOUS'else G.new_genome()
@@ -370,20 +384,34 @@ class ClosedLoop:
         elif phase=='VERIFYING':
             try:
                 if s.get('recovered_publication_health_failure'):checked={'status':'FAIL','reason':'RECOVERED_POST_PUBLICATION_HEALTH_FAILURE'}
-                elif self.v2 and s.get('budget_exhausted'):checked={'status':'FAIL','reason':'VERIFICATION_BUDGET_EXHAUSTED','requires_existing_rollback':True}
+                elif self.v2 and s.get('budget_exhausted'):checked={'status':'FAIL','reason':'VERIFICATION_BUDGET_EXHAUSTED','requires_existing_rollback':True,
+                                                                    'regression_matrix_partial':svc.matrix_progress()}
                 else:checked=svc.verify(get(s['evaluation_ref']),get(s['observation_ref']))
-            except (OSError,ValueError,RuntimeError,cpu_engine.NeedsHuman,TimeoutError)as exc:checked={'status':'FAIL','reason':type(exc).__name__,'requires_existing_rollback':True}
+            except (OSError,ValueError,RuntimeError,cpu_engine.NeedsHuman,TimeoutError)as exc:
+                checked={'status':'FAIL','reason':type(exc).__name__,'requires_existing_rollback':True}
+                # v2 keeps every matrix attempt already committed (failing tests, first-failure signal) in the verification record.
+                if self.v2:checked['regression_matrix_partial']=svc.matrix_progress()
             except Exception as exc:
                 # v2: any unexpected verification error after a committed promotion uses the existing rollback.
                 if not self.v2:raise
-                checked={'status':'FAIL','reason':type(exc).__name__,'requires_existing_rollback':True}
+                checked={'status':'FAIL','reason':type(exc).__name__,'requires_existing_rollback':True,'regression_matrix_partial':svc.matrix_progress()}
             r=put('POST_PROMOTION_VERIFICATION',checked)
             event('REEVALUATING'if checked['status']=='PASS'else'ROLLING_BACK',{'verification_ref':r})
-        elif phase=='ROLLING_BACK':
+        elif phase=='ROLLING_BACK'and not self.v2:
             if s.get('rollback_intent'):return self.report('STOPPED','NEEDS_RECOVERY')
             event(phase,{'rollback_intent':True});result=svc.rollback(get(s['evaluation_ref']),'Closed-loop post-promotion verification failed')
             if result['status']not in ('ROLLED_BACK','COMMITTED','SUCCESS','COMPLETED'):return self.report('FAILED','ROLLBACK_FAILED')
             event('REEVALUATING',{'rollback_ref':put('ROLLBACK',result),'rollback_count':s.get('rollback_count',0)+1,'rollback_intent':False})
+        elif phase=='ROLLING_BACK':
+            if s.get('rollback_for')!=s['evaluation_ref']['id']:
+                if s.get('rollback_intent'):return self.report('STOPPED','NEEDS_RECOVERY')
+                event(phase,{'rollback_intent':True});result=svc.rollback(get(s['evaluation_ref']),'Closed-loop post-promotion verification failed')
+                if result['status']not in ('ROLLED_BACK','COMMITTED','SUCCESS','COMPLETED'):return self.report('FAILED','ROLLBACK_FAILED')
+                event(phase,{'rollback_ref':put('ROLLBACK',result),'rollback_count':s.get('rollback_count',0)+1,'rollback_intent':False,
+                             'rollback_for':s['evaluation_ref']['id']})
+            # The restored champion's reference is measured before anything else is screened or learned against it.
+            if self.reference_after_rollback()!='MEASURED':return self.report('STOPPED','REFERENCE_UNRELIABLE')
+            event('REEVALUATING',{})
         elif phase=='REEVALUATING':
             post=svc.observe();d=svc.diagnose(post,s['iteration']+1);p=svc.prioritize(d,s['iteration']+1)
             coverage=getattr(svc,'coverage',[])
@@ -435,8 +463,21 @@ class ClosedLoop:
             self.store.event('MATERIALIZING',{'materialized_ref':put('MATERIALIZED',m)})
             return self.report('COMPLETED',c['mode']+'_COMPLETE_NO_EXPERIMENT_EXECUTED')
         if s['experiments']>=c['maximum_experiments']:raise BudgetExceeded('STOPPED_BUDGET')
+        if c['surface']=='numpy_mlp':
+            # Bind the screen reference to the current champion before the execution intent exists.
+            try:svc.current_reference()
+            except cpu_engine.NeedsHuman:return self.report('STOPPED','REFERENCE_UNRELIABLE')
         self.store.event('EXPERIMENTING',{'materialized_ref':put('MATERIALIZED',m),'execution_intent':True,'experiments':s['experiments']+1,
             'expected_experiment_id':svc.expected_id(),'before_version':svc.current_version()})
+
+    def reference_after_rollback(self):
+        """Mandatory re-measurement of the restored champion's reference (numpy); inference re-benchmarks its control per experiment."""
+        if self.contract['surface']!='numpy_mlp':
+            self.store.event(self.store.current()['phase'],{'reference_after_rollback':'NOT_APPLICABLE_CONTROL_REMEASURED_PER_EXPERIMENT'})
+            return 'MEASURED'
+        measured=self.services.measure_reference('AFTER_ROLLBACK',False)
+        self.store.event(self.store.current()['phase'],{'reference_after_rollback':measured['status']})
+        return measured['status']
 
     def maintain_lineage(self,s):
         """Level D maintenance: v0.1 paired strategy tuning on the contracted surface, when budget allows."""
@@ -461,4 +502,10 @@ class ClosedLoop:
         m=self.store.get(current['materialized_ref'])
         if rows[0]['candidate_genome_hash']!=m['genome_hash']:raise ValueError('RECOVERY_EXPERIMENT_IDENTITY_MISMATCH')
         evidence=json.loads((eng.store.dir/rows[0]['evidence_path']).read_bytes())
-        return {'engine_result':'RECOVERED_COMMITTED_EVIDENCE','evidence':evidence,'before_version':current['before_version'],'after_version':eng.store.current_version()}
+        value={'engine_result':'RECOVERED_COMMITTED_EVIDENCE','evidence':evidence,'before_version':current['before_version'],'after_version':eng.store.current_version()}
+        if self.v2:
+            # The reference was bound to the champion before the execution intent; the experiment may since have refreshed it.
+            last=self.services.last_reference()or{}
+            value['reference_used']={'version':last.get('version'),'cost_s':last.get('cost_s'),'reason':last.get('reason'),
+                'measurement_ref':last.get('measurement_ref'),'measured_now':False}
+        return value

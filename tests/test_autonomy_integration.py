@@ -33,7 +33,7 @@ def resign(v):v=copy.deepcopy(v);v['hash']=provenance.digest({k:x for k,x in v.i
 
 class FakeV2(Services):
     """Real v2 coordination (lineage, records, strategy, materialization); fixtures replace measured side effects."""
-    decisions=('rejected',);select_index=0;review_status='OK';promote=False;verification='PASS'
+    decisions=('rejected',);select_index=0;review_status='OK';promote=False;verification='PASS';reference_status='MEASURED';reference_cost=1.0
     def initialized(self):return False
     def initialize(self):return {'status':'UNIT_FIXTURE_NOT_REAL_CERTIFICATION'}
     def observe(self,full=False):return copy.deepcopy(OBSERVATION)
@@ -43,16 +43,20 @@ class FakeV2(Services):
         views=json.loads(self.views_path().read_bytes())if self.views_path().exists()else[]
         return {'views':views,'context':None,'runs':[],'records':[]}
     def compare(self,target,candidates,hypothesis,previous,research):
-        chosen=candidates[min(self.select_index,len(candidates)-1)]['plan_id']
-        return {'schema':'gaia_experiment_review_v2','status':self.review_status,'authority':'NONE','selected_plan_id':chosen,
-                'default_plan_id':candidates[0]['plan_id'],'method':'COGNITIVE_COMPARE_SINGLE_CITED_CANDIDATE','cited_candidates':[chosen],
+        cited=candidates[min(self.select_index,len(candidates)-1)]['plan_id']
+        return {'schema':'gaia_experiment_review_v3','status':self.review_status,'authority':'NONE','selected_plan_id':candidates[0]['plan_id'],
+                'default_plan_id':candidates[0]['plan_id'],'method':'DETERMINISTIC_FIRST_ELIGIBLE_PLAN',
+                'advisory':{'kind':'ADVISORY_COGNITIVE_REVIEW','cited_candidates':[cited],'influence_on_selection':'NONE'},
                 'previous':previous,'scope':'UNIT_BACKEND_FIXTURE'}
+    def champion_reference(self):return self.current_version(),self.reference_cost
+    def remeasure(self,check_drift):
+        before=(self.last_reference()or{}).get('cost_s');return self.current_version(),self.reference_cost,before,self.reference_status,None,len(self.records())
     def expected_id(self):return f"e{len(self.records())+1:05d}"
     def current_version(self):return 'v0000'
     def execute(self,m):
         n=len(self.records());decision=self.decisions[n%len(self.decisions)]
-        after='v0001'if self.promote and decision=='accepted'else'v0000'
-        return {'engine_result':decision,'before_version':'v0000','after_version':after,'evidence':{'id':f'e{n+1:05d}','decision':decision,
+        after='v0001'if self.promote and decision=='accepted'else'v0000';reference=self.current_reference()
+        return {'engine_result':decision,'before_version':'v0000','after_version':after,'reference_used':reference,'evidence':{'id':f'e{n+1:05d}','decision':decision,
             'candidate_genome_hash':m['genome_hash'],'search_cost_s':.01,'screen':{'status':'ok','cost_s':1.0},'overall_gates_passed':True}}
     def learn(self,e):
         outcome={'accepted':'ACCEPTED','rejected':'REJECTED','deferred':'INCONCLUSIVE'}[e['evidence']['decision']]
@@ -145,12 +149,17 @@ class IntegratedLoopTests(Fixture):
         a={x['proposed_change']['candidate_hash']for x in self.records(first)};b={x['proposed_change']['candidate_hash']for x in self.records(second)}
         self.assertTrue(b);self.assertFalse(a&b);self.assertEqual(r['metrics']['human_interventions_during_campaign'],0)
         state=LineageStore(self.state,lin['lineage_id']).state();self.assertEqual(state['experiments'],len(a)+len(b));self.assertEqual(state['open_campaigns'],[])
-    def test_cognitive_selection_stays_within_previewed_candidates(self):
+    def test_advisory_cognitive_review_never_changes_the_deterministic_plan(self):
         class Second(FakeV2):select_index=1
-        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Second);self.go(loop)
-        selections=[loop.store.get(e['state']['selection_ref'])for e in loop.store.events()if'selection_ref'in e['state']]
-        candidates=[loop.store.get(e['state']['candidates_ref'])for e in loop.store.events()if'candidates_ref'in e['state']]
-        self.assertTrue(all(s['selected_plan_id']in{c['plan']['plan_id']for x in candidates for c in x['candidates']}for s in selections))
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Second);r=self.go(loop)
+        events=loop.store.events();seen=set()
+        for e in events:
+            s=e['state']
+            if 'selection_ref'in s and s['selection_ref']['id']not in seen:
+                seen.add(s['selection_ref']['id']);selection=loop.store.get(s['selection_ref']);candidates=loop.store.get(s['candidates_ref'])['candidates']
+                self.assertEqual(selection['method'],'DETERMINISTIC_FIRST_ELIGIBLE_PLAN');self.assertEqual(selection['selected_plan_id'],candidates[0]['plan']['plan_id'])
+        self.assertTrue(seen);self.assertNotIn('cognitive_plan_selections',r['metrics'])
+        self.assertEqual(r['metrics']['advisory_cognitive_reviews'],r['metrics']['deterministic_plan_selections'])
     def test_failed_review_cannot_authorize(self):
         class Bad(FakeV2):review_status='FAILED'
         lin=self.lineage();r=self.go(self.loop(lin['lineage_id'],factory=Bad));self.assertEqual(r['metrics']['experiments'],0)
@@ -449,6 +458,176 @@ class StrategyAndHypothesisTests(Fixture):
 
 PRIMARY={'backend':'VULKAN','context':1024,'gpu_layers':999,'kv':'f16','model_family':'smollm3','model_hash':'a'*64,'model_id':'unit','model_metadata':{'smollm3.block_count':36},
          'prefix_cache':False,'quantization':'Q4_K_M','runtime':'koboldcpp','runtime_hash':'b'*64,'runtime_install':'koboldcpp-unit','runtime_version':'1','stack_id':'stack-0','threads':8}
+
+
+class ReferenceAndMatrixTests(Fixture):
+    def references(self,lineage_id):return [e['payload']for e in LineageStore(self.state,lineage_id).events()if e['kind']=='REFERENCE_MEASURED']
+    def test_admission_remeasures_reference_with_drift_guard_and_records_bind_it(self):
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);r=self.go(loop)
+        refs=self.references(lin['lineage_id']);self.assertEqual(refs[0]['reason'],'CAMPAIGN_ADMISSION')
+        first=loop.store.get(refs[0]['measurement_ref']);self.assertTrue(first['drift_checked'])
+        for x in self.records(loop):
+            self.assertEqual(x['screen_reference']['version'],x['system_version']['version_before'])
+            self.assertEqual(x['screen_reference']['measurement_ref'],refs[-1]['measurement_ref'])
+        second=self.loop(lin['lineage_id']);self.go(second)
+        self.assertEqual([x['reason']for x in self.references(lin['lineage_id'])],['CAMPAIGN_ADMISSION','CAMPAIGN_ADMISSION'])
+        self.assertGreaterEqual(r['metrics']['reference_measurements'],1)
+    def test_reference_drift_stops_before_any_experiment_and_requires_review(self):
+        class Drift(FakeV2):reference_status='REFERENCE_DRIFT'
+        lin=self.lineage();r=self.go(self.loop(lin['lineage_id'],factory=Drift))
+        self.assertEqual(r['stopping_reason'],'REFERENCE_DRIFT');self.assertEqual(r['metrics']['experiments'],0)
+        # As in v0.1 (NeedsHuman), a drifted reference clock is never silently accepted by the next campaign.
+        self.assertEqual(LineageStore(self.state,lin['lineage_id']).state()['block']['reason'],'REFERENCE_DRIFT')
+    def test_unreliable_reference_blocks_lineage(self):
+        class Saturated(FakeV2):reference_status='BENCHMARK_SATURATED'
+        lin=self.lineage();r=self.go(self.loop(lin['lineage_id'],factory=Saturated))
+        self.assertEqual(r['stopping_reason'],'REFERENCE_UNRELIABLE');self.assertTrue(LineageStore(self.state,lin['lineage_id']).state()['blocked'])
+    def test_reference_not_bound_to_champion_is_remeasured_before_screen(self):
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);svc=loop.services
+        loop.store.event('CREATED',{'started_at':time.time()})
+        svc.measure_reference('CAMPAIGN_ADMISSION',True)
+        self.assertFalse(svc.current_reference()['measured_now'])
+        # A reverted version's cost (or another champion) left in the Engine state is never used for a screen.
+        with patch.object(FakeV2,'champion_reference',return_value=('v0000',0.357)):
+            bound=svc.current_reference()
+        self.assertTrue(bound['measured_now']);self.assertEqual(bound['reason'],'REFERENCE_NOT_BOUND_TO_CURRENT_CHAMPION')
+        with patch.object(FakeV2,'champion_reference',return_value=('v0001',1.0)):self.assertTrue(svc.current_reference()['measured_now'])
+    def test_verification_rollback_remeasures_restored_champion_reference(self):
+        class Promoted(FakeV2):decisions=('accepted',);promote=True;verification='FAIL'
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Promoted,promotion=True);r=self.go(loop)
+        self.assertEqual(r['stopping_reason'],'POST_PROMOTION_REGRESSION_ROLLED_BACK')
+        events=loop.store.events();rolled=next(i for i,e in enumerate(events)if e['state'].get('rollback_ref'))
+        after=[loop.store.get(e['state']['reference_ref'])for e in events[rolled:]if e['state'].get('reference_ref')]
+        self.assertEqual(after[-1]['reason'],'AFTER_ROLLBACK');self.assertEqual(after[-1]['version'],'v0000')
+        self.assertEqual(self.references(lin['lineage_id'])[-1]['reason'],'AFTER_ROLLBACK')
+    def test_health_check_rollback_remeasures_reference(self):
+        class Unhealthy(FakeV2):
+            def health_check(self):return {'status':'FAIL','version':'v0001','rollback_to':'v0000'}
+        lin=self.lineage();r=self.go(self.loop(lin['lineage_id'],factory=Unhealthy))
+        self.assertEqual(r['stopping_reason'],'HEALTH_INVALID');self.assertEqual(self.references(lin['lineage_id'])[-1]['reason'],'AFTER_ROLLBACK')
+    def test_rollback_without_reference_remeasurement_fails_audit(self):
+        from tools.audit_closed_loop import audit_references
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=type('P',(FakeV2,),{'decisions':('accepted',),'promote':True,'verification':'FAIL'}),promotion=True)
+        self.go(loop);events=[e for e in loop.store.events()]
+        get=lambda r,kind=None:loop.store.get(r)
+        evaluations=[e['state']for e in events if e['state'].get('record_ref')][:1]
+        audit_references(events,get,evaluations)
+        cut=next(i for i,e in enumerate(events)if e['state'].get('reference_after_rollback'))
+        stripped=copy.deepcopy(events)
+        for e in stripped[cut-1:]:
+            if e['state'].get('reference_ref')and loop.store.get(e['state']['reference_ref'])['reason']=='AFTER_ROLLBACK':e['state']['reference_ref']=events[cut-2]['state']['reference_ref']
+        with self.assertRaisesRegex(ValueError,'ROLLBACK_WITHOUT_REFERENCE_REMEASUREMENT|EXPERIMENT_AFTER_ROLLBACK'):audit_references(stripped,get,evaluations)
+
+    # ------------------------------------------------------------------ regression matrix policy
+    def run_policy(self,attempts):
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);svc=loop.services;calls=[]
+        def run(kind,only=None):
+            status,ids=attempts[len(calls)];calls.append((kind,only))
+            return {'kind':kind,'status':status,'only':only,'failed_tests':[{'id':i,'rerun_id':i.split(' ')[0],'kind':'FAILURE','traceback_tail':'x'}for i in ids],
+                    'reason':None if status=='PASS'else'FAILED_TESTS'if ids else'NO_TEST_REPORT'}
+        loop.store.event('CREATED',{'started_at':time.time()})
+        with patch.object(Services,'matrix_run',side_effect=run):m=svc.regression_matrix()
+        self.policy_loop=loop
+        return m,calls,[e['payload']for e in LineageStore(self.state,lin['lineage_id']).events()if e['kind']=='REGRESSION_SIGNAL']
+    def test_matrix_pass_runs_once(self):
+        m,calls,signals=self.run_policy([('PASS',[])])
+        self.assertEqual((m['status'],[c[0]for c in calls],m['first_failure_signal'],signals),('PASS',['FULL'],None,[]))
+    def test_matrix_repeated_failure_rolls_back_on_the_failed_ids(self):
+        m,calls,signals=self.run_policy([('FAIL',['test_ledger.T.a','test_core.T.b']),('FAIL',['test_ledger.T.a'])])
+        self.assertEqual(m['status'],'FAIL');self.assertEqual(calls,[('FULL',None),('FAILED_ONLY_RERUN',['test_ledger.T.a','test_core.T.b'])])
+        self.assertEqual(m['rollback_trigger_test_ids'],['test_ledger.T.a']);self.assertFalse(m['first_failure_signal']['transient'])
+        self.assertEqual(signals[0]['first_failed_test_ids'],['test_ledger.T.a','test_core.T.b'])
+    def test_matrix_transient_failure_needs_a_second_full_pass_and_is_recorded(self):
+        m,calls,signals=self.run_policy([('FAIL',['test_ledger.T.a']),('PASS',[]),('PASS',[])])
+        self.assertEqual(m['status'],'PASS');self.assertEqual([c[0]for c in calls],['FULL','FAILED_ONLY_RERUN','FULL_CONFIRMATION'])
+        self.assertEqual(m['first_failure_signal']['first_failed_test_ids'],['test_ledger.T.a']);self.assertTrue(m['first_failure_signal']['transient'])
+        self.assertEqual(len(signals),1)
+    def test_matrix_failure_in_confirmation_rolls_back(self):
+        m,calls,_=self.run_policy([('FAIL',['test_ledger.T.a']),('PASS',[]),('FAIL',['test_gates.T.c'])])
+        self.assertEqual((m['status'],m['rollback_trigger_test_ids'],len(calls)),('FAIL',['test_gates.T.c'],3))
+    def test_matrix_failure_without_test_ids_rolls_back_without_retry(self):
+        m,calls,_=self.run_policy([('FAIL',[])])
+        self.assertEqual((m['status'],len(calls)),('FAIL',1))
+    def test_audit_replays_matrix_policy(self):
+        from tools.audit_closed_loop import matrix_policy
+        for attempts in ([('PASS',[])],[('FAIL',['a.B.c']),('FAIL',['a.B.c'])],[('FAIL',['a.B.c']),('PASS',[]),('PASS',[])],[('FAIL',['a.B.c']),('PASS',[]),('FAIL',['d.E.f'])],[('FAIL',[])]):
+            with self.subTest(attempts=attempts):
+                m,_,_=self.run_policy(attempts);store=self.policy_loop.store
+                matrix_policy(m,'PASS'if m['status']=='PASS'else'FAIL',lambda r,kind=None:store.get(r))
+        m,_,_=self.run_policy([('FAIL',['a.B.c']),('PASS',[]),('PASS',[])])
+        forged=copy.deepcopy(m);forged['attempts']=forged['attempts'][:1];forged['attempts'][0]['status']='PASS'
+        with self.assertRaises(ValueError):matrix_policy(forged,'PASS')
+        hidden=copy.deepcopy(m);hidden['first_failure_signal']=None
+        with self.assertRaises(ValueError):matrix_policy(hidden,'PASS')
+    def test_regression_module_reports_failing_test_ids(self):
+        from gaia.autonomy import regression
+        with tempfile.TemporaryDirectory()as d:
+            (Path(d)/'unit_matrix_probe.py').write_text('import unittest\nclass T(unittest.TestCase):\n    def test_ok(self):pass\n    def test_bad(self):self.assertEqual(1,2)\n')
+            report=Path(d)/'report.json'
+            with patch('sys.path',[d]+__import__('sys').path),patch('sys.stdout'),patch('sys.stderr'):
+                code=regression.main(['--only','unit_matrix_probe.T.test_ok','unit_matrix_probe.T.test_bad','--report',str(report)])
+            value=json.loads(report.read_text())
+        self.assertEqual(code,1);self.assertEqual([f['id']for f in value['failed']],['unit_matrix_probe.T.test_bad'])
+        self.assertEqual((value['tests'],value['failures'],value['scope']),(2,1,'ONLY_GIVEN_TEST_IDS'));self.assertIn('AssertionError',value['failed'][0]['traceback'])
+    def test_real_matrix_process_runs_only_given_ids_and_projects_private_paths(self):
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);svc=Services(ROOT,self.state,loop.store,loop.contract,loop.configuration)
+        run=svc.matrix_run('FAILED_ONLY_RERUN',['test_autonomy_integration.ContractTests.test_v1_default_is_unchanged'])
+        self.assertEqual((run['status'],run['summary']['tests'],run['failed_tests']),('PASS',1,[]))
+        # A real failing test in a clean process: IDs and tracebacks kept, the private root path replaced.
+        with tempfile.TemporaryDirectory()as d:
+            probe=Path(d);(probe/'gaia').symlink_to(ROOT/'gaia',target_is_directory=True)
+            (probe/'unit_matrix_failure.py').write_text('import unittest\nclass T(unittest.TestCase):\n    def test_bad(self):\n        for v in (1,2):\n            with self.subTest(v=v):self.assertEqual(v,1)\n')
+            svc.root=probe;failed=svc.matrix_run('FAILED_ONLY_RERUN',['unit_matrix_failure.T.test_bad'])
+        self.assertEqual(failed['status'],'FAIL');self.assertEqual(failed['failed_tests'][0]['rerun_id'],'unit_matrix_failure.T.test_bad')
+        self.assertIn('(v=2)',failed['failed_tests'][0]['id']);self.assertIn('<root>',failed['failed_tests'][0]['traceback_tail'])
+        self.assertNotIn(d,json.dumps(failed))
+    def test_resumed_verification_continues_the_same_matrix_sequence(self):
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);svc=loop.services;loop.store.event('CREATED',{'started_at':time.time()});calls=[]
+        script=[('FAIL',['a.B.c']),('PASS',[]),'CRASH',('PASS',[])]
+        def run(kind,only=None):
+            step=script[len(calls)];calls.append(kind)
+            if step=='CRASH':raise SystemExit('death during the confirmation matrix')
+            status,ids=step
+            return {'kind':kind,'status':status,'only':only,'failed_tests':[{'id':i,'rerun_id':i,'kind':'FAILURE','traceback_tail':'x'}for i in ids],'reason':None if status=='PASS'else'FAILED_TESTS'}
+        with patch.object(Services,'matrix_run',side_effect=run):
+            with self.assertRaises(SystemExit):svc.regression_matrix()
+            m=svc.regression_matrix()
+        self.assertEqual(calls,['FULL','FAILED_ONLY_RERUN','FULL_CONFIRMATION','FULL_CONFIRMATION'])
+        self.assertEqual(m['status'],'PASS');self.assertEqual(m['interrupted_attempts_rerun'],['FULL_CONFIRMATION'])
+        self.assertEqual(m['first_failure_signal']['first_failed_test_ids'],['a.B.c'])
+        self.assertEqual(sum(e['kind']=='REGRESSION_SIGNAL'for e in LineageStore(self.state,lin['lineage_id']).events()),1)
+        from tools.audit_closed_loop import matrix_runs_accounted,matrix_policy
+        events=loop.store.events();matrix_runs_accounted(events,m);matrix_policy(m,'PASS',lambda r,kind=None:loop.store.get(r))
+        hidden=copy.deepcopy(m);hidden['interrupted_attempts_rerun']=[]
+        with self.assertRaisesRegex(ValueError,'NOT_ACCOUNTED'):matrix_runs_accounted(events,hidden)
+        first=next(i for i,e in enumerate(events)if e['state'].get('regression_first_failure'))
+        rerun=next(i for i,e in enumerate(events)if(e['state'].get('matrix_progress')or{}).get('intent')=='FAILED_ONLY_RERUN')
+        self.assertLess(first,rerun)
+    def test_v1_campaign_keeps_the_single_matrix_run(self):
+        c=create_campaign(self.root,self.state,campaign());svc=Services(self.root,self.state,CampaignStore(self.state,c['campaign_id']),c,CampaignStore(self.state,c['campaign_id']).read('configuration'))
+        with patch.object(Services,'regression_matrix_v1',return_value={'status':'FAIL'})as v1,patch.object(Services,'matrix_run')as v2:
+            self.assertEqual(svc.regression_matrix(),{'status':'FAIL'})
+        v1.assert_called_once();v2.assert_not_called()
+    def test_stale_reference_after_rollback_is_never_used_end_to_end(self):
+        class Champion(FakeV2):
+            version='v0000';costs={'v0000':0.86,'v0001':0.357};decisions=('accepted',);promote=True;verification='FAIL'
+            def current_version(self):return Champion.version
+            def champion_reference(self):return Champion.version,Champion.engine_ref
+            def remeasure(self,check_drift):
+                before=Champion.engine_ref;Champion.engine_ref=Champion.costs[Champion.version]
+                return Champion.version,Champion.engine_ref,before,'MEASURED',None,len(self.records())
+            def execute(self,m):
+                value=super().execute(m)
+                if value['after_version']=='v0001':Champion.version='v0001';Champion.engine_ref=0.357  # the Engine refreshes on promotion
+                return {**value,'before_version':value['reference_used']['version']}
+            def rollback(self,e,reason):Champion.version='v0000';return {'status':'COMPLETED','resulting_current':'v0000'}  # Engine ref left stale
+        Champion.engine_ref=None
+        lin=self.lineage();r=self.go(self.loop(lin['lineage_id'],factory=Champion,promotion=True))
+        self.assertEqual(r['stopping_reason'],'POST_PROMOTION_REGRESSION_ROLLED_BACK')
+        last=self.references(lin['lineage_id'])[-1];self.assertEqual((last['reason'],last['version'],last['cost_s']),('AFTER_ROLLBACK','v0000',0.86))
+        Champion.decisions=('rejected',);Champion.engine_ref=0.357  # even if the Engine state were stale again
+        loop=self.loop(lin['lineage_id'],factory=Champion);self.go(loop)
+        for x in self.records(loop):self.assertEqual((x['screen_reference']['version'],x['screen_reference']['cost_s']),('v0000',0.86))
 
 
 class InferenceSurfaceTests(Fixture):

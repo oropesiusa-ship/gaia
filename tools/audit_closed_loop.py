@@ -200,6 +200,60 @@ V2_METHODS={'IDENTICAL_CURRENT_BASELINE','EXISTING_HP_OPERATOR_FROM_CURRENT_CHAM
     'EXISTING_HP_OPERATOR_FROM_QUALIFIED_REFERENCE','IDENTICAL_CURRENT_PRIMARY_STACK','ONE_FACTOR_QUALIFIED_STACK_VARIATION'}
 
 
+def audit_references(events,get,evaluations):
+    """Screens use a reference measured in this campaign for exactly the champion they ran against; every rollback is re-measured."""
+    measured=[];executed=False;pending_rollback=None
+    for e in events:
+        s=e['state']
+        if s.get('reference_ref')and s['reference_ref']not in[r for r,_ in measured]:
+            v=get(s['reference_ref'],'REFERENCE_MEASUREMENT');measured.append((s['reference_ref'],v))
+            if pending_rollback and v['reason']=='AFTER_ROLLBACK'and v['status']=='MEASURED'and pending_rollback in (v['version'],'ANY_VERSION'):pending_rollback=None
+        if s.get('rollback_ref')and not any(x['state'].get('rollback_ref')==s['rollback_ref']for x in events[:events.index(e)]):
+            pending_rollback=get(s['rollback_ref'],'ROLLBACK').get('resulting_current')or'ANY_VERSION'
+        if s['phase']=='EXPERIMENTING'and s.get('execution_intent')and not executed:
+            executed=True
+            if not any(v['reason']=='CAMPAIGN_ADMISSION'and v['status']=='MEASURED'for _,v in measured):raise ValueError('NO_ADMISSION_REFERENCE_BEFORE_EXPERIMENT')
+        if pending_rollback and s['phase']=='EXPERIMENTING':raise ValueError('EXPERIMENT_AFTER_ROLLBACK_WITHOUT_REFERENCE')
+    if pending_rollback and events[-1]['state']['reason']not in ('REFERENCE_UNRELIABLE',):raise ValueError('ROLLBACK_WITHOUT_REFERENCE_REMEASUREMENT')
+    refs={r['id']:v for r,v in measured}
+    for s in evaluations:
+        used=get(s['evaluation_ref']).get('reference_used')or{};version=get(s['evaluation_ref'])['before_version']
+        source=refs.get((used.get('measurement_ref')or{}).get('id'))
+        if not source or source['status']!='MEASURED'or source['version']!=version or used['version']!=version or source['cost_s']!=used['cost_s']:
+            raise ValueError('SCREEN_REFERENCE_NOT_BOUND_TO_CHAMPION')
+
+
+def matrix_key(events,m):
+    return next((e['state']['matrix_progress']['key']for e in events if(e['state'].get('matrix_progress')or{}).get('attempt_refs')==m['attempt_refs']),None)
+
+
+def matrix_runs_accounted(events,matrix):
+    """Every journaled attempt intent is either a recorded attempt or a declared interrupted re-run."""
+    key=matrix_key(events,matrix);intents=[];last=None
+    for e in events:
+        progress=e['state'].get('matrix_progress')or{}
+        mark=(progress.get('intent'),len(progress.get('attempt_refs',[])),len(progress.get('interrupted',[])))
+        if progress.get('key')==key and progress.get('intent')and mark!=last:intents.append(mark)
+        last=mark
+    if len(intents)!=len(matrix['attempts'])+len(matrix['interrupted_attempts_rerun']):raise ValueError('REGRESSION_MATRIX_RUN_NOT_ACCOUNTED')
+
+
+def matrix_policy(m,status,get=None):
+    """Replay the approved matrix policy from its recorded attempts."""
+    a=m['attempts'];kinds=[x['kind']for x in a];first=a[0]
+    ids=[f.get('rerun_id')for f in first['failed_tests']];rerun=list(dict.fromkeys(ids))if ids and None not in ids else None
+    if first['status']=='PASS':expected,outcome=['FULL'],'PASS'
+    elif not rerun:expected,outcome=['FULL'],'FAIL'
+    elif len(a)>1 and a[1]['status']=='FAIL':expected,outcome=['FULL','FAILED_ONLY_RERUN'],'FAIL'
+    else:expected,outcome=['FULL','FAILED_ONLY_RERUN','FULL_CONFIRMATION'],a[-1]['status']
+    if kinds!=expected or m['status']!=outcome or(len(a)>1 and a[1]['only']!=rerun)or(m['status']=='FAIL'and status=='PASS'):raise ValueError('REGRESSION_MATRIX_POLICY_DOES_NOT_REPRODUCE')
+    signal=m['first_failure_signal']
+    if first['status']=='FAIL'and(not signal or signal['first_failed_test_ids']!=[f['id']for f in first['failed_tests']]or signal['transient']!=(outcome=='PASS')):
+        raise ValueError('FIRST_MATRIX_FAILURE_NOT_RECORDED')
+    if first['status']=='PASS'and signal is not None:raise ValueError('REGRESSION_MATRIX_POLICY_DOES_NOT_REPRODUCE')
+    if get is not None and[get(r,'REGRESSION_MATRIX_ATTEMPT')for r in m['attempt_refs']]!=a:raise ValueError('REGRESSION_MATRIX_ATTEMPT_NOT_JOURNALED')
+
+
 def audit_data_v2(contract,configuration,events,artifacts,*,core=None,check_source=True,lineage_records=(),intelligence=None):
     """v2: structural replay of the integrated loop; weight-based operator choice is checked by surface and novelty, not re-sampled."""
     from gaia.autonomy.lineage import engine_state_dir
@@ -256,6 +310,8 @@ def audit_data_v2(contract,configuration,events,artifacts,*,core=None,check_sour
         if replay!=get(r):raise ValueError('AUTHORIZATION_DOES_NOT_REPRODUCE')
         selection=get(s['selection_ref'],'PLAN_SELECTION');candidates=get(s['candidates_ref'],'ELIGIBLE_CANDIDATES')['candidates']
         if selection['selected_plan_id']not in{x['plan']['plan_id']for x in candidates}or selection['selected_plan_id']!=get(s['plan_ref'])['plan_id']:raise ValueError('SELECTION_OUTSIDE_PREVIEWED_CANDIDATES')
+        # The advisory cognitive review never selects: the first eligible ranked candidate is always the plan.
+        if selection['method']!='DETERMINISTIC_FIRST_ELIGIBLE_PLAN'or selection['selected_plan_id']!=candidates[0]['plan']['plan_id']:raise ValueError('ADVISORY_REVIEW_INFLUENCED_SELECTION')
         entry=next(x for x in candidates if x['plan']['plan_id']==selection['selected_plan_id'])
         if s.get('preview_hash')!=entry['preview_hash']:raise ValueError('PREVIEW_HASH_NOT_FROM_ELIGIBLE_CANDIDATE')
     seen=set(rec['proposed_change']['candidate_hash']for rec in lineage_records);surface=contract['surface']
@@ -311,6 +367,18 @@ def audit_data_v2(contract,configuration,events,artifacts,*,core=None,check_sour
         if evaluation['before_version']!=evaluation['after_version']:
             approvals=[get(r)for r in unique.get('promotion_decision_ref',{}).values()]
             if not any(a['allowed']and a['experiment_id']==e['id']and a['class']in contract['promotion_policy']['allowed_classes']for a in approvals):raise ValueError('PROMOTION_WITHOUT_CAMPAIGN_POLICY')
+    if surface=='numpy_mlp'and contract['mode']=='CONTROLLED_AUTONOMOUS':audit_references(events,get,evaluations)
+    for r in unique.get('verification_ref',{}).values():
+        matrix=get(r).get('regression_matrix')
+        if matrix is not None:
+            matrix_policy(matrix,get(r)['status'],get)
+            matrix_runs_accounted(events,matrix)
+            if matrix['attempts'][0]['status']=='FAIL'and len(matrix['attempts'])>1:
+                # The first failure is journaled before the selective re-run starts.
+                signal=next((i for i,e in enumerate(events)if(e['state'].get('regression_first_failure')or{}).get('key')==matrix_key(events,matrix)),None)
+                rerun=next((i for i,e in enumerate(events)if(e['state'].get('matrix_progress')or{}).get('intent')=='FAILED_ONLY_RERUN'
+                            and(e['state'].get('matrix_progress')or{}).get('key')==matrix_key(events,matrix)),None)
+                if signal is None or rerun is None or signal>rerun:raise ValueError('FIRST_MATRIX_FAILURE_NOT_JOURNALED_BEFORE_RERUN')
     # Every executed evaluation must be learned and recorded, and any version change must be under campaign policy.
     from gaia.autonomy.controller import BLOCKING,IN_FLIGHT,effective_phase
     # A journal stopped between a side effect and its bookkeeping is an integrity record of a blocked lineage, never a certifiable loop.

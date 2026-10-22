@@ -97,6 +97,50 @@ class Services:
         return {'current_version':eng.store.current_version(),'baseline_manifest_hash':eng.store.load_state()['baseline_manifest_hash'],
             'benchmark_hash':manifest.file_hash(eng.store.dir/'benchmark.json'),'source_snapshot':eng.store.load_state()['source_snapshot']}
 
+    # ------------------------------------------------------------------ champion reference (numpy)
+    def last_reference(self):
+        """Last committed champion reference measurement, bound to the version it was measured for."""
+        if self.lineage:return self.lineage.state()['reference']
+        refs=[ev['state']['reference_ref']for ev in self.store.events()if ev['state'].get('reference_ref')]
+        return {**self.store.get(refs[-1]),'measurement_ref':refs[-1]}if refs else None
+
+    def champion_reference(self):
+        """(current champion version, the screen reference cost the Engine will use)."""
+        eng=self.engine();eng._load();return eng.store.current_version(),(eng.state.get('ref')or{}).get('cost')
+
+    def remeasure(self,check_drift):
+        """v0.1 Engine re-measurement of the current champion; returns (version, cost, previous cost, status, message hash, at experiment)."""
+        eng=self.engine();eng._load();version=eng.store.current_version();_,src=eng.store.load_version()
+        before=(eng.state.get('ref')or{}).get('cost')
+        try:return version,eng.refresh_ref(src,check_drift=check_drift),before,'MEASURED',None,eng.state['n_experiments']
+        except engine.NeedsHuman as exc:
+            message=str(exc);eng._load()
+            status=('REFERENCE_DRIFT'if message.startswith('Deriva')else'BENCHMARK_SATURATED'if message.startswith('Benchmark saturado')
+                    else'CHAMPION_FAILS_REFERENCE_TARGET')
+            return version,(eng.state.get('ref')or{}).get('cost'),before,status,provenance.digest(message),eng.state['n_experiments']
+
+    def measure_reference(self,reason,check_drift):
+        """Re-measure the current champion's screen reference (with the v0.1 drift guard when asked) and commit it.
+
+        Returns the committed measurement; status is MEASURED or the v0.1 condition that requires review."""
+        version,cost,before,status,detail,at=self.remeasure(check_drift)
+        value={'schema':'gaia_champion_reference_v1','reason':reason,'status':status,'version':version,'cost_s':cost,'previous_cost_s':before,
+            'drift_checked':check_drift,'drift_tolerance':self.configuration['engine_config']['stop']['drift_tolerance']if check_drift else None,
+            'at_experiment':at,'campaign_id':self.contract['campaign_id'],'message_hash':detail,
+            'scope':'SCREEN_REFERENCE_FOR_THIS_VERSION_CONFIRMATION_REMEASURES_CHAMPION'}
+        r=self.store.put('REFERENCE_MEASUREMENT',value);self.store.event(self.store.current()['phase'],{'reference_ref':r})
+        if self.lineage:self.lineage.event('REFERENCE_MEASURED',{**{k:value[k]for k in ('reason','status','version','cost_s','previous_cost_s','campaign_id')},'measurement_ref':r})
+        return {**value,'measurement_ref':r}
+
+    def current_reference(self):
+        """The reference the next screen will use; re-measured whenever it is not bound to the current champion."""
+        version,cost=self.champion_reference();last=self.last_reference()
+        if cost is not None and last and last['status']=='MEASURED'and last['version']==version and last['cost_s']==cost:
+            return {'version':version,'cost_s':cost,'reason':last['reason'],'measurement_ref':last['measurement_ref'],'measured_now':False}
+        measured=self.measure_reference('REFERENCE_NOT_BOUND_TO_CURRENT_CHAMPION',False)
+        if measured['status']!='MEASURED':raise engine.NeedsHuman('REFERENCE_UNRELIABLE: '+measured['status'])
+        return {'version':version,'cost_s':measured['cost_s'],'reason':measured['reason'],'measurement_ref':measured['measurement_ref'],'measured_now':True}
+
     def initialized(self):
         if self.surface=='local_inference':return True
         return (self.engine().store.dir/'benchmark.json').exists()
@@ -263,17 +307,19 @@ class Services:
             'status':result['status'],'authority':'NONE','cognitive_result':run['result'],'cognitive_trace':run['trace'],'input':packet}
 
     def compare(self,target,candidates,hypothesis,previous,research):
-        """One bounded cognitive call: compare eligible plans, review risk and explain the previous outcome.
+        """One bounded advisory cognitive review of the eligible plans; the deterministic first-ranked plan is always selected.
 
-        The model can only cite facts; a choice is the single candidate plan_id it cites. Authority stays NONE."""
+        The 0.9 context window (8 facts) never shows the model the fields that distinguish the plans, and a counterbalanced
+        evaluation showed the cited plan followed list position (docs/integration_evidence/development/bdce836-post-certification).
+        The model's citations are recorded for traceability only; they have no selection or execution authority."""
         current=self.store.current()
         budget_check(self.contract,current,self.state,self.root/self.configuration['engine_config']['workload']['state_dir'])
         packet=artifact('PLAN_COMPARISON_INPUT',{'target':target['target_class'],'candidates':candidates,'previous_outcome':previous,
             'missing_evidence':hypothesis['missing_evidence']if hypothesis else[],'risks':sorted({c['risk']for c in candidates}),
             'research_status':(research or{}).get('status')})
         store=CognitiveStore(self.local);reference=import_evidence(store,packet,'candidate experiment plans comparison previous outcome risk')
-        task=cognitive_task('Compare the candidate experiment plans using the evidence. Cite the plan_id fact of the single most informative next plan, '
-                            'its risk and any previous outcome facts. This is not execution authority.','COMPARE',[reference])
+        task=cognitive_task('Review the candidate experiment plans using the evidence. Cite the plan_id and risk facts you consider relevant and any '
+                            'previous outcome facts. This is an advisory review: it selects nothing and has no execution authority.','COMPARE',[reference])
         task['evidence_requirements']['required_fields']=['payload.candidates']
         task.pop('task_id');task.pop('hash');task['task_id']='ct'+provenance.digest(task)[:24];task['hash']=provenance.digest(task)
         run=CognitiveOrchestrator(self.local,backend_factory=self.backend_factory()).run(task)
@@ -284,10 +330,11 @@ class Services:
         ids={c['plan_id']for c in candidates}
         cited=sorted({c['claim']['value']for c in result['claims']if re.fullmatch(r'payload\.candidates\.\d+\.plan_id',c['claim']['field'])and c['claim']['value']in ids})
         default=candidates[0]['plan_id']
-        selected,method=(cited[0],'COGNITIVE_COMPARE_SINGLE_CITED_CANDIDATE')if len(cited)==1 else(default,'DETERMINISTIC_FIRST_RANKED_'+('NO_CITED_CANDIDATE'if not cited else'MULTIPLE_CITED_CANDIDATES'))
         analysis=[c for c in result['claims']if c['claim']['field'].startswith('payload.previous_outcome')]
-        return {'schema':'gaia_experiment_review_v2','target':target['target_id'],'evidence_summary':result['claims'],
-            'selected_plan_id':selected,'default_plan_id':default,'method':method,'cited_candidates':cited,
+        return {'schema':'gaia_experiment_review_v3','target':target['target_id'],'evidence_summary':result['claims'],
+            'selected_plan_id':default,'default_plan_id':default,'method':'DETERMINISTIC_FIRST_ELIGIBLE_PLAN',
+            'advisory':{'kind':'ADVISORY_COGNITIVE_REVIEW','cited_candidates':cited,'cites_selected_plan':default in cited,'influence_on_selection':'NONE',
+                'limitation':'CONTEXT_WINDOW_EXCLUDES_DISCRIMINATING_PLAN_FIELDS_NOT_A_SELECTION'},
             'failure_analysis':{'facts':analysis,'authority':'NONE','scope':'CITED_PREVIOUS_OUTCOME_FACTS_NOT_CAUSAL_EXPLANATION'}if previous else None,
             'missing_evidence':result['uncertainty']['missing_evidence'],'uncertainty':result['uncertainty'],
             'status':result['status'],'authority':'NONE','cognitive_result':run['result'],'cognitive_trace':run['trace'],'input':packet}
@@ -321,13 +368,20 @@ class Services:
                 return bool(decision)
             return inference.execute(self.intelligence_state(),self.lineage.root,m,selection,profile,limits,identifier,allowed,self.lineage.identifier)
         eng=self.engine();eng._load()
+        # The screen compares against a reference measured for exactly the current champion (never a reverted version).
+        reference=self.current_reference()if self.v2 and(eng.state.get('ref')or{}).get('cost')is not None else None
+        eng._load()
         parent=eng.store.load_version()[0];before=eng.store.current_version()
         # The champion's measured reference cost lets v0.1 operator statistics learn real rewards.
         parent_cost=(eng.state.get('ref')or{}).get('cost')if self.v2 else None
         result=eng.experiment(proposal=(m['genome'],m['ops'],G.genome_hash(parent),parent_cost))
         records=[r for r in eng.store.records()if r['type']=='end'];out=records[-1]
         out=json.loads((eng.store.dir/out['evidence_path']).read_bytes())
-        return {'engine_result':result,'evidence':out,'before_version':before,'after_version':eng.store.current_version()}
+        value={'engine_result':result,'evidence':out,'before_version':before,'after_version':eng.store.current_version()}
+        if self.v2:
+            # An uninitialized champion reference is set by this experiment's own gates (G2 median), measured now.
+            value['reference_used']=reference or{'version':before,'cost_s':None,'reason':'NOT_MEASURED_BEFORE_FIRST_EXPERIMENT_G2_MEDIAN_USED','measurement_ref':None,'measured_now':False}
+        return value
 
     def recover_inference(self,current):
         from . import inference_surface as inference
@@ -354,7 +408,9 @@ class Services:
         from ..observation.compare import compare
         eng=self.engine();eng._load();ob=self.observe(full=True);checks=readiness.run_gates(eng)
         current=eng.store.current_version();loaded_g,src=eng.store.load_version()
-        ref=eng.refresh_ref(src,check_drift=False)
+        measured=self.measure_reference('POST_PROMOTION',False)if self.v2 else None
+        if measured and measured['status']!='MEASURED':raise engine.NeedsHuman('REFERENCE_UNRELIABLE: '+measured['status'])
+        ref=measured['cost_s']if measured else eng.refresh_ref(src,check_drift=False)
         old=evaluation['evidence'].get('confirm')or{};costs=[c for c in old.get('champ_costs',[])if isinstance(c,(int,float))]
         import statistics
         improvement=bool(costs)and ref<statistics.median(costs)*(1-eng.acc['min_gain'])
@@ -365,7 +421,34 @@ class Services:
             'post_observation':ob,'comparison':compare(pre,ob),'gates':checks,'persisted_improvement':improvement,'current_version':current,
             'ledger_ok':ledger.verify_ledger(eng.store)['ok'],'regression_matrix':matrix}
 
-    def regression_matrix(self):
+    def matrix_run(self,kind,only=None):
+        """One clean controller process running the fixed matrix (or only the given test IDs); failing tests are kept, privately projected."""
+        import subprocess,sys,tempfile
+        with tempfile.TemporaryDirectory(prefix='gaia-matrix-')as scratch:
+            report=Path(scratch)/'report.json';start=time.monotonic()
+            command=[sys.executable,'-B','-W','error::ResourceWarning','-m','gaia.autonomy.regression','--report',str(report)]+(['--only',*only]if only else[])
+            try:
+                result=subprocess.run(command,cwd=self.root,capture_output=True,text=True,timeout=900,
+                    env={**os.environ,'PYTHONPATH':str(self.root),'PYTHONDONTWRITEBYTECODE':'1'})
+                returncode,stdout,stderr=result.returncode,result.stdout,result.stderr
+            except subprocess.TimeoutExpired as exc:
+                returncode,stdout,stderr=None,exc.stdout or'',exc.stderr or''
+                stdout,stderr=(v.decode(errors='replace')if isinstance(v,bytes)else v for v in (stdout,stderr))
+            detail=json.loads(report.read_text())if report.exists()else None
+        def private(text):
+            for value,label in ((str(self.root),'<root>'),(tempfile.gettempdir(),'<tmp>'),(os.path.expanduser('~'),'~')):text=text.replace(value,label)
+            return text
+        # Every failing ID is kept; tracebacks are bounded to the first 50.
+        failed=[{'id':f['id'],'rerun_id':f['rerun_id'],'kind':f['kind'],'traceback_tail':private(f['traceback'])[-3000:]if i<50 else None,
+                 'traceback_sha256':hashlib.sha256(f['traceback'].encode()).hexdigest()}for i,f in enumerate((detail or{}).get('failed',[]))]
+        status='PASS'if returncode==0 and detail and detail['status']=='PASS'else'FAIL'
+        return {'kind':kind,'status':status,'returncode':returncode,'only':only,'duration_s':time.monotonic()-start,
+            'summary':{k:detail[k]for k in ('tests','skips','failures','errors','unexpected_successes')}if detail else None,
+            'reason':None if status=='PASS'else'TIMEOUT'if returncode is None else'FAILED_TESTS'if failed else'NO_TEST_REPORT',
+            'failed_tests':failed,'stderr_tail':private(stderr)[-2000:]if status=='FAIL'and not failed else None,
+            'stdout_sha256':hashlib.sha256(stdout.encode()).hexdigest(),'stderr_sha256':hashlib.sha256(stderr.encode()).hexdigest()}
+
+    def regression_matrix_v1(self):
         # Fixed test IDs only, executed in a separate local controller process.
         import subprocess,sys
         modules=['critical_v0_1','relevant_0_2_to_1_0']
@@ -374,6 +457,53 @@ class Services:
             env={**os.environ,'PYTHONPATH':str(self.root),'PYTHONDONTWRITEBYTECODE':'1'})
         return {'status':'PASS'if result.returncode==0 else'FAIL','modules':modules,'returncode':result.returncode,
                 'stdout_sha256':hashlib.sha256(result.stdout.encode()).hexdigest(),'stderr_sha256':hashlib.sha256(result.stderr.encode()).hexdigest()}
+
+    def matrix_progress(self):
+        """Committed matrix attempts of the verification in progress (keyed by the promoted experiment's evaluation)."""
+        current=self.store.current();key=(current.get('evaluation_ref')or{}).get('id');progress=current.get('matrix_progress')
+        if not progress or progress['key']!=key:return {'key':key,'attempt_refs':[],'intent':None,'interrupted':[]}
+        return copy.deepcopy(progress)
+
+    def regression_matrix(self):
+        """Fixed post-promotion matrix under the operator-approved policy; no other retries, thresholds or exclusions.
+
+        A first failure records the failing test IDs and re-runs only those once in a clean process; any repeat failure
+        rolls back. If they all pass, the full matrix runs once more and must pass; any failure there rolls back.
+        Each attempt is journaled before the next starts, so a resumed verification continues the same sequence and the
+        first failure, recorded as an explicit signal as soon as it is observed, can never be erased by a crash."""
+        if not self.v2:return self.regression_matrix_v1()
+        progress=self.matrix_progress();phase=self.store.current()['phase']
+        attempts=[self.store.get(r)for r in progress['attempt_refs']]
+        if progress['intent']:progress['interrupted'].append(progress['intent']);progress['intent']=None
+        if attempts and attempts[0]['status']=='FAIL':self.regression_signal(progress['key'],attempts[0])  # idempotent on resume
+        while True:
+            step=matrix_next(attempts)
+            if step is None:break
+            kind,only=step
+            progress['intent']=kind;self.store.event(phase,{'matrix_progress':copy.deepcopy(progress)})
+            attempt=self.matrix_run(kind,only);r=self.store.put('REGRESSION_MATRIX_ATTEMPT',attempt)
+            progress['attempt_refs'].append(r);progress['intent']=None;attempts.append(attempt)
+            first=kind=='FULL'and attempt['status']=='FAIL'
+            # The first failure is committed in the same event as its attempt, so no crash window can lose it.
+            self.store.event(phase,{'matrix_progress':copy.deepcopy(progress),
+                **({'regression_first_failure':{'key':progress['key'],'failed_test_ids':[f['id']for f in attempt['failed_tests']]}}if first else{})})
+            if first:self.regression_signal(progress['key'],attempt)
+        status,trigger=matrix_outcome(attempts)
+        first=attempts[0]
+        signal=None if first['status']=='PASS'else{'first_failed_test_ids':[f['id']for f in first['failed_tests']],'transient':status=='PASS',
+            'outcome':'PROMOTION_KEPT'if status=='PASS'else'ROLLBACK'}
+        return {'status':status,'policy':'FAILED_IDS_RERUN_ONCE_THEN_FULL_MATRIX_ONCE_NO_OTHER_RETRIES','modules':['critical_v0_1','relevant_0_2_to_1_0'],
+                'attempts':attempts,'attempt_refs':progress['attempt_refs'],'interrupted_attempts_rerun':progress['interrupted'],
+                'first_failure_signal':signal,'rollback_trigger_test_ids':trigger}
+
+    def regression_signal(self,key,attempt):
+        """The first full-matrix failure is a durable signal, recorded once, before any re-run."""
+        ids=[f['id']for f in attempt['failed_tests']]
+        if(self.store.current().get('regression_first_failure')or{}).get('key')!=key:
+            self.store.event(self.store.current()['phase'],{'regression_first_failure':{'key':key,'failed_test_ids':ids}})
+        if self.lineage and not any(e['kind']=='REGRESSION_SIGNAL'and e['payload']['verification_key']==key for e in self.lineage.events()):
+            self.lineage.event('REGRESSION_SIGNAL',{'campaign_id':self.contract['campaign_id'],'verification_key':key,'first_failed_test_ids':ids,
+                'reason':attempt['reason']})
 
     def rollback(self,evaluation,reason):
         if self.surface=='local_inference':
@@ -414,3 +544,28 @@ class Services:
         # The known-good predecessor is the version the lineage promoted from.
         previous=[r['system_version']['version_before']for r in self.records()if r['system_version']['version_after']==version and r['system_version']['version_before']!=version]
         return {'status':'PASS'if checks['status']=='READY_FOR_CAMPAIGN'else'FAIL','version':version,'gates':checks,'rollback_to':previous[-1]if previous else None}
+
+
+def matrix_next(attempts):
+    """Next attempt of the approved matrix policy from the recorded attempts, or None when decided."""
+    if not attempts:return ('FULL',None)
+    first=attempts[0]
+    if first['status']=='PASS'or len(attempts)==3:return None
+    if len(attempts)==1:
+        ids=rerun_ids(first)
+        return ('FAILED_ONLY_RERUN',ids)if ids else None
+    return None if attempts[1]['status']=='FAIL'else('FULL_CONFIRMATION',None)
+
+
+def rerun_ids(attempt):
+    """Loadable IDs of the failed tests, or None when any failure cannot be re-run selectively (it then rolls back)."""
+    ids=[f.get('rerun_id')for f in attempt['failed_tests']]
+    if not ids or any(i is None for i in ids):return None
+    return list(dict.fromkeys(ids))
+
+
+def matrix_outcome(attempts):
+    """(status, test IDs or reasons that triggered a rollback)."""
+    last=attempts[-1]
+    if last['status']=='PASS':return 'PASS',[]
+    return 'FAIL',[f['id']for f in last['failed_tests']]or[last['kind']+'_'+str(last['reason'])]

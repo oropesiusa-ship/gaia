@@ -11,7 +11,8 @@ from ..provenance import digest
 from .store import durable
 from .schema import OBJECTIVES
 
-EVENTS=('CREATED','CAMPAIGN_ADMITTED','CAMPAIGN_CLOSED','BLOCKED','UNBLOCKED','BASELINE_OBSERVATION','EXPERIMENT_RECORDED','META_TUNE','HEALTH_CHECK')
+EVENTS=('CREATED','CAMPAIGN_ADMITTED','CAMPAIGN_CLOSED','BLOCKED','UNBLOCKED','BASELINE_OBSERVATION','EXPERIMENT_RECORDED','META_TUNE','HEALTH_CHECK',
+        'REFERENCE_MEASURED','REGRESSION_SIGNAL')
 
 
 class LineageBusy(RuntimeError):pass
@@ -77,7 +78,7 @@ class LineageStore:
     def state(self):
         """Pure fold of the committed journal; inspection never repairs or locks."""
         s={'blocked':False,'block':None,'campaigns':[],'open_campaigns':[],'baseline':None,'experiments':0,'records':[],'meta_tunes':0,
-           'experiments_at_last_tune':0,'health_checks':0}
+           'experiments_at_last_tune':0,'health_checks':0,'reference':None,'regression_signals':0}
         for ev in self.events():
             k,p=ev['kind'],ev['payload']
             if k=='CAMPAIGN_ADMITTED':s['campaigns'].append(p['campaign_id']);s['open_campaigns'].append(p['campaign_id'])
@@ -88,6 +89,8 @@ class LineageStore:
             elif k=='EXPERIMENT_RECORDED':s['experiments']+=1;s['records'].append(p['record_ref'])
             elif k=='META_TUNE':s['meta_tunes']+=1;s['experiments_at_last_tune']=s['experiments']
             elif k=='HEALTH_CHECK':s['health_checks']+=1
+            elif k=='REFERENCE_MEASURED':s['reference']=p
+            elif k=='REGRESSION_SIGNAL':s['regression_signals']+=1
         return s
 
     @contextmanager

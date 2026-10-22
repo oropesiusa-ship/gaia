@@ -23,7 +23,7 @@ def inference_metrics(evidence):
 def assemble(contract,configuration,iteration,target,plan,hypothesis,materialized,evaluation,classification,assessment,learned,selection):
     evidence=evaluation['evidence'];surface=contract.get('surface','numpy_mlp')
     primary,protection=(inference_metrics if surface=='local_inference'else numpy_metrics)(evidence)
-    value={'schema':'gaia_experiment_record_v1','experiment_id':evidence.get('id'),'campaign_id':contract['campaign_id'],
+    value={'schema':'gaia_experiment_record_v2','experiment_id':evidence.get('id'),'campaign_id':contract['campaign_id'],
         'lineage_id':contract.get('lineage_id'),'iteration':iteration,'system_version':{'source_identity_hash':configuration['source_identity']['hash'],
         'campaign_schema':contract['schema'],'version_before':evaluation['before_version'],'version_after':evaluation['after_version']},
         'component':target['component_id'],'problem':{'target_class':target['target_class'],'issue_id':hypothesis['issue_id'],
@@ -32,9 +32,9 @@ def assemble(contract,configuration,iteration,target,plan,hypothesis,materialize
         'proposed_change':{'class':materialized['class'],'method':materialized['method'],'changes':materialized['changes'],'ops':materialized['ops'],
         'candidate_hash':materialized['candidate_hash'],'design':materialized.get('design',{}),'reference':materialized.get('reference')},
         'environment':{k:evidence.get(k)for k in ('environment_hash','experiment_manifest_hash','benchmark_hash','host_hash')if evidence.get(k)is not None},
-        'primary_metrics':primary,'protection_metrics':protection,'result':{'classification':classification,'decision':evidence.get('decision'),
+        'screen_reference':evaluation.get('reference_used'),'primary_metrics':primary,'protection_metrics':protection,'result':{'classification':classification,'decision':evidence.get('decision'),
         'hypothesis_assessment':assessment['status'],'note':assessment['note']},
-        'decision_reason':evidence.get('reason')or evidence.get('result_code'),'selection':{k:selection.get(k)for k in ('method','selected_plan_id','default_plan_id')},
+        'decision_reason':evidence.get('reason')or evidence.get('result_code'),'selection':{k:selection.get(k)for k in ('method','selected_plan_id','default_plan_id','advisory_cited_candidates')},
         'uncertainties':['CAUSALITY_NOT_ESTABLISHED','LOCAL_HOST_AND_CONTEXT_ONLY']+(['SINGLE_EXPERIMENT_NOT_REPLICATED']if classification=='ACCEPTED'else[]),
         'artifacts':{'learning_outcome':learned.get('outcome'),'learning_batch':(learned.get('batch')or{}).get('batch_id')if isinstance(learned.get('batch'),dict)else None},
         'reversal':'PREVIOUS_SELECTION_POINTER'if surface=='local_inference'else'EXISTING_V0_1_ROLLBACK_TO_BEFORE_VERSION',
