@@ -1,0 +1,43 @@
+{
+ "command": "PYTHONDONTWRITEBYTECODE=1 python3 -B -W error::ResourceWarning -m unittest discover -s tests",
+ "commit": "bdce8362727f58176bd5573ac5cafabe51bf7c90",
+ "earlier_runs_on_previous_bytes": [
+  {
+   "cause": "G2 BASELINE_UNSTABLE host timing (cv 0.2176)",
+   "failures": 1,
+   "isolated_reruns": "3/3 PASS",
+   "ran": 902,
+   "test": "test_ledger.LedgerTests.test_orphan_is_not_repaired_or_truncated_automatically"
+  },
+  {
+   "context": "concurrent evidence export/audits",
+   "failures": 1,
+   "isolated_reruns": "3/3 PASS",
+   "ran": 902,
+   "test": "test_core.TestEngine.test_short_autonomous_run_logs_every_experiment"
+  },
+  {
+   "context": "clean run on af70650",
+   "failures": 0,
+   "ran": 902,
+   "skipped": 9
+  }
+ ],
+ "final_clean_run": {
+  "collected": 919,
+  "context": "run alone on the host immediately before the definitive certification series",
+  "duration_s": 1037.732,
+  "errors": 0,
+  "failures": 0,
+  "log_sha256": "8192cd2c9735079746c4362115b8cbb5cb98b131aa7d509d794bcd946576a850",
+  "ran": 919,
+  "skipped": 9
+ },
+ "new_tests": {
+  "count": 69,
+  "module": "tests/test_autonomy_integration.py"
+ },
+ "schema": "gaia_integration_tests_v1",
+ "skip_scope": "Torch not installed in the NumPy profile / no CUDA (frozen gaia_transformer tests)",
+ "timing_dependent_note": "Intermittent failures were real-time measurement tests unrelated to changed files; none reproduced in isolation or in clean runs."
+}
