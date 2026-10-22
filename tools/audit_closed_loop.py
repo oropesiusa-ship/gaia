@@ -195,7 +195,7 @@ def audit_data(contract,configuration,events,artifacts,*,core=None,check_source=
 
 V2_SKIP_REASONS={'NO_NOVEL_CANDIDATE','NOT_MATERIALIZABLE_ON_SURFACE','QUALIFIED_REFERENCE_CONFIGURATION_MISSING','REFERENCE_REQUIRES_UNSUPPORTED_CODE_VARIATION',
     'REFERENCE_OUTSIDE_HYPERPARAMETER_SURFACE','FACTORIAL_DESIGN_COMPLETE','EXACT_REJECTED_CONFIGURATION_AVOIDED','BUDGETED_REPEAT_DEFERRED_USING_EXISTING_LEARNING',
-    'CONFIGURATION_ALREADY_EVALUATED_IN_LINEAGE','INTENTIONAL_REPEAT_CAP_REACHED','CONTROL_ALREADY_EXECUTED_FOR_CURRENT_CHAMPION'}
+    'CONFIGURATION_ALREADY_EVALUATED_IN_LINEAGE','INTENTIONAL_REPEAT_CAP_REACHED','CONTROL_ALREADY_EXECUTED_FOR_CURRENT_CHAMPION','STACK_OUTSIDE_QUALIFIED_BUDGET'}
 V2_METHODS={'IDENTICAL_CURRENT_BASELINE','EXISTING_HP_OPERATOR_FROM_CURRENT_CHAMPION','FIXED_FACTORIAL_CELL_FROM_REFERENCE','EXACT_LEARNING_REFERENCE_REPEAT',
     'EXISTING_HP_OPERATOR_FROM_QUALIFIED_REFERENCE','IDENTICAL_CURRENT_PRIMARY_STACK','ONE_FACTOR_QUALIFIED_STACK_VARIATION'}
 
@@ -256,6 +256,8 @@ def audit_data_v2(contract,configuration,events,artifacts,*,core=None,check_sour
         if replay!=get(r):raise ValueError('AUTHORIZATION_DOES_NOT_REPRODUCE')
         selection=get(s['selection_ref'],'PLAN_SELECTION');candidates=get(s['candidates_ref'],'ELIGIBLE_CANDIDATES')['candidates']
         if selection['selected_plan_id']not in{x['plan']['plan_id']for x in candidates}or selection['selected_plan_id']!=get(s['plan_ref'])['plan_id']:raise ValueError('SELECTION_OUTSIDE_PREVIEWED_CANDIDATES')
+        entry=next(x for x in candidates if x['plan']['plan_id']==selection['selected_plan_id'])
+        if s.get('preview_hash')!=entry['preview_hash']:raise ValueError('PREVIEW_HASH_NOT_FROM_ELIGIBLE_CANDIDATE')
     seen=set(rec['proposed_change']['candidate_hash']for rec in lineage_records);surface=contract['surface']
     for r in unique.get('materialized_ref',{}).values():
         m=get(r,'MATERIALIZED')
@@ -309,6 +311,19 @@ def audit_data_v2(contract,configuration,events,artifacts,*,core=None,check_sour
         if evaluation['before_version']!=evaluation['after_version']:
             approvals=[get(r)for r in unique.get('promotion_decision_ref',{}).values()]
             if not any(a['allowed']and a['experiment_id']==e['id']and a['class']in contract['promotion_policy']['allowed_classes']for a in approvals):raise ValueError('PROMOTION_WITHOUT_CAMPAIGN_POLICY')
+    # Every executed evaluation must be learned and recorded, and any version change must be under campaign policy.
+    from gaia.autonomy.controller import BLOCKING,IN_FLIGHT,effective_phase
+    # A journal stopped between a side effect and its bookkeeping is an integrity record of a blocked lineage, never a certifiable loop.
+    interrupted=final['reason']in BLOCKING or(len(events)>1 and effective_phase(events[-2]['state'])in IN_FLIGHT)
+    evaluation_refs=list(unique.get('evaluation_ref',{}).values());recorded={x['evaluation_ref']['id']for x in evaluations}
+    if not recorded<={r['id']for r in evaluation_refs}or len(evaluation_refs)-len(recorded)>(1 if interrupted else 0):raise ValueError('EVALUATION_WITHOUT_EXPERIMENT_RECORD')
+    reserved=max([e['state'].get('experiments',0)for e in events]+[0])
+    if not len(evaluation_refs)<=reserved<=len(evaluation_refs)+(1 if interrupted else 0):raise ValueError('EXECUTION_INTENT_ACCOUNTING')
+    for r in evaluation_refs:
+        evaluation=get(r)
+        if evaluation['before_version']!=evaluation['after_version']:
+            approvals=[get(q)for q in unique.get('promotion_decision_ref',{}).values()]
+            if not any(a['allowed']and a['experiment_id']==evaluation['evidence']['id']for a in approvals):raise ValueError('PROMOTION_WITHOUT_CAMPAIGN_POLICY')
     if report['metrics']['experiments']!=len(unique.get('learning_ref',{}))or len(evaluations)!=len(unique.get('learning_ref',{})):raise ValueError('EXPERIMENT_ACCOUNTING')
     if contract['mode']!='CONTROLLED_AUTONOMOUS'and evaluations:raise ValueError('SIMULATION_EXECUTED_CANDIDATE')
     if report['status']=='PASS'and contract['mode']=='CONTROLLED_AUTONOMOUS':
@@ -317,6 +332,7 @@ def audit_data_v2(contract,configuration,events,artifacts,*,core=None,check_sour
     return {'status':'PASS','campaign_id':contract['campaign_id'],'lineage_id':contract['lineage_id'],'surface':surface,'mode':contract['mode'],'report_status':report['status'],
         'events':len(events),'experiments':len(evaluations),'distinct_candidates':len({get(s['materialized_ref'])['candidate_hash']for s in evaluations}),
         'metrics':report['metrics'],'levels':report['levels'],'protected_hash':configuration['source_identity']['protected_hash'],'claim':report['claim'],
+        'interrupted_integrity_record':interrupted,
         'audit_scope':'V2_STRUCTURAL_REPLAY_SURFACE_NOVELTY_RECORDS_ASSESSMENTS_PROTECTED_DECISIONS_NOT_OPERATOR_WEIGHT_RESAMPLING'}
 
 

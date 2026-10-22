@@ -319,7 +319,7 @@ class Services:
                     'experiment_id':identifier,'class':m['class'],'verification_reserve_required_s':1200,'remaining_budget_s':self.remaining(),
                     'reason':'TRANSACTIONAL_SELECTION_POINTER_AFTER_EXISTING_0_8_GUARDS'if decision else'CAMPAIGN_POLICY_OR_VERIFICATION_RESERVE_DENIES_PROMOTION'})})
                 return bool(decision)
-            return inference.execute(self.intelligence_state(),self.lineage.root,m,selection,profile,limits,identifier,allowed)
+            return inference.execute(self.intelligence_state(),self.lineage.root,m,selection,profile,limits,identifier,allowed,self.lineage.identifier)
         eng=self.engine();eng._load()
         parent=eng.store.load_version()[0];before=eng.store.current_version()
         # The champion's measured reference cost lets v0.1 operator statistics learn real rewards.
@@ -331,7 +331,8 @@ class Services:
 
     def recover_inference(self,current):
         from . import inference_surface as inference
-        return inference.recover(self.intelligence_state(),self.lineage.root,current['expected_experiment_id'],current['before_version'])
+        return inference.recover(self.intelligence_state(),self.lineage.root,current['expected_experiment_id'],current['before_version'],
+                                 self.lineage.identifier,self.store.get(current['materialized_ref'])['candidate_hash'])
 
     def learn(self,evaluation):
         if self.surface=='local_inference':

@@ -177,7 +177,7 @@ class IntegratedLoopTests(Fixture):
             def learn(self,e):raise ValueError('INVALID_LEARNING_SCOPE')
         lin=self.lineage();r=self.go(self.loop(lin['lineage_id'],factory=Broken))
         self.assertEqual(r['status'],'FAIL');state=LineageStore(self.state,lin['lineage_id']).state()
-        self.assertTrue(state['blocked']);self.assertEqual(state['block']['reason'],'UNLEARNED_EXECUTED_EXPERIMENT')
+        self.assertTrue(state['blocked']);self.assertEqual(state['block']['reason'],'INTERRUPTED_IN_FLIGHT_EXPERIMENT');self.assertEqual(state['block']['phase'],'LEARNING')
     def test_patch_version_is_a_valid_learning_scope(self):
         from gaia.learning.schema import valid_context
         ctx={'environment_hash':'a'*64,'host_hash':'a'*64,'runtime_hash':'a'*64,'benchmark_hash':'a'*64,'source_hash':'a'*64,'workload':'numpy_mlp',
@@ -192,6 +192,101 @@ class IntegratedLoopTests(Fixture):
         lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Unhealthy);r=self.go(loop)
         self.assertEqual(r['stopping_reason'],'HEALTH_INVALID');self.assertEqual(Unhealthy.rolled,['v0000']);self.assertEqual(r['metrics']['rollback_count'],1)
         self.assertEqual(r['metrics']['experiments'],0);self.assertTrue(LineageStore(self.state,lin['lineage_id']).state()['blocked'])
+    def future(self,seconds=10**4):
+        now=time.time()+seconds
+        return patch('gaia.autonomy.policy.time.time',return_value=now),patch('gaia.autonomy.controller.time.time',return_value=now)
+    def test_budget_exhausted_on_resume_still_learns_the_committed_experiment(self):
+        class Dies(FakeV2):
+            def execute(self,m):Dies.committed=super().execute(m);raise SystemExit('process death after committed evidence')
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Dies)
+        with self.assertRaises(SystemExit):self.go(loop)
+        loop.recover_execution=lambda _:Dies.committed;a,b=self.future()
+        with a,b:r=self.go(loop)
+        self.assertEqual(r['stopping_reason'],'STOPPED_BUDGET');self.assertEqual(r['metrics']['experiments'],1);self.assertEqual(len(self.records(loop)),1)
+        state=LineageStore(self.state,lin['lineage_id']).state();self.assertFalse(state['blocked']);self.assertEqual(state['experiments'],1)
+    def test_deadline_during_learning_finishes_bookkeeping_under_grace(self):
+        from gaia.autonomy.policy import BudgetExceeded
+        clock=self.future()
+        class Late(FakeV2):
+            calls=0
+            def learn(self,e):
+                Late.calls+=1
+                if Late.calls==1:
+                    for c in clock:c.start()
+                    raise BudgetExceeded('STOPPED_BUDGET')
+                return super().learn(e)
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Late)
+        try:r=self.go(loop)
+        finally:
+            for c in clock:c.stop()
+        self.assertEqual(Late.calls,2);self.assertEqual(len(self.records(loop)),1);self.assertEqual(r['stopping_reason'],'STOPPED_BUDGET')
+        self.assertFalse(LineageStore(self.state,lin['lineage_id']).state()['blocked'])
+    def test_pause_in_flight_is_deferred_until_bookkeeping_completes(self):
+        class Pausing(FakeV2):
+            def learn(self,e):self.store.control('PAUSE');return super().learn(e)
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Pausing);r=self.go(loop)
+        self.assertEqual(r['status'],'PAUSED');paused=loop.store.current()
+        self.assertEqual(paused['resume_phase'],'REEVALUATING');self.assertEqual(len(self.records(loop)),1)
+    def test_persisted_failed_health_check_is_acted_on_after_crash(self):
+        class Bad(FakeV2):
+            def health_check(self):return {'status':'FAIL','version':'v0001','rollback_to':None}
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Bad);original=loop.store.event
+        def crash(phase,updates=None):
+            value=original(phase,updates)
+            if updates and updates.get('health_ref'):raise SystemExit('death after persisted health failure')
+            return value
+        with patch.object(loop.store,'event',side_effect=crash),self.assertRaises(SystemExit):self.go(loop)
+        r=self.go(loop);self.assertEqual(r['stopping_reason'],'HEALTH_INVALID');self.assertEqual(r['metrics']['experiments'],0)
+    def test_health_check_survives_crash_after_admission(self):
+        class Crash(FakeV2):
+            calls=0
+            def health_check(self):
+                Crash.calls+=1
+                if Crash.calls==1:raise SystemExit('death before health check')
+                return super().health_check()
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Crash)
+        with self.assertRaises(SystemExit):self.go(loop)
+        self.go(loop);events=LineageStore(self.state,lin['lineage_id']).events()
+        self.assertEqual(Crash.calls,2);self.assertEqual(sum(e['kind']=='CAMPAIGN_ADMITTED'for e in events),1);self.assertEqual(sum(e['kind']=='HEALTH_CHECK'for e in events),1)
+    def test_admission_is_idempotent_after_crash(self):
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);original=loop.store.event
+        def crash(phase,updates=None):
+            if updates and updates.get('admitted'):raise SystemExit('death after lineage admission')
+            return original(phase,updates)
+        with patch.object(loop.store,'event',side_effect=crash),self.assertRaises(SystemExit):self.go(loop)
+        self.go(loop);events=LineageStore(self.state,lin['lineage_id']).events()
+        self.assertEqual(sum(e['kind']=='CAMPAIGN_ADMITTED'for e in events),1);self.assertEqual(sum(e['kind']=='CAMPAIGN_CLOSED'for e in events),1)
+    def test_interrupted_meta_tune_is_recorded_and_not_replayed(self):
+        class Tune(FakeV2):
+            calls=0
+            def meta_tune(self):
+                Tune.calls+=1;raise SystemExit('death during strategy tuning')
+        lin=self.lineage();self.go(self.loop(lin['lineage_id'],factory=Tune));loop=self.loop(lin['lineage_id'],factory=Tune)
+        with self.assertRaises(SystemExit):self.go(loop)
+        self.go(loop);events=LineageStore(self.state,lin['lineage_id']).events()
+        self.assertEqual(Tune.calls,1);self.assertTrue(any(e['kind']=='META_TUNE'and e['payload'].get('interrupted')for e in events))
+    def test_crash_inside_report_is_reconciled_on_rerun(self):
+        class Recovery(FakeV2):pass
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);store=LineageStore(self.state,lin['lineage_id'])
+        for phase in ('OBSERVING','DIAGNOSING','PRIORITIZING','RETRIEVING','RESEARCHING','PLANNING','REVIEWING','AUTHORIZING','MATERIALIZING','EXPERIMENTING'):loop.store.event(phase)
+        loop.store.event('EXPERIMENTING',{'execution_intent':True,'expected_experiment_id':'e00001'});loop.recover_execution=lambda _:None
+        original=LineageStore.event
+        def crash(self_,kind,payload):
+            if kind=='BLOCKED':raise SystemExit('death inside report')
+            return original(self_,kind,payload)
+        with patch.object(LineageStore,'event',crash),self.assertRaises(SystemExit):self.go(loop)
+        self.assertFalse(store.state()['blocked']);self.assertEqual(self.go(loop)['stopping_reason'],'NEEDS_RECOVERY');self.assertTrue(store.state()['blocked'])
+        self.assertEqual(sum(e['kind']=='BLOCKED'for e in store.events()),1)
+    def test_unexpected_verification_error_rolls_back_promotion(self):
+        class Promoted(FakeV2):
+            decisions=('accepted',);promote=True
+            def verify(self,e,pre):raise KeyError('unexpected')
+        lin=self.lineage();r=self.go(self.loop(lin['lineage_id'],factory=Promoted,promotion=True))
+        self.assertEqual(r['stopping_reason'],'POST_PROMOTION_REGRESSION_ROLLED_BACK');self.assertEqual(r['metrics']['rollback_count'],1)
+    def test_mature_lineage_does_not_charge_new_campaign_before_admission(self):
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],limits={'maximum_disk_budget':65536})
+        (LineageStore(self.state,lin['lineage_id']).root/'history.bin').write_bytes(b'x'*10**6)
+        self.assertLess(disk_used(loop.contract,{},self.state),65536);self.assertGreater(disk_used(loop.contract,{'admission_lineage_bytes':0},self.state),10**6)
     def test_accepted_exploration_is_not_promoted_directly(self):
         from types import SimpleNamespace
         lin=self.lineage();loop=self.loop(lin['lineage_id'],promotion=True);store=loop.store
@@ -258,6 +353,49 @@ class MaterializerV2Tests(Fixture):
         m={**self.m(self.plan('EXPLORATION')),'intentional_repeat':True}
         self.assertIsNone(duplicate_v2(m,[],set(),{},2))
         self.assertEqual(duplicate_v2(m,[],set(),{m['candidate_hash']:2},2)['reason'],'INTENTIONAL_REPEAT_CAP_REACHED')
+    def reference(self,hp,outcome='ACCEPTED',slots=None):
+        from gaia.learning.ingestion import project_configuration
+        g=G.new_genome(hp,slots);cfg={'hp':g['hp'],'slots':g['slots'],'genome_hash':provenance.digest(g),'code_variation_hash':project_configuration(g)['code_variation_hash']}
+        record={'kind':'record','learning_id':'l'+provenance.digest(cfg)[:24],'hash':provenance.digest({'r':cfg}),
+                'claim':{'outcome':outcome,'configuration':cfg,'configuration_hash':cfg['genome_hash']}}
+        knowledge={'kind':'knowledge','learning_id':'k'+'1'*24,'hash':'k'*64,'claim':{'record_refs':[record['learning_id']]}}
+        return g,record,knowledge
+    def knowledge_plan(self,cls,g,knowledge,**extra):
+        base=self.plan('EXPLORATION')
+        return finish_plan({**base,'class':cls,'knowledge_refs':[{'learning_id':knowledge['learning_id'],'hash':knowledge['hash'],'claim_type':'OBSERVED_EFFECT',
+            'effective_status':'ACTIVE','applicability':'EXACT_CONTEXT','stale':False}],
+            'candidate_variation':{**base['candidate_variation'],'reference_configuration_hash':provenance.digest(g),**extra.pop('variation',{})},**extra})
+    def mk(self,plan,records):return materialize_v2(self.contract,self.target(plan),plan,None,G.new_genome(),records,iteration=1,preview=True)
+    def test_local_search_and_exploitation_vary_one_factor_of_the_accepted_reference(self):
+        g,record,knowledge=self.reference({'hidden':32})
+        for cls in ('PARAMETER_LOCAL_SEARCH','EXPLOITATION'):
+            m=self.mk(self.knowledge_plan(cls,g,knowledge),[record,knowledge])
+            diff=[d for d in G.diff(g,m['genome'])]
+            with self.subTest(cls=cls):
+                self.assertEqual(len(m['ops']),1);self.assertEqual(len(diff),1);self.assertEqual(m['reference']['learning_id'],record['learning_id'])
+                self.assertEqual(m['method'],'EXISTING_HP_OPERATOR_FROM_QUALIFIED_REFERENCE')
+    def test_replication_and_validation_repeat_the_reference_exactly(self):
+        g,record,knowledge=self.reference({'hidden':32})
+        for cls in ('REPLICATION','KNOWLEDGE_VALIDATION'):
+            plan=self.knowledge_plan(cls,g,knowledge,variation={'kind':'REPEAT_REFERENCE_CONFIGURATION'})
+            m=self.mk(plan,[record,knowledge])
+            with self.subTest(cls=cls):self.assertEqual(m['genome'],g);self.assertTrue(m['intentional_repeat'])
+    def test_rejected_reference_cannot_be_replicated_but_can_be_validated(self):
+        g,record,knowledge=self.reference({'hidden':32},outcome='REJECTED')
+        with self.assertRaises(NotMaterializable):self.mk(self.knowledge_plan('REPLICATION',g,knowledge,variation={'kind':'REPEAT_REFERENCE_CONFIGURATION'}),[record,knowledge])
+        self.assertEqual(self.mk(self.knowledge_plan('KNOWLEDGE_VALIDATION',g,knowledge,variation={'kind':'REPEAT_REFERENCE_CONFIGURATION'}),[record,knowledge])['genome'],g)
+    def test_factorial_design_walks_fixed_cells_then_completes(self):
+        g,record,knowledge=self.reference({'lr':0.1})
+        plan=self.knowledge_plan('DISCRIMINATION',g,knowledge,design='CONTROLLED_FACTORIAL',variables=['learning_rate','weight_decay'])
+        seen=set();cells=[]
+        for _ in range(4):
+            m=materialize_v2(self.contract,self.target(plan),plan,None,G.new_genome(),[record,knowledge],iteration=1,preview=True,seen=seen)
+            cells.append((m['genome']['hp']['lr'],m['genome']['hp']['wd']));seen.add(m['candidate_hash'])
+        self.assertEqual(sorted(set(cells)),[(0.05,0.0),(0.05,0.0001),(0.2,0.0),(0.2,0.0001)])
+        with self.assertRaises(NotMaterializable):materialize_v2(self.contract,self.target(plan),plan,None,G.new_genome(),[record,knowledge],iteration=1,preview=True,seen=seen)
+    def test_reference_outside_hyperparameter_surface_rejected(self):
+        g,record,knowledge=self.reference({},slots={'optimizer':'adam'})
+        with self.assertRaises(NotMaterializable):self.mk(self.knowledge_plan('REPLICATION',g,knowledge,variation={'kind':'REPEAT_REFERENCE_CONFIGURATION'}),[record,knowledge])
     def test_unintended_repeat_of_evaluated_configuration_skipped(self):
         m=self.m(self.plan('EXPLORATION'))
         self.assertEqual(duplicate_v2(m,[],{m['candidate_hash']},{},2)['reason'],'CONFIGURATION_ALREADY_EVALUATED_IN_LINEAGE')
@@ -333,6 +471,16 @@ class InferenceSurfaceTests(Fixture):
     def test_seen_stacks_are_not_repeated(self):
         plan=self.plan('EXPLORATION');first=self.m(plan);second=self.m(plan,seen={first['candidate_hash']})
         self.assertNotEqual(first['candidate_hash'],second['candidate_hash'])
+    def test_grid_stays_within_qualified_host_budget(self):
+        limits={'threads':6,'max_context':1024};values=inference.grid(PRIMARY,limits,['VULKAN'])
+        self.assertTrue(all(1<=t<=6 for t in values['threads']));self.assertTrue(all(256<=c<=1024 for c in values['context']))
+        self.assertEqual(values['backend'],['VULKAN']);self.assertTrue(set(values['kv'])<={'f16','q8_0'})
+        plan=self.plan('EXPLORATION')
+        for i in range(1,30):
+            m=inference.materialize(self.contract,self.targets[plan['target_ref']['target_id']],plan,None,PRIMARY,limits,['VULKAN'],iteration=i,preview=True)
+            self.assertLessEqual(m['stack']['threads'],6);self.assertLessEqual(m['stack']['context'],1024);self.assertNotEqual(m['stack']['backend'],'CPU')
+        with self.assertRaises(inference.NotMaterializable):
+            inference.materialize(self.contract,self.targets[self.plan('CONTROL_EXPERIMENT')['target_ref']['target_id']],self.plan('CONTROL_EXPERIMENT'),None,PRIMARY,limits,['VULKAN'],iteration=1,preview=True)
     def test_cpu_backend_disables_offload(self):
         self.assertEqual(inference.candidate(PRIMARY,'backend','CPU')['gpu_layers'],0)
     def test_decision_guards_precede_latency(self):
@@ -407,6 +555,13 @@ class InferenceSurfaceTests(Fixture):
         recovered=inference.recover(state,lineage_root,'i00001',selection['id'])
         self.assertEqual(recovered['engine_result'],'RECOVERED_COMMITTED_EVIDENCE');self.assertEqual(recovered['after_version'],selection['id'])
         self.assertIsNone(inference.recover(state,lineage_root,'i00002',selection['id']))
+
+    def test_inference_recovery_never_claims_another_lineages_promotion(self):
+        store,selection,m,run,lineage_root,state=self.promotion_fixture()
+        evaluation=run();self.assertNotEqual(evaluation['after_version'],selection['id'])
+        other=inference.recover(state,lineage_root,'i00001',selection['id'],'al'+'9'*24,m['candidate_hash'])
+        self.assertEqual(other['after_version'],selection['id'])
+        with self.assertRaises(ValueError):inference.recover(state,lineage_root,'i00001',selection['id'],None,'stack-other')
 
     def test_selection_pointer_is_transactional_and_reversible(self):
         from gaia.local_intelligence.schema import artifact

@@ -34,8 +34,10 @@ def disk_used(contract,current,state_path,engine_path=None):
     if contract.get('schema')!='gaia_closed_loop_campaign_v2':return disk_bytes(state_path)+engine
     campaign=disk_bytes(Path(state_path)/'autonomy'/'campaigns'/contract['campaign_id'])
     if contract['lineage_id']is None:return campaign+engine
+    # Before admission the campaign has consumed nothing of the shared lineage.
+    if 'admission_lineage_bytes'not in current:return campaign
     lineage=Path(state_path)/'autonomy'/'lineages'/contract['lineage_id']
-    return campaign+max(0,disk_bytes(lineage)+engine-current.get('admission_lineage_bytes',0))
+    return campaign+max(0,disk_bytes(lineage)+engine-current['admission_lineage_bytes'])
 
 
 def budget_check(contract,current,state_path,engine_path=None,now=None):

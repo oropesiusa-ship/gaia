@@ -63,13 +63,19 @@ def candidate(primary,knob,value):
     s['stack_id']=stack_identity(s);return s
 
 
+def within_budget(stack,limits):
+    """The 0.8 adapter refuses stacks outside the active host budget; never propose one."""
+    return 1<=stack['threads']<=limits['threads']and 256<=stack['context']<=limits['max_context']
+
+
 def materialize(contract,target,plan,authorization,primary,limits,backends,*,iteration,seen=(),preview=False):
     if not preview and(authorization is None or authorization['status']!='AUTHORIZED'or authorization['campaign_hash']!=contract['hash']
                        or authorization['plan_id']!=plan['plan_id']or authorization['target_id']!=target['target_id']):raise ValueError('MATERIALIZATION_NOT_AUTHORIZED')
     if plan['candidate_variation']['code']is not None or plan['candidate_variation']['numeric_values']is not None or plan['blocked_by']:raise ValueError('UNSUPPORTED_MATERIALIZATION')
     cls=plan['class'];seed=int(digest({'lineage':contract['lineage_id'],'campaign':contract['campaign_id'],'iteration':iteration,'plan':plan['plan_id']})[:15],16)
     stack=copy.deepcopy(primary);changes=[];method='IDENTICAL_CURRENT_PRIMARY_STACK';attempt=0
-    if cls in ('CONTROL_EXPERIMENT','BASELINE_RECONFIRMATION','MEASUREMENT_REFINEMENT'):pass
+    if cls in ('CONTROL_EXPERIMENT','BASELINE_RECONFIRMATION','MEASUREMENT_REFINEMENT'):
+        if not within_budget(primary,limits):raise NotMaterializable('STACK_OUTSIDE_QUALIFIED_BUDGET')
     elif cls in ('EXPLORATION','DISCRIMINATION')and plan['candidate_variation']['kind']!='REPEAT_REFERENCE_CONFIGURATION':
         knobs=VARIABLE_KNOBS.get(plan['variables'][0])if len(plan['variables'])==1 else None
         if not knobs:raise NotMaterializable('NOT_MATERIALIZABLE_ON_SURFACE')
@@ -79,7 +85,7 @@ def materialize(contract,target,plan,authorization,primary,limits,backends,*,ite
         order=np.random.default_rng(seed).permutation(len(options))
         for attempt,i in enumerate(order[:ATTEMPTS]):
             k,v=options[int(i)];c=candidate(primary,k,v)
-            if c['stack_id']not in seen and c['stack_id']!=primary['stack_id']:
+            if c['stack_id']not in seen and c['stack_id']!=primary['stack_id']and within_budget(c,limits):
                 stack=c;changes=[[k,primary[k],v]];method='ONE_FACTOR_QUALIFIED_STACK_VARIATION';break
         else:raise NotMaterializable('NO_NOVEL_CANDIDATE')
     else:raise NotMaterializable('NOT_MATERIALIZABLE_ON_SURFACE')
@@ -115,7 +121,7 @@ def recorded(lineage_root,identifier):
     return json.loads(path.read_bytes())if path.exists()else None
 
 
-def execute(state,lineage_root,m,selection,profile,limits,identifier,promotion_allowed):
+def execute(state,lineage_root,m,selection,profile,limits,identifier,promotion_allowed,lineage_id=None):
     """Control re-benchmark + candidate screen/full benchmark; evidence durable before any pointer change."""
     from ..local_intelligence.campaign import run_stack
     from ..local_intelligence.selection import dimensions,select
@@ -138,25 +144,30 @@ def execute(state,lineage_root,m,selection,profile,limits,identifier,promotion_a
         'control_ref':{'id':control['id'],'hash':control['hash']},'screen_ref':{'id':screen['id'],'hash':screen['hash']}if screen else None,
         'candidate_ref':candidate_ref,'control_dimensions':control_dims,'candidate_dimensions':candidate_dims,
         'benchmark_hash':control['payload']['benchmark_hash'],'host_hash':selection['payload']['host_ref']['hash'],
-        'search_cost_s':time.perf_counter()-start,'promotable':decision=='accepted'and m['class']!='CONTROL_EXPERIMENT','selection_before':before}
+        'search_cost_s':time.perf_counter()-start,'promotable':decision=='accepted'and m['class']!='CONTROL_EXPERIMENT','selection_before':before,'lineage_id':lineage_id}
     durable(experiments_dir(lineage_root)/(identifier+'.json'),evidence,True)
     after=before
     if evidence['promotable']and promotion_allowed(evidence):
         previous=s.read('current','SELECTION')
         new=s.put(select([control,cand],profile,coverage=previous['payload']['coverage']))
         if new['payload']['primary']['stack']['stack_id']==m['candidate_hash']:
-            s.set_pointer(new,reason='CLOSED_LOOP_PROMOTION',receipt={'experiment_id':identifier,'previous_selection':{'id':previous['id'],'hash':previous['hash']}})
+            s.set_pointer(new,reason='CLOSED_LOOP_PROMOTION',receipt={'experiment_id':identifier,'lineage_id':lineage_id,'candidate_hash':m['candidate_hash'],
+                                                                     'previous_selection':{'id':previous['id'],'hash':previous['hash']}})
             after=new['id']
         else:evidence={**evidence,'promotion_note':'EXISTING_SELECTION_POLICY_PREFERS_CONTROL'}
     return {'engine_result':decision,'evidence':evidence,'before_version':before,'after_version':after}
 
 
-def recover(state,lineage_root,identifier,before):
+def recover(state,lineage_root,identifier,before,lineage_id=None,candidate_hash=None):
     evidence=recorded(lineage_root,identifier)
     if evidence is None:return None
+    if candidate_hash is not None and evidence['candidate_hash']!=candidate_hash:raise ValueError('RECOVERY_EXPERIMENT_IDENTITY_MISMATCH')
     after=before
+    # The pointer journal is shared by every lineage of this intelligence state: match lineage, experiment and candidate.
     for entry in store(state).pointer_entries():
-        if entry['receipt'].get('experiment_id')==identifier and entry['reason']=='CLOSED_LOOP_PROMOTION':after=entry['selection_ref']['id']
+        r=entry['receipt']
+        if(entry['reason']=='CLOSED_LOOP_PROMOTION'and r.get('experiment_id')==identifier and r.get('lineage_id')==lineage_id
+           and r.get('candidate_hash')==evidence['candidate_hash']):after=entry['selection_ref']['id']
     return {'engine_result':'RECOVERED_COMMITTED_EVIDENCE','evidence':evidence,'before_version':before,'after_version':after}
 
 
