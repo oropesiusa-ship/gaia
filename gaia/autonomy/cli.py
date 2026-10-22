@@ -30,7 +30,7 @@ def register(sub,root):
         else:p.add_argument('campaign_id')
         if name=='autonomy-run':p.add_argument('--authorize-campaign',action='store_true')
         p.set_defaults(f=lambda args,cmd=name:run(root,cmd,args),autonomy_command=True)
-    register_sessions(sub,root)
+    register_sessions(sub,root);register_catalog(sub,root)
 
 
 def register_sessions(sub,root):
@@ -43,6 +43,16 @@ def register_sessions(sub,root):
             p.add_argument('--limit',action='append',default=[],metavar='NAME=INT',help='aggregate limit override, e.g. maximum_campaigns=6')
         else:p.add_argument('session_id')
         p.set_defaults(f=lambda args,cmd=name:run_session(root,cmd,args),autonomy_command=True)
+
+
+def register_catalog(sub,root):
+    p=sub.add_parser('endurance-catalog',help='1.1 read-only catalog of verified references across lineages')
+    p.add_argument('--state-dir',type=Path,default=Path(root)/'state_autonomy');p.add_argument('--lineage',action='append')
+    def show(args):
+        from .catalog import catalog
+        try:print(json.dumps(catalog(args.state_dir,args.lineage),indent=2,sort_keys=True));return 0
+        except (OSError,ValueError,KeyError):print('Autonomy blocked: INVALID_CATALOG_STATE');return 2
+    p.set_defaults(f=show,autonomy_command=True)
 
 
 def run_session(root,cmd,args):

@@ -217,7 +217,8 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "autonomy-create", "autonomy-run", "autonomy-status", "autonomy-trace", "autonomy-pause", "autonomy-resume", "autonomy-stop", "autonomy-repair-cursor",
                                            "autonomy-lineage-create", "autonomy-lineage-status", "autonomy-lineage-unblock",
-                                           "endurance-session-create", "endurance-session-run", "endurance-session-status", "endurance-session-stop"):
+                                           "endurance-session-create", "endurance-session-run", "endurance-session-status", "endurance-session-stop",
+                                           "endurance-catalog"):
         from gaia.autonomy.cli import register as register_autonomy
         register_autonomy(sub, ROOT)
     if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "cognitive-task", "cognitive-run", "cognitive-tasks", "cognitive-trace", "cognitive-result"):
