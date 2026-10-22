@@ -51,7 +51,9 @@ def run_session(root,cmd,args):
     try:
         if cmd=='endurance-session-create':
             limits={k:int(v)for k,v in(x.split('=',1)for x in args.limit)}
-            contract=session_contract(args.lineage,stage=args.stage,mode=args.mode,promotion=args.allow_promotion,limits=limits)
+            from .freeze import freeze
+            contract=session_contract(args.lineage,stage=args.stage,mode=args.mode,promotion=args.allow_promotion,limits=limits,
+                                      frozen=freeze(root,args.state_dir,args.lineage))
             value=SessionStore(args.state_dir,contract['session_id']).create(contract,root)
         elif cmd=='endurance-session-run':value=supervisor.Supervisor(root,args.state_dir,args.session_id).run()
         elif cmd=='endurance-session-status':value=supervisor.status(args.state_dir,args.session_id)

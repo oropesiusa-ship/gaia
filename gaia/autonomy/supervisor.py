@@ -200,6 +200,9 @@ class Supervisor:
             while True:
                 view=self.session.state_view()
                 if self.control()=='STOP'or view['stop_requested']:return self.stop('OPERATOR_STOP')
+                from .freeze import changes
+                changed=changes(self.root,self.state,self.contract['freeze'])
+                if changed:return self.stop('PROTOCOL_CHANGED',changes=changed)
                 seconds,reasons=budget(self.contract,view,self.session.storage(self.root),stamp())
                 if reasons:return self.stop(reasons[0],reasons=reasons)
                 lineage=self.next_lineage(view)

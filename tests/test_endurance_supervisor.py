@@ -11,6 +11,7 @@ from unittest.mock import patch
 from gaia.autonomy import session as session_module
 from gaia.autonomy.session import SessionStore,session_contract,validate_session
 from gaia.autonomy.supervisor import Supervisor,status,alive
+from gaia.autonomy.freeze import freeze,changes
 from gaia.autonomy.store import CampaignStore
 from test_autonomy_integration import Fixture,ROOT
 
@@ -42,7 +43,8 @@ class SupervisorTests(Fixture):
     def make(self,lineages=None,**limits):
         lineages=lineages or[self.lineage()['lineage_id']]
         base={'hang_timeout_s':2,'heartbeat_s':0,'minimum_campaign_s':60,'maximum_campaigns':2,'relaunches_per_campaign':1}
-        c=session_contract(lineages,stage='unit',limits={**base,**limits});SessionStore(self.state,c['session_id']).create(c,self.root);return c
+        c=session_contract(lineages,stage='unit',limits={**base,**limits},frozen=freeze(self.root,self.state,lineages))
+        SessionStore(self.state,c['session_id']).create(c,self.root);return c
     def supervisor(self,c,behaviour=None):
         def launch(cid):
             b=behaviour(cid,len(self.launched))if callable(behaviour)else(behaviour or self.behaviour)
@@ -110,9 +112,29 @@ class SupervisorTests(Fixture):
         self.assertEqual({str(p):p.read_bytes()for p in root.rglob('*')if p.is_file()},before)
         self.assertEqual(value['inspection'],'READ_ONLY_NO_LOCK_NO_REPAIR');self.assertIsNotNone(value['heartbeat_age_s'])
     def test_contract_rejects_escalation(self):
-        with self.assertRaises(ValueError):session_contract([self.lineage()['lineage_id']],stage='unit',limits={'maximum_research':1})
-        c=session_contract([self.lineage()['lineage_id']],stage='unit');c={**c,'limits':{**c['limits'],'maximum_campaigns':10**4}}
+        lin=[self.lineage()['lineage_id']];frozen=freeze(self.root,self.state,lin)
+        with self.assertRaises(ValueError):session_contract(lin,stage='unit',limits={'maximum_research':1},frozen=frozen)
+        with self.assertRaises(ValueError):session_contract(lin,stage='unit')
+        c=session_contract(lin,stage='unit',frozen=frozen);c={**c,'limits':{**c['limits'],'maximum_campaigns':10**4}}
         with self.assertRaises(ValueError):validate_session(c)
+        forged=session_contract(lin,stage='unit',frozen=frozen);forged={**forged,'freeze':{**forged['freeze'],'acceptance':{}}}
+        with self.assertRaises(ValueError):validate_session(forged)
+
+    def test_protocol_change_stops_the_session_before_the_next_campaign(self):
+        c=self.make(maximum_campaigns=3)
+        def behaviour(cid,n):
+            if n==0:(self.root/'gaia/protected/evaluator.py').write_text('# changed during the session\n')
+            return 'ok'
+        result=self.supervisor(c,behaviour).run()
+        self.assertEqual(result['reason'],'PROTOCOL_CHANGED');self.assertIn('PROTECTED_HASH_CHANGED',result['changes'])
+        self.assertEqual(len(self.launched),1)
+    def test_freeze_records_the_protocol_and_detects_changes(self):
+        lin=[self.lineage()['lineage_id']];frozen=freeze(self.root,self.state,lin)
+        self.assertEqual(set(frozen),{'commit','source_identity_hash','protected_hash','engine_config_hash','acceptance','lineages','selections','hash'})
+        self.assertEqual(changes(self.root,self.state,frozen),[])
+        (self.root/'state_local_intelligence').mkdir();self.assertEqual(changes(self.root,self.state,frozen),['SELECTION_CHANGED_OUTSIDE_SESSION'])
+        (self.root/'gaia/new_module.py').write_text('x=1\n')
+        with self.assertRaisesRegex(ValueError,'LINEAGE_SOURCE_DIFFERS'):freeze(self.root,self.state,lin)
 
 
 if __name__=='__main__':unittest.main()

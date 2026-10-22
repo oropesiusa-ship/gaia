@@ -19,20 +19,23 @@ DEFAULTS={'maximum_campaigns':4,'maximum_wall_s':4*3600,'maximum_compute_s':4*36
 CAMPAIGN_CAP_S=3600
 
 
-def session_contract(lineages,*,stage,mode='CONTROLLED_AUTONOMOUS',promotion=False,limits=None):
+def session_contract(lineages,*,stage,mode='CONTROLLED_AUTONOMOUS',promotion=False,limits=None,frozen=None):
     if not lineages or len(set(lineages))!=len(lineages):raise ValueError('SESSION_LINEAGES_REQUIRED')
-    value={'schema':'gaia_endurance_session_v1','session_id':'as'+uuid.uuid4().hex[:24],'stage':stage,'lineages':list(lineages),
+    if not isinstance(frozen,dict)or 'hash'not in frozen:raise ValueError('PROTOCOL_FREEZE_REQUIRED')
+    value={'schema':'gaia_endurance_session_v1','session_id':'as'+uuid.uuid4().hex[:24],'stage':stage,'lineages':list(lineages),'freeze':frozen,
         'mode':mode,'allow_promotion':bool(promotion),'limits':{**DEFAULTS,**(limits or{})},'created_at':datetime.now(timezone.utc).isoformat(),
         'scope':'SEQUENTIAL_CAMPAIGNS_AGGREGATE_BUDGETS_COMPUTE_IS_SUM_OF_CAMPAIGN_WALL_TIME'}
     value['hash']=digest(value);return validate_session(value)
 
 
 def validate_session(v):
-    keys={'schema','session_id','stage','lineages','mode','allow_promotion','limits','created_at','scope','hash'}
+    keys={'schema','session_id','stage','lineages','freeze','mode','allow_promotion','limits','created_at','scope','hash'}
     if not isinstance(v,dict)or set(v)!=keys or v['schema']!='gaia_endurance_session_v1'or not re.fullmatch(r'as[a-f0-9]{24}',v['session_id']):raise ValueError('INVALID_SESSION_SCHEMA')
     if not isinstance(v['stage'],str)or not re.fullmatch(r'[A-Za-z0-9_.-]{1,40}',v['stage']):raise ValueError('INVALID_SESSION_STAGE')
     if v['mode']not in ('DRY_RUN','SHADOW','CONTROLLED_AUTONOMOUS')or not all(isinstance(x,str)and re.fullmatch(r'al[a-f0-9]{24}',x)for x in v['lineages']):raise ValueError('INVALID_SESSION_SCOPE')
     if set(v['limits'])!=set(LIMITS)or any(type(v['limits'][k])is not int or not lo<=v['limits'][k]<=hi for k,(lo,hi)in LIMITS.items()):raise ValueError('SESSION_LIMIT_ESCALATION')
+    if not isinstance(v['freeze'],dict)or v['freeze'].get('hash')!=digest({k:x for k,x in v['freeze'].items()if k!='hash'})or set(v['freeze']['lineages'])!=set(v['lineages']):
+        raise ValueError('INVALID_PROTOCOL_FREEZE')
     if v['hash']!=digest({k:x for k,x in v.items()if k!='hash'}):raise ValueError('SESSION_HASH_MISMATCH')
     return v
 
