@@ -5,8 +5,13 @@
 **PASS de integración del ciclo §11.1 del Documento Maestro v3 sobre dos superficies acotadas:**
 hiperparámetros del trainer `numpy_mlp` y configuración de inferencia del LLM local (Nivel A).
 Rama única `feat/gaia-1.0.1-integration`, base `fe767aa` / `gaia-v1.0`. Commits funcionales
-`af70650` (integración) y `bdce836` (correcciones de recuperación tras revisión independiente);
-la evidencia y este informe van en un commit documental separado.
+`af70650` (integración) y `bdce836` (correcciones de recuperación tras revisión independiente).
+La evidencia y este informe van en commits documentales separados, y la evidencia
+post-certificación (pre-registro `98ea9f4`) se añadió sin cambiar `gaia/`.
+
+**Estado de cierre:** la certificación definitiva sigue siendo válida para sus bytes. La
+evidencia post-certificación encontró tres defectos abiertos (ver su sección), que deben
+resolverse o aceptarse explícitamente antes del merge.
 
 1.0.1 es la base previa a GAIA 1.1 (endurance). La revisión de `GAIA_1_1_ENDURANCE_PLAN.md`
 mostró que el loop 1.0 llamaba a todos los subsistemas 0.1–0.9, pero casi todos quedaban
@@ -127,8 +132,8 @@ conservador y queda declarado.
 | PIPELINE_CLOSED_LOOP | PASS | PASS |
 | AUTONOMOUS_EXECUTION | PASS | PASS |
 | AUTONOMOUS_LEARNING | PASS | PASS (registros de linaje; el schema 0.5 es específico de numpy) |
-| AUTONOMOUS_PROMOTION | **NOT_EXERCISED** en la serie definitiva | NOT_EXERCISED |
-| AUTONOMOUS_ROLLBACK | NOT_EXERCISED | NOT_EXERCISED |
+| AUTONOMOUS_PROMOTION | **NOT_EXERCISED** en la serie definitiva; **PASS** en la serie de réplica pre-registrada sobre los mismos bytes (v0002 verificada y health check PASS) | NOT_EXERCISED |
+| AUTONOMOUS_ROLLBACK | NOT_EXERCISED en la serie definitiva; **EXERCISED_TRIGGER_UNDETERMINED** en la réplica (rollback v0001→v0000 completo; disparador probablemente un falso positivo de la matriz) | NOT_EXERCISED |
 
 No se forzó ninguna mejora ni se provocó una regresión, y no se lanzaron campañas
 adicionales hasta conseguir una promoción, porque eso sería seleccionar el resultado.
@@ -155,8 +160,11 @@ En ambas, la secuencia fue:
 Ambas series pasaron el auditor v2 sobre su propia identidad. **Es evidencia de desarrollo,
 no se combina con la certificación definitiva.**
 
-Los rollbacks (verificación fallida, health check fallido, puntero de selección) y la
-promoción de inferencia se prueban sólo con tests de coordinación.
+En la serie definitiva, los rollbacks y la promoción de inferencia sólo estaban probados con
+tests de coordinación. La serie de réplica pre-registrada (sección «Evidencia
+post-certificación») ejercitó la promoción y el rollback numpy reales sobre los mismos bytes.
+El rollback por health check fallido y el del puntero de selección siguen probados sólo con
+tests de coordinación.
 
 ### Métricas agregadas (serie definitiva)
 
@@ -177,7 +185,7 @@ promoción de inferencia se prueban sólo con tests de coordinación.
 
 Limitaciones medidas:
 
-- **Selección cognitiva:** en las 12 decisiones CONTROLLED de la serie definitiva, igual que en todas las anteriores, el modelo citó el plan que ya era primero en el ranking determinista. La comparación cognitiva está integrada y acotada, pero **no hay evidencia de que mejore la selección**.
+- **Selección cognitiva:** en las 12 decisiones CONTROLLED de la serie definitiva, igual que en todas las anteriores, el modelo citó el plan que ya era primero en el ranking determinista. La evaluación contrabalanceada posterior muestra que en la ruta certificada esto ocurre **por construcción** (27/27 primera posición, 0/5 casos decisivos), no por acuerdo con el ranking. Ver «Evidencia post-certificación».
 - **Ranking aprendido:** el ranking LINKED no cambió el plan elegido en esta serie; sí lo hizo una vez en la serie superada.
 - **Diagnóstico numpy:** en la serie definitiva, el diagnóstico con baseline sólo produjo el objetivo de mejora. En series anteriores produjo además issues reales (`HIGH_MEASUREMENT_VARIABILITY`, `RESOURCE_AVAILABILITY_CHANGED`, `PERFORMANCE_REGRESSION`), siempre sin causalidad establecida.
 - **Diagnóstico de inferencia:** el linaje de inferencia diagnostica sin baseline de observación; su referencia comparable es el control re-medido en cada experimento.
@@ -196,6 +204,107 @@ Limitaciones medidas:
 | 0 duplicados no intencionados, 0 intervenciones | Cumple |
 | Promoción/rollback sólo si son naturales | Cumple (NOT_EXERCISED, declarado) |
 | Inferencia: ≥3 stacks distintos con control re-medido, decisión con los guards 0.8 | Cumple (6 stacks) |
+
+## Evidencia post-certificación (pre-registrada)
+
+Tras la certificación se analizó qué evidencia adicional podía obtenerse sin falsear la
+serie definitiva. El diseño se commiteó antes de ejecutar nada: el pre-registro está en
+[`PREREGISTRATION.md`](integration_evidence/PREREGISTRATION.md) (`98ea9f4`) y el harness
+cognitivo en `b169fa6`/`8ee4075`. La serie definitiva no se modificó, no se extendió ni se repitió.
+Todo corrió sobre los mismos bytes certificados (identidad `48041114…370b`), sin cambiar
+evaluador, benchmarks, criterios, políticas, umbrales ni presupuestos. Los ficheros de
+`tools/` quedan fuera de la identidad de fuentes. Evidencia:
+[`integration_evidence/post-certification/`](integration_evidence/post-certification/).
+
+### Clasificación previa
+
+| Evidencia | Clasificación | Motivo |
+| --- | --- | --- |
+| Promoción natural numpy | Demostrable de forma legítima | Una serie independiente con tamaño fijo y todas sus campañas reportadas no selecciona el resultado. |
+| Rollback numpy | Natural sólo si ocurre; en otro caso, un drill declarado | Provocar una regresión sería fabricarla. El drill (presión de memoria, sin tocar estado ni fuentes) sólo estaba previsto si hubiera promoción y no hubiera rollback natural. |
+| Promoción y rollback de inferencia | Siguen en `NOT_EXERCISED` | El puntero sólo se mueve tras una ganancia real con los guards 0.8; un drill necesitaría una promoción fabricada. |
+| Valor de la selección cognitiva | Evaluable con escenarios controlados | Se usa la ruta certificada sin cambios, sobre entradas reales y contrabalanceadas, más casos con respuesta fijada de antemano. |
+
+### Serie de réplica independiente (numpy)
+
+Estado nuevo `state_integration_replication` y linaje nuevo `ale7725b87d8e948cda002115c`.
+La serie fue DRY_RUN → SHADOW → exactamente 6 CONTROLLED, sin parada anticipada. **Las 8 campañas terminan PASS
+en el informe y en el auditor offline v2.**
+
+| Campaña | Exps. | Parada | Wall (s) | Hechos |
+| --- | ---: | --- | ---: | --- |
+| CONTROLLED 1 | 3 | `NO_PROGRESS` | 406 | CONTROL; `sched` const→cosine y `clip` 0→5, REJECTED |
+| CONTROLLED 2 | 2 | `POST_PROMOTION_REGRESSION_ROLLED_BACK` | 923 | EXPLORATION `depth` 2→1 ACCEPTED (0,489×, IC95 sup. 0,562) → REPLICATION ACCEPTED (0,485×) → **promoción v0000→v0001** → verificación FAIL → **rollback autónomo a v0000** (COMPLETED, validaciones PASS) |
+| CONTROLLED 3 | 5 | `STOPPED_BUDGET` | 1190 | PLS `depth`1+`init_scale` REJECTED (ver defecto 1) → PLS `hidden` 64→32 + `depth` 2→1 ACCEPTED (0,426×, IC95 sup. 0,515) → **promoción v0000→v0002** → **verificación PASS** (gates, mejora persistente, matriz) → 3 KNOWLEDGE_VALIDATION REJECTED |
+| CONTROLLED 4 | 3 | `NO_PROGRESS` | 307 | **health check PASS de v0002** en la admisión; 2 KNOWLEDGE_VALIDATION y 1 EXPLORATION REJECTED |
+| CONTROLLED 5 | 3 | `NO_PROGRESS` | 375 | EXPLORATION `batch`, `warm`, `depth`, REJECTED |
+| CONTROLLED 6 | 3 | `NO_PROGRESS` | 362 | EXPLORATION `sched`, `batch` ×2, REJECTED |
+
+- **Resultado pre-registrado:** `PROMOTION_REACHED`.
+- **Clases ejercitadas:** CONTROL, EXPLORATION, REPLICATION, PARAMETER_LOCAL_SEARCH y KNOWLEDGE_VALIDATION. Sobre los bytes certificados se cumple el criterio «≥2 clases además de CONTROL» que la serie definitiva no alcanzó.
+- **Ranking aprendido:** el ranking LINKED cambió una vez el plan elegido.
+- **Linaje:** 19 experimentos, 0 duplicados no intencionados, 0 intervenciones.
+- **Campeón final:** v0002 (`hidden` 32, `depth` 1), con un coste de ≈0,43× el de v0000 en el workload sintético `numpy_mlp`.
+- **Drill de memoria:** no se ejecutó. Hubo un rollback natural y el pre-registro sólo preveía el drill si no lo hubiera.
+
+**Causa del rollback de v0001.** Los gates pasaron y la mejora persistía. Lo que falló fue
+la matriz de regresión: 615 tests fijos en un proceso separado. La matriz sólo guarda
+hashes de stdout y stderr, y stdout lleva UUIDs aleatorios, así que el test que falló no puede
+recuperarse. La causa queda **sin determinar**, con indicios de que no fue una regresión del genoma:
+
+- la matriz se re-ejecutó 3 veces después de la serie, sobre el estado final, y pasó todas (615 tests, OK);
+- los tests usan estados temporales propios, que no dependen del campeón del linaje;
+- v0002, que contiene el mismo cambio `depth` 2→1, pasó la matriz en la campaña siguiente;
+- la matriz incluye `test_ledger`, uno de los tests de temporización ya documentados como inestables.
+
+El mecanismo de rollback sí se ejercitó de verdad y de forma autónoma: intent, Engine
+rollback, ledger, validaciones y parada. Pero lo más probable es que el disparador fuera un
+**falso positivo** de la matriz, no una regresión del candidato. Por eso se clasifica como
+`AUTONOMOUS_ROLLBACK: EXERCISED_TRIGGER_UNDETERMINED`, no como «rollback por regresión real».
+
+### Selección cognitiva del plan (contrabalanceada)
+
+`tools/eval_cognitive_selection.py` (`cognitive-selection.json`) tiene dos partes:
+
+- **PRODUCTION** ejecuta el `Services.compare` certificado sin cambios. Lo aplica a las 6 entradas reales con más de un candidato de la serie definitiva, bajo todas las rotaciones del orden (17 presentaciones). Además usa 5 casos con respuesta fijada de antemano, en ambos órdenes (10 presentaciones): repetir un factor que acaba de fallar, valor de información, repetición exacta de un rechazado, réplica pendiente de un aceptado, y coste/riesgo.
+- **PROBE** pregunta al mismo backend 0.8, fuera de la ruta certificada, con todos los campos visibles.
+
+| | PRODUCTION | PROBE |
+| --- | ---: | ---: |
+| Elige la primera posición | **27/27** | 10/27 |
+| Mismo plan en todas las rotaciones (entradas reales) | 0/6 | 2/6 |
+| Casos acertados en ambos órdenes | **0/5** | 4/5 |
+| La rotación 0 reproduce la decisión registrada | 6/6 | — |
+
+Conclusiones:
+
+1. **En la ruta certificada, la cognición no aporta valor: reproduce la posición, no el contenido.** La causa es estructural y está registrada en los artefactos CONTEXT:
+   - el constructor de contexto 0.9 admite como máximo 8 hechos;
+   - la relevancia por palabras del objetivo prioriza `plan_id` y `risk`, así que el campo que distingue los planes (`change`) y el resultado anterior nunca llegan al modelo;
+   - el contrato de salida sugiere `["f1"]`, que es el `plan_id` del candidato 0.
+
+   Además, en la serie definitiva los candidatos empatados en todas las estimaciones aparecían ordenados por `plan_id`, que es un hash. El «primero del ranking» era, por tanto, un desempate arbitrario.
+2. **Con toda la información, el modelo lee los campos** y acierta 4 de 5 casos en ambos órdenes. Pero esos 4 casos dependen de campos que el ranking determinista ya pondera: valor de información, coste, riesgo, penalización de repetición y bono de réplica. Falló el único caso que exigía razonar más allá del ranking, con el resultado anterior: acertó en un orden y no en el otro. Además, en las dos entradas reales CONTROL frente a EXPLORATION eligió saltarse el control, que el diseño exige primero. **No hay evidencia de que mejore la selección. Hay indicios de que, si viera más, podría empeorarla.**
+
+## Defectos detectados por la evidencia post-certificación
+
+Estos defectos son reales y la serie definitiva no los cubría. No se han corregido todavía: corregir `gaia/` cambia la
+identidad de fuentes e invalida la certificación, que habría que repetir.
+
+1. **Referencia del campeón obsoleta tras un rollback; sin recalibración en el loop.**
+   - **Qué hace v0.1:** `Engine.run` re-mide la referencia al empezar y cada `recalibrate_every` experimentos, con el guard de deriva.
+   - **Qué hace 1.0.1:** el loop llama a `Engine.experiment()` directamente y sólo refresca la referencia en `verify()`, sobre la versión promovida.
+   - **Consecuencia observada:** tras el rollback a v0000, e00006 (0,360 s) se cribó contra 0,357 s, el coste de la v0001 revertida, en lugar de ≈0,84 s, el coste real de v0000 re-medido en e00007. Un candidato de ≈0,43× quedó REJECTED y así se aprendió.
+   - **Efecto:** el error es conservador (no puede promover nada malo, porque la confirmación re-mide al campeón), pero contamina el aprendizaje y anula el guard de deriva de v0.1 en campañas largas, lo que afecta directamente a 1.1.
+   - **Corrección propuesta:** re-medir la referencia, con el guard de deriva, en la admisión de cada campaña CONTROLLED y tras cada rollback.
+2. **La matriz de regresión no es auditable y es sensible a tests inestables.** No persiste qué tests fallaron, y un solo fallo de temporización revierte una promoción válida.
+   - **Corrección mínima, sin cambio de política:** persistir los IDs de los tests que fallan.
+   - **Decisión que corresponde al operador, porque cambia el criterio de rollback:** re-ejecutar una vez sólo los tests que fallaron, o estabilizar los tests de temporización.
+3. **La comparación cognitiva en la ruta certificada es degenerada** (ver arriba). Opciones:
+   - **(a)** declararla como lo que es: un ancla de trazabilidad cuyo resultado coincide por construcción con el primer candidato, con método renombrado y métricas que no la cuenten como «selección cognitiva»;
+   - **(b)** rediseñar la proyección y el contrato, y re-evaluar con un conjunto pre-registrado mayor antes de dejarla influir.
+
+   Dado (2) de las conclusiones, la opción recomendada es (a).
 
 ## Historia de desarrollo
 
@@ -269,11 +378,20 @@ Lo que 1.0.1 demuestra, separando las tres afirmaciones de §18:
 
 No demuestra endurance (es el objetivo de 1.1), memoria cognitiva general (Nivel B),
 cambios de modelo o pesos (Nivel C), superficies de slots o código, ni que la comparación
-cognitiva mejore las decisiones. Tampoco demuestra un rollback autónomo real, una
-promoción de inferencia real ni una promoción en la serie definitiva. La certificación es
-específica del host y de la configuración evaluados.
+cognitiva mejore las decisiones: en la ruta certificada no puede hacerlo, por construcción.
+Tampoco demuestra una promoción de inferencia real, una promoción en la serie definitiva ni un
+rollback motivado por una regresión real. La serie de réplica pre-registrada demuestra la
+cadena de promoción numpy completa sobre los mismos bytes y un rollback autónomo completo con
+disparador sin determinar. La certificación es específica del host y de la configuración
+evaluados.
+
+**Tres defectos detectados después de certificar quedan abiertos**: la referencia obsoleta
+tras un rollback, la matriz no auditable y la comparación cognitiva degenerada. Están
+descritos en «Defectos detectados por la evidencia post-certificación». Corregirlos exige
+cambiar `gaia/` y repetir la certificación.
 
 PASS significa: «GAIA ejecuta el ciclo §11.1 completo de forma autónoma y acotada, con
 varios experimentos reales y distintos por campaña y aprendizaje persistente entre campañas
 de un linaje, sobre dos superficies contratadas, sin ampliar su autoridad». La promoción
-natural queda demostrada como capacidad en desarrollo y NOT_EXERCISED en la serie definitiva.
+natural queda NOT_EXERCISED en la serie definitiva y demostrada en una serie de réplica
+pre-registrada e independiente sobre los mismos bytes, que no se combina con ella.

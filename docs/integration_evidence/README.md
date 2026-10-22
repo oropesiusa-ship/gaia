@@ -10,6 +10,13 @@ inference lineage.
 because later fixes changed hashed sources. It is development evidence and is never combined
 with `final/`.
 
+[`post-certification/`](post-certification/) holds the evidence pre-registered in
+[`PREREGISTRATION.md`](PREREGISTRATION.md). It is on the same certified bytes and is never
+combined with `final/`.
+
+- `replication/` is an independent numpy series in `state_integration_replication`, with the same export layout.
+- `cognitive-selection.json` is the counterbalanced evaluation of the cognitive plan selection, produced by `tools/eval_cognitive_selection.py`.
+
 Layout of each export:
 
 - `campaigns/<surface>-<mode>.json`: for each campaign, the contract, the final report, the offline v2 audit result produced on the original local state, and its Annex B experiment records.
