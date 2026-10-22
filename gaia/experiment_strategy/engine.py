@@ -6,16 +6,19 @@ from ..provenance import digest
 from .history import summarize
 from .inputs import ingest
 from .plans import build
-from .policy import identity, rank, settings
+from .policy import identity, outcome_statistics, rank, settings
 from .schema import SCHEMA, seal
 
 
-def plan_experiments(priority, learning_runs=(), *, context=None, diagnoses=(), analysis_mode="CURRENT_TARGET", configuration=None, strategy_id="s000001"):
+def plan_experiments(priority, learning_runs=(), *, context=None, diagnoses=(), analysis_mode="CURRENT_TARGET", configuration=None, strategy_id="s000001",
+                     context_scope="OBSERVATION_ENVIRONMENT", outcomes=None):
     start = time.perf_counter()
     cfg = settings(configuration)
     try:
-        inputs = ingest(priority, learning_runs, context, diagnoses, analysis_mode)
-        plans, exclusions = build(inputs, context, analysis_mode, cfg)
+        inputs = ingest(priority, learning_runs, context, diagnoses, analysis_mode, context_scope)
+        linked = None if outcomes is None else validate_outcomes(outcomes)
+        stats = None if linked is None else outcome_statistics(linked)
+        plans, exclusions = build(inputs, context, analysis_mode, cfg, stats)
     except (KeyError, TypeError, AttributeError) as exc:
         raise ValueError("Invalid explicit strategy inputs") from exc
     eligible = rank(plans)
@@ -50,7 +53,7 @@ def plan_experiments(priority, learning_runs=(), *, context=None, diagnoses=(), 
     history["history_hash"] = digest(history)
     value = {"strategy_id": strategy_id, "schema": SCHEMA, "timestamp": datetime.now(timezone.utc).isoformat(), "mode": "SHADOW",
              "analysis_mode": analysis_mode, "context": context,
-             "context_binding": "CONTROLLED_HISTORICAL_SCOPE_NOT_CURRENT_HOST" if analysis_mode == "HISTORICAL_ANALYSIS" else "EXPLICIT_OBSERVATION_ENVIRONMENT" if context else "NOT_PROVIDED",
+             "context_binding": "CONTROLLED_HISTORICAL_SCOPE_NOT_CURRENT_HOST" if analysis_mode == "HISTORICAL_ANALYSIS" else "EXPLICIT_EXECUTION_MANIFEST_NOT_OBSERVATION_IDENTITY" if context and context_scope == "EXECUTION_MANIFEST" else "EXPLICIT_OBSERVATION_ENVIRONMENT" if context else "NOT_PROVIDED",
              "priority_ref": {"prioritization_id": priority["prioritization_id"], "hash": priority["prioritization_hash"]},
              "diagnosis_refs": [{"diagnosis_id": r["diagnosis_id"], "hash": r["diagnosis_hash"]} for r in priority["source_diagnoses"]],
              "diagnosis_binding": inputs["diagnosis_binding"],
@@ -71,4 +74,20 @@ def plan_experiments(priority, learning_runs=(), *, context=None, diagnoses=(), 
                              "Explicit learning snapshots may omit later history; only the supplied history is assessed."],
              "cost": {"duration_s": time.perf_counter() - start, "targets_processed": len(priority["candidate_targets"]),
                       "plans_generated": len(retained), "plans_considered": len(plans), "learning_runs_processed": len(inputs["runs"])}}
+    if linked is not None:
+        value["outcome_statistics"] = {"mode": "LINKED_EXECUTED_OUTCOMES", "outcomes": linked, "by_class": stats,
+                                       "static_ranking": [p["plan_id"] for p in rank(retained, static=True)],
+                                       "bound": "LINKED_COMPONENT_WITHIN_PLUS_MINUS_3_POLICY_DEFAULTS_UNCHANGED"}
     return seal(value)
+
+
+def validate_outcomes(outcomes):
+    keys = {"experiment_id", "class", "target_class", "outcome", "hypothesis_assessment", "cost_s"}
+    result = []
+    for o in outcomes:
+        if (not isinstance(o, dict) or set(o) != keys or o["outcome"] not in ("ACCEPTED", "REJECTED", "INCONCLUSIVE")
+                or o["hypothesis_assessment"] not in ("SUPPORTED", "NOT_SUPPORTED", "INCONCLUSIVE") or not isinstance(o["class"], str)
+                or not isinstance(o["target_class"], str) or not (o["cost_s"] is None or type(o["cost_s"]) in (int, float))):
+            raise ValueError("Invalid linked strategy outcome")
+        result.append(dict(o))
+    return result

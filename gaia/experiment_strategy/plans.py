@@ -7,7 +7,7 @@ from .model import GUARDS, PROFILE, finish_plan, template
 from .policy import CONFIDENCE, ORDINAL, score
 
 
-def build(inputs, context, analysis_mode, cfg):
+def build(inputs, context, analysis_mode, cfg, stats=None):
     priority = inputs["priority"]
     plans, exclusions = [], []
     record_map = {r["learning_id"]: r for r in inputs["records"]}
@@ -130,7 +130,7 @@ def build(inputs, context, analysis_mode, cfg):
             plan["rationale"].append("EXACT_NEGATIVE_EVIDENCE_OVERRIDES_REGIONAL_REUSE")
         if blocked:
             plan["rule_ids"].append("META_AUTHORITY_001")
-        components = score(plan, cfg)
+        components = score(plan, cfg, stats)
         plan["utility"] = {"components": components, "ordinal_total": sum(components.values()), "calibrated_expected_value": False}
         plans.append(finish_plan(plan))
     for t in priority["candidate_targets"]:

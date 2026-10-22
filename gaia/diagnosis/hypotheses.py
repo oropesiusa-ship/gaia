@@ -14,6 +14,8 @@ CLAIMS = {
     "CAPABILITY_GAP": "A required capability is declared unavailable; the underlying reason is not established.",
     "ENVIRONMENT_CHANGE": "Changed identities may affect cross-observation comparability; no causal contribution is established.",
     "UNKNOWN_CAUSE": "Available evidence does not distinguish a causal explanation.",
+    "TRAINER_OPTIMIZATION_OPPORTUNITY": "An explicit optimization objective requests controlled trainer comparisons; no defect or achievable gain is established.",
+    "INFERENCE_OPTIMIZATION_OPPORTUNITY": "An explicit optimization objective requests controlled inference configuration comparisons; no defect or achievable gain is established.",
 }
 NEEDED = {
     "COMPUTE_PRESSURE": ["per_core_cpu_utilization", "cpu_frequency_under_load", "thread_scaling", "memory_bandwidth"],
@@ -27,6 +29,8 @@ NEEDED = {
     "CAPABILITY_GAP": ["capability_failure_evidence"],
     "ENVIRONMENT_CHANGE": ["controlled_environment_comparison"],
     "UNKNOWN_CAUSE": ["workload_resource_time_alignment", "controlled_comparison_evidence"],
+    "TRAINER_OPTIMIZATION_OPPORTUNITY": ["controlled_comparison_evidence"],
+    "INFERENCE_OPTIMIZATION_OPPORTUNITY": ["controlled_runtime_comparison"],
 }
 
 
@@ -70,7 +74,9 @@ def build(evaluation, evidence, cfg):
                       "GPU_MEMORY_AVAILABLE_LOW": "GPU_MEMORY_PRESSURE", "HIGH_MEASUREMENT_VARIABILITY": "MEASUREMENT_NOISE",
                       "QUALITY_REGRESSION": "QUALITY_REGRESSION", "CAPABILITY_UNAVAILABLE": "CAPABILITY_GAP",
                        "WORKLOAD_INSTABILITY": "UNKNOWN_CAUSE", "RESOURCE_AVAILABILITY_CHANGED": "UNKNOWN_CAUSE",
-                       "WORKLOAD_VERIFICATION_GAP": "UNKNOWN_CAUSE"}
+                       "WORKLOAD_VERIFICATION_GAP": "UNKNOWN_CAUSE",
+                       "WORKLOAD_OPTIMIZATION_OBJECTIVE": "TRAINER_OPTIMIZATION_OPPORTUNITY",
+                       "INFERENCE_OPTIMIZATION_OBJECTIVE": "INFERENCE_OPTIMIZATION_OPPORTUNITY"}
             primary = mapped.get(kind, "ENVIRONMENT_CHANGE")
             kinds = [primary] + (["UNKNOWN_CAUSE"] if primary != "UNKNOWN_CAUSE" else [])
         issue_hypotheses = []

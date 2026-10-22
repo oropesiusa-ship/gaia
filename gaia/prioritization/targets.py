@@ -13,6 +13,9 @@ CLASSES = {
     "MEASUREMENT_NOISE": ("MEASUREMENT_QUALITY", "observation", "VERY_LOW", "LOW", "EASY"),
     "ENVIRONMENT_CHANGE": ("ENVIRONMENT_COMPATIBILITY", "core", "LOW", "LOW", "EASY"),
     "UNKNOWN_CAUSE": ("UNKNOWN_REQUIRES_EVIDENCE", "core", "LOW", "LOW", "EASY"),
+    # Explicit operator objectives: an opportunity to compare, never a detected defect.
+    "TRAINER_OPTIMIZATION_OPPORTUNITY": ("TRAINER_OPTIMIZATION", "cpu_evolution", "LOW", "LOW", "EASY"),
+    "INFERENCE_OPTIMIZATION_OPPORTUNITY": ("INFERENCE_CONFIGURATION", "local_intelligence", "MEDIUM", "LOW", "EASY"),
 }
 TARGET_CLASSES = {v[0] for v in CLASSES.values()}
 INFORMATION = {"per_core_cpu_utilization", "cpu_frequency_under_load", "thread_scaling", "memory_bandwidth",

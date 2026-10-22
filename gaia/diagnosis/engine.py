@@ -29,7 +29,11 @@ def settings(configuration=None):
     return cfg
 
 
-def diagnose(current, baseline=None, configuration=None, diagnosis_id="d000001", *, verification_objective=None):
+IMPROVEMENT_OBJECTIVES = {'IMPROVE_NUMPY_MLP_EXISTING_CRITERIA': ('WORKLOAD_OPTIMIZATION_OBJECTIVE', 'RULE_OBJECTIVE_IMPROVEMENT_001', '/sections/measurements/workload/status'),
+                          'IMPROVE_LOCAL_INFERENCE_EXISTING_CRITERIA': ('INFERENCE_OPTIMIZATION_OBJECTIVE', 'RULE_OBJECTIVE_IMPROVEMENT_002', '/runtime_identity/stable_hash')}
+
+
+def diagnose(current, baseline=None, configuration=None, diagnosis_id="d000001", *, verification_objective=None, improvement_objective=None):
     start = time.perf_counter()
     validate_input(current)
     if baseline is not None:
@@ -49,6 +53,18 @@ def diagnose(current, baseline=None, configuration=None, diagnosis_id="d000001",
             'rule_id':rule,'evidence_refs':[reference],'details':{'objective':verification_objective,'scope':'MISSING_CONTROLLED_VERIFICATION_NOT_A_DETECTED_REGRESSION'}})
         evaluated['rules_evaluated'].append(rule)
         evaluated['rule_hash']=digest({'base':evaluated['rule_hash'],'objective':verification_objective,'rule':rule})
+    if improvement_objective is not None:
+        if improvement_objective not in IMPROVEMENT_OBJECTIVES:
+            raise ValueError('Unsupported explicit improvement objective')
+        # An operator objective requests controlled comparisons; it never asserts a defect or a gain.
+        kind,rule,field=IMPROVEMENT_OBJECTIVES[improvement_objective]
+        reference=evidence.add('current',field,'explicit operator objective requests controlled improvement comparisons','objective',kind='CONTEXTUAL')
+        if reference is None:
+            raise ValueError('Improvement objective requires an identifiable current observation')
+        evaluated['issues'].append({'issue_id':f"i{len(evaluated['issues'])+1:04d}",'kind':kind,'rule_id':rule,'evidence_refs':[reference],
+            'details':{'objective':improvement_objective,'scope':'REQUESTED_OPTIMIZATION_NOT_A_DETECTED_DEFECT'}})
+        evaluated['rules_evaluated'].append(rule)
+        evaluated['rule_hash']=digest({'base':evaluated['rule_hash'],'objective':improvement_objective,'rule':rule})
     hypotheses = build(evaluated, evidence, cfg)
     missing = sorted(set(evaluated["missing"] + [item for h in hypotheses for item in h["missing_evidence"]]))
     complete = evaluated["signals"]["stable"] and "complete_source_inventory" not in missing

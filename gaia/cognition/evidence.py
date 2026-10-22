@@ -37,7 +37,7 @@ def classify(document):
         domain='intelligence';identifier='id';hashkey='hash'
     elif schema=='gaia_closed_loop_artifact_v1':
         from ..autonomy.schema import validate_artifact as validate
-        if document['kind']!='EXPERIMENT_REVIEW_INPUT':raise ValueError('UNSUPPORTED_AUTONOMY_EVIDENCE')
+        if document['kind']not in ('EXPERIMENT_REVIEW_INPUT','PLAN_COMPARISON_INPUT'):raise ValueError('UNSUPPORTED_AUTONOMY_EVIDENCE')
         domain='strategy';identifier='id';hashkey='hash'
     else:raise ValueError('UNSUPPORTED_EVIDENCE_SCHEMA')
     validate(document)
@@ -83,6 +83,14 @@ def project(record):
             for key in ('target_class','priority','reasons','dimensions','blocked_by'):add(f'candidate_targets.{i}.{key}',t[key])
     elif domain=='learning':
         for key in ('claim_type','confidence','replication_status','status','hierarchy','quality','claim','limitations'):add(key,d[key])
+    elif d.get('schema')=='gaia_closed_loop_artifact_v1'and d['kind']=='PLAN_COMPARISON_INPUT':
+        # Closed projection: candidate identities and estimates, previous outcome and declared gaps only.
+        for i,c in enumerate(d['payload']['candidates'][:6]):
+            for key in ('plan_id','class','mode','expected_effect','novelty','information_value','improvement_potential','cost','risk','change'):
+                add(f'payload.candidates.{i}.{key}',c.get(key))
+        for key in ('class','classification','hypothesis_assessment','decision_reason','change'):
+            add('payload.previous_outcome.'+key,(d['payload'].get('previous_outcome')or{}).get(key))
+        for key in ('target','missing_evidence','risks','research_status'):add('payload.'+key,d['payload'].get(key))
     elif d.get('schema')=='gaia_closed_loop_artifact_v1':
         for key in ('target','experiment_class','mode','expected_information','risks','missing_evidence'):
             add('payload.'+key,d['payload'][key])
