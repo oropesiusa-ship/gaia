@@ -17,6 +17,7 @@ from .inspection import inspect_campaign
 from .lineage import LineageStore,LineageBusy
 from .session import SessionStore,budget
 from .store import CampaignStore,durable
+from .telemetry import Telemetry,storage_by_owner,filesystem,gates,bound_log
 
 ROLES=(('gaia.autonomy.regression','MATRIX'),('autonomy-run','CONTROLLER'),('runtime_worker','BACKEND'),('koboldcpp','BACKEND'),
        ('llama','BACKEND'),('bwrap','WORKER'),('worker','WORKER'))
@@ -67,6 +68,7 @@ class Supervisor:
     def __init__(self,root,state,session_id,*,launch=None,create=None,sleep=time.sleep):
         self.root=Path(root);self.state=Path(state);self.session=SessionStore(state,session_id);self.contract=self.session.read()
         self.launch=launch or self.launch_run;self.create=create or self.create_campaign;self.sleep=sleep;self.cursor=0
+        self.telemetry=Telemetry(self.session.root/'telemetry');self.sampled=None
 
     # ------------------------------------------------------------------ process control
     def launch_run(self,campaign_id):
@@ -125,6 +127,16 @@ class Supervisor:
         durable(self.session.root/'heartbeat.json',{'session_id':self.contract['session_id'],'supervisor_pid':os.getpid(),'clock':stamp(),
             'supervisor':{k:v for k,v in zip(('ppid','pgid','sid','rss_bytes','fds'),(proc_info(os.getpid())or(None,)*5)[:5])},**fields})
 
+    def storage_check(self,campaign_id=None):
+        """§6: storage by owner against the session ceiling (gates 70/85/95 %) and the host filesystem reserve."""
+        owners=storage_by_owner(self.root,self.state,self.session);used=sum(owners.values())-(self.session.state_view()['baseline_storage_bytes']or 0)
+        fs=filesystem(self.state);gate,percent=gates(max(0,used),self.contract['limits']['maximum_storage_bytes'])
+        view=self.session.state_view()
+        if gate and gate>(view.get('storage_gate')or 0):self.session.event('STORAGE_GATE',{'gate':gate,'percent':percent,'campaign_id':campaign_id,'owners':owners})
+        self.telemetry.append({'kind':'STORAGE','owners':owners,'session_growth_bytes':used,'ceiling_percent':percent,'filesystem':fs,'campaign_id':campaign_id})
+        self.sampled=time.monotonic()
+        return 'FILESYSTEM_RESERVE'if fs['below_reserve']else'STORAGE_GATE_95'if gate==95 else None
+
     def watch(self,proc,campaign_id):
         """Poll until the child exits or stops progressing; heartbeat each period. Returns how it ended."""
         limits=self.contract['limits'];last=None;progress=time.monotonic();stop_sent=False
@@ -132,9 +144,18 @@ class Supervisor:
             info=inspect_campaign(self.state,campaign_id);snapshot=tree(proc.pid)
             if info.get('events')!=last:last=info.get('events');progress=time.monotonic()
             idle=time.monotonic()-progress
-            self.heartbeat(campaign_id=campaign_id,child_pid=proc.pid,phase=info.get('phase'),events=info.get('events'),seconds_without_progress=idle,
+            sample=dict(campaign_id=campaign_id,child_pid=proc.pid,phase=info.get('phase'),events=info.get('events'),seconds_without_progress=idle,
                 processes={r:sum(1 for x in snapshot if x['role']==r)for r in sorted({x['role']for x in snapshot})},
-                child_rss_bytes=sum(x['rss_bytes']for x in snapshot),child_fds=sum(x['fds']or 0 for x in snapshot))
+                child_rss_bytes=sum(x['rss_bytes']for x in snapshot),child_fds=sum(x['fds']or 0 for x in snapshot),
+                controller_alive=any(x['role']=='CONTROLLER'for x in snapshot)or proc.poll()is None,
+                backend_processes=sum(1 for x in snapshot if x['role']=='BACKEND'))
+            self.heartbeat(**sample);self.telemetry.append({'kind':'PROCESS',**sample,'supervisor_rss_bytes':(proc_info(os.getpid())or(0,0,0,0))[3]})
+            storage=None
+            if self.sampled is None or time.monotonic()-self.sampled>=self.contract['limits']['storage_sample_s']:storage=self.storage_check(campaign_id)
+            if storage and not stop_sent:
+                # A storage gate stops the campaign at its next safe boundary; the session then stops.
+                CampaignStore(self.state,campaign_id).control('STOP');stop_sent=True
+                if not self.session.state_view()['stop_requested']:self.session.event('STOP_REQUESTED',{'campaign_id':campaign_id,'reason':storage})
             if self.control()=='STOP'and not stop_sent:
                 CampaignStore(self.state,campaign_id).control('STOP');stop_sent=True
                 if not self.session.state_view()['stop_requested']:self.session.event('STOP_REQUESTED',{'campaign_id':campaign_id})
@@ -148,6 +169,7 @@ class Supervisor:
                 return 'HANG'
             self.sleep(limits['heartbeat_s'])
         self.session.event('CHILD_EXITED',{'campaign_id':campaign_id,'returncode':proc.returncode,'cause':'EXITED'})
+        for name in ('out','err'):bound_log(self.session.root/'logs'/f'{campaign_id}.{name}')
         return 'EXITED'
 
     def supervise(self,campaign_id,lineage_id,adopted=None):
@@ -203,6 +225,8 @@ class Supervisor:
                 from .freeze import changes
                 changed=changes(self.root,self.state,self.contract['freeze'])
                 if changed:return self.stop('PROTOCOL_CHANGED',changes=changed)
+                storage=self.storage_check()
+                if storage:return self.stop(storage)
                 seconds,reasons=budget(self.contract,view,self.session.storage(self.root),stamp())
                 if reasons:return self.stop(reasons[0],reasons=reasons)
                 lineage=self.next_lineage(view)
@@ -219,4 +243,5 @@ def status(state,session_id):
     age=interval(beat['clock'],stamp())[0]if beat else None
     return {'contract':session.read(),'state':view,'heartbeat':beat,'heartbeat_age_s':age,
             'supervisor_alive':bool(beat and alive(beat['supervisor_pid'])),
-            'running_campaign':inspect_campaign(state,view['running'])if view['running']else None,'inspection':'READ_ONLY_NO_LOCK_NO_REPAIR'}
+            'running_campaign':inspect_campaign(state,view['running'])if view['running']else None,
+            'telemetry_last':(Telemetry(session.root/'telemetry').samples()or[None])[-1],'inspection':'READ_ONLY_NO_LOCK_NO_REPAIR'}

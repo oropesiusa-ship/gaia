@@ -34,7 +34,7 @@ s.event('STOPPED',{{'reason':reason,'report_ref':s.put('REPORT',{{'status':'PASS
 '''
 
 
-class SupervisorTests(Fixture):
+class SessionFixture(Fixture):
     def setUp(self):
         super().setUp()
         fast={**session_module.LIMITS,'hang_timeout_s':(1,6*3600),'heartbeat_s':(0,600),'minimum_campaign_s':(1,3600)}
@@ -54,6 +54,9 @@ class SupervisorTests(Fixture):
         sup=Supervisor(self.root,self.state,c['session_id'],launch=launch,sleep=lambda s:time.sleep(min(s,.1)or .05))
         return sup
     def events(self,c):return [(e['kind'],e['payload'])for e in SessionStore(self.state,c['session_id']).events()]
+
+
+class SupervisorTests(SessionFixture):
 
     def test_campaigns_run_sequentially_under_aggregate_budgets(self):
         c=self.make();result=self.supervisor(c).run()
@@ -96,7 +99,8 @@ class SupervisorTests(Fixture):
         c=self.make();(SessionStore(self.state,c['session_id']).root/'control.json').write_text('{"request":"STOP"}')
         self.assertEqual(self.supervisor(c).run()['reason'],'OPERATOR_STOP');self.assertEqual(self.launched,[])
         d=self.make(maximum_storage_bytes=4096,maximum_campaigns=10);self.launched=[]
-        self.assertEqual(self.supervisor(d).run()['reason'],'SESSION_STORAGE_BUDGET');self.assertEqual(len(self.launched),1)
+        self.assertEqual(self.supervisor(d).run()['reason'],'STORAGE_GATE_95');self.assertEqual(len(self.launched),1)
+        gates=[p['gate']for k,p in self.events(d)if k=='STORAGE_GATE'];self.assertEqual(gates[-1],95);self.assertEqual(gates,sorted(gates))
     def test_restarted_supervisor_adopts_its_running_child(self):
         c=self.make(maximum_campaigns=1);store=SessionStore(self.state,c['session_id']);sup=self.supervisor(c)
         cid=sup.create(c['lineages'][0],600);store.event('CAMPAIGN_STARTED',{'campaign_id':cid,'lineage_id':c['lineages'][0],'campaign_seconds':600})
@@ -135,6 +139,34 @@ class SupervisorTests(Fixture):
         (self.root/'state_local_intelligence').mkdir();self.assertEqual(changes(self.root,self.state,frozen),['SELECTION_CHANGED_OUTSIDE_SESSION'])
         (self.root/'gaia/new_module.py').write_text('x=1\n')
         with self.assertRaisesRegex(ValueError,'LINEAGE_SOURCE_DIFFERS'):freeze(self.root,self.state,lin)
+
+
+class TelemetryTests(SessionFixture):
+    def test_samples_and_storage_owners_are_recorded(self):
+        from gaia.autonomy.telemetry import Telemetry
+        c=self.make(maximum_campaigns=1);self.supervisor(c,'slow_ok').run()
+        rows=Telemetry(SessionStore(self.state,c['session_id']).root/'telemetry').samples()
+        self.assertTrue(any(r['kind']=='PROCESS'and r['child_rss_bytes']>0 for r in rows))
+        storage=[r for r in rows if r['kind']=='STORAGE'];self.assertTrue(storage)
+        self.assertEqual(set(storage[-1]['owners']),{'campaigns','session','evidence','telemetry','logs','shared_state','learning','cognition',
+                                                     'observations','inference_scratch','engine'})
+        self.assertGreater(storage[-1]['owners']['campaigns'],0)
+    def test_telemetry_is_bounded_by_rotation(self):
+        from gaia.autonomy import telemetry
+        with patch.object(telemetry,'TELEMETRY_FILE_BYTES',200),patch.object(telemetry,'TELEMETRY_FILES',3):
+            t=telemetry.Telemetry(self.root/'tele')
+            for i in range(50):t.append({'kind':'PROCESS','i':i})
+            self.assertEqual(len(t.files()),3);self.assertLessEqual(sum(f.stat().st_size for f in t.files()),3*200+200)
+            self.assertEqual(t.samples()[-1]['i'],49)
+    def test_filesystem_reserve_stops_before_launching(self):
+        c=self.make()
+        with patch('gaia.autonomy.supervisor.filesystem',return_value={'total_bytes':1,'free_bytes':0,'reserve_bytes':1,'below_reserve':True}):
+            self.assertEqual(self.supervisor(c).run()['reason'],'FILESYSTEM_RESERVE')
+        self.assertEqual(self.launched,[])
+    def test_campaign_logs_are_bounded(self):
+        from gaia.autonomy.telemetry import bound_log
+        path=self.root/'big.log';path.write_bytes(b'x'*5000)
+        self.assertTrue(bound_log(path,1000));self.assertLess(path.stat().st_size,1100);self.assertFalse(bound_log(path,2000))
 
 
 if __name__=='__main__':unittest.main()

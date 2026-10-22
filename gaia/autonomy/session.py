@@ -10,11 +10,11 @@ from .lineage import LineageStore,engine_state_dir
 from .policy import disk_bytes
 
 EVENTS=('CREATED','CAMPAIGN_STARTED','CAMPAIGN_RELAUNCHED','CAMPAIGN_FINISHED','HANG_DETECTED','CHILD_EXITED','LINEAGE_SKIPPED',
-        'STOP_REQUESTED','STOPPED')
-LIMITS={'maximum_campaigns':(1,500),'maximum_wall_s':(60,30*86400),'maximum_compute_s':(60,30*86400),'maximum_storage_bytes':(1,64*2**30),
+        'STOP_REQUESTED','STORAGE_GATE','STOPPED')
+LIMITS={'storage_sample_s':(1,3600),'maximum_campaigns':(1,500),'maximum_wall_s':(60,30*86400),'maximum_compute_s':(60,30*86400),'maximum_storage_bytes':(1,64*2**30),
         'maximum_restarts':(0,100),'maximum_recoveries':(0,100),'maximum_research':(0,0),'relaunches_per_campaign':(0,2),
         'hang_timeout_s':(60,6*3600),'heartbeat_s':(1,600),'minimum_campaign_s':(60,3600)}
-DEFAULTS={'maximum_campaigns':4,'maximum_wall_s':4*3600,'maximum_compute_s':4*3600,'maximum_storage_bytes':2**30,'maximum_restarts':2,
+DEFAULTS={'storage_sample_s':300,'maximum_campaigns':4,'maximum_wall_s':4*3600,'maximum_compute_s':4*3600,'maximum_storage_bytes':2**30,'maximum_restarts':2,
           'maximum_recoveries':2,'maximum_research':0,'relaunches_per_campaign':2,'hang_timeout_s':2700,'heartbeat_s':30,'minimum_campaign_s':900}
 CAMPAIGN_CAP_S=3600
 
@@ -99,6 +99,7 @@ class SessionStore:
                 s['finished'].append(p);s['running']=None;s['compute_s']+=p.get('wall_s')or 0.;s['research']+=p.get('research_calls')or 0
             elif k=='LINEAGE_SKIPPED':s['skipped'][p['lineage_id']]=p['reason']
             elif k=='STOP_REQUESTED':s['stop_requested']=True
+            elif k=='STORAGE_GATE':s['storage_gate']=max(s.get('storage_gate')or 0,p['gate'])
             elif k=='STOPPED':s['stopped']=p
         return s
 
