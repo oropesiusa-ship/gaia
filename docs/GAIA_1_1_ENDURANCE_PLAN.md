@@ -30,6 +30,27 @@
 > - **Host.** Con carga de escritorio interactiva, los tests G2 de v0.1 fallaron en dos suites completas. Endurance requiere un host en reposo, o registrar su carga como variable y no comparar medidas entre ventanas con cargas distintas.
 > - **Cognición.** La comparación de planes es una revisión consultiva sin influencia en la selección. Las métricas de endurance no deben contarla como decisión cognitiva.
 
+> **Estado de implementación (rama `feat/gaia-1.1-endurance`, 2026-10-22).** Hay una primera versión de los
+> diez Required, con tests unitarios y de integración; la de §1, §2 y §10 incluye además una prueba real de
+> extremo a extremo desde la CLI.
+>
+> | § | Qué | Commit |
+> | --- | --- | --- |
+> | 5, 4 | inspección realmente read-only (`autonomy-status` sin lock ni escritura, `autonomy-repair-cursor` explícito) y clase de recuperación inequívoca | `bcf1be3` |
+> | 3 | tiempo monotónico, boot ID, presupuestos conservadores ante saltos de reloj y desglose de tiempos por campaña | `85acbc5` |
+> | 8 | métricas de progreso y de parada | `b9096bb` |
+> | 1, 2 | sesión con presupuestos agregados y supervisor externo (heartbeat, cuelgues, evidencia, procesos propios, relanzamiento, adopción) | `92c4025` |
+> | 10 | congelación del protocolo, re-verificada antes de cada campaña | `618bb07` |
+> | 6, 9 | almacenamiento por propietario con gates 70/85/95 % y reserva del host; telemetría rotada y logs acotados | `a701611` |
+> | 7 | catálogo de referencias verificadas entre linajes, con reutilización sólo por binding exacto | `38ab327` |
+>
+> Falta lo siguiente:
+>
+> - revisión independiente del diff;
+> - suite completa sobre la rama;
+> - rebase sobre el cierre de 1.0.1;
+> - Stage 0, que no se ejecuta hasta que 1.0.1 esté certificada y mergeada.
+
 GAIA v1.0 está cerrada y congelada; GAIA 1.0.1 integra el ciclo completo sobre ella.
 
 **Base estable**
