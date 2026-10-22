@@ -82,7 +82,7 @@ def constructed(template):
 
 class Stand:
     """The attributes Services.compare reads; nothing else of a campaign exists."""
-    backend_factory=Services.backend_factory
+    backend_factory=Services.backend_factory;intelligence_state=Services.intelligence_state
     def __init__(self,root,contract,configuration,scratch):
         self.root=Path(root);self.contract=contract;self.configuration=configuration;self.v2=True
         self.state=Path(scratch)/'state';self.local=Path(scratch)/'subsystems'
