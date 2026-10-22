@@ -30,6 +30,37 @@ def register(sub,root):
         else:p.add_argument('campaign_id')
         if name=='autonomy-run':p.add_argument('--authorize-campaign',action='store_true')
         p.set_defaults(f=lambda args,cmd=name:run(root,cmd,args),autonomy_command=True)
+    register_sessions(sub,root)
+
+
+def register_sessions(sub,root):
+    for name in ('endurance-session-create','endurance-session-run','endurance-session-status','endurance-session-stop'):
+        p=sub.add_parser(name,help='1.1 endurance session: sequential supervised campaigns under aggregate budgets')
+        p.add_argument('--state-dir',type=Path,default=Path(root)/'state_autonomy')
+        if name=='endurance-session-create':
+            p.add_argument('--lineage',action='append',required=True);p.add_argument('--stage',required=True)
+            p.add_argument('--mode',choices=('DRY_RUN','SHADOW','CONTROLLED_AUTONOMOUS'),default='CONTROLLED_AUTONOMOUS');p.add_argument('--allow-promotion',action='store_true')
+            p.add_argument('--limit',action='append',default=[],metavar='NAME=INT',help='aggregate limit override, e.g. maximum_campaigns=6')
+        else:p.add_argument('session_id')
+        p.set_defaults(f=lambda args,cmd=name:run_session(root,cmd,args),autonomy_command=True)
+
+
+def run_session(root,cmd,args):
+    from .session import SessionStore,session_contract
+    from . import supervisor
+    try:
+        if cmd=='endurance-session-create':
+            limits={k:int(v)for k,v in(x.split('=',1)for x in args.limit)}
+            contract=session_contract(args.lineage,stage=args.stage,mode=args.mode,promotion=args.allow_promotion,limits=limits)
+            value=SessionStore(args.state_dir,contract['session_id']).create(contract,root)
+        elif cmd=='endurance-session-run':value=supervisor.Supervisor(root,args.state_dir,args.session_id).run()
+        elif cmd=='endurance-session-status':value=supervisor.status(args.state_dir,args.session_id)
+        else:
+            store=SessionStore(args.state_dir,args.session_id);store.read()
+            from .store import durable
+            durable(store.root/'control.json',{'request':'STOP'});value={'request':'STOP','session_id':args.session_id,'scope':'CURRENT_CAMPAIGN_STOPS_AT_SAFE_BOUNDARY'}
+        print(json.dumps(value,indent=2,sort_keys=True,allow_nan=False,default=str));return 0
+    except (OSError,ValueError,RuntimeError,KeyError,TypeError):print('Autonomy blocked: INVALID_SESSION_AUTHORITY_OR_STATE');return 2
 
 
 def run(root,cmd,args):
