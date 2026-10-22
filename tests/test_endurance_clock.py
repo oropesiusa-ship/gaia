@@ -64,3 +64,23 @@ class TimeBreakdownTests(Fixture):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class ProgressTests(Fixture):
+    def test_no_progress_stop_is_replayed_and_counters_are_reported(self):
+        lin=self.lineage();loop=self.loop(lin['lineage_id']);r=self.go(loop);p=r['metrics']['progress']
+        self.assertEqual(r['stopping_reason'],'NO_PROGRESS');self.assertIs(p['stopping_condition_met'],True)
+        self.assertEqual(p['experiments'],r['metrics']['experiments']);self.assertEqual(p['redundant_experiments'],0)
+        self.assertEqual(p['longest_streak_without_acceptance'],p['experiments'])
+        self.assertEqual(p['informative_experiments']+p['inconclusive_experiments'],p['experiments'])
+    def test_inconclusive_experiments_are_not_informative(self):
+        class Unsure(FakeV2):decisions=('deferred',)
+        lin=self.lineage();r=self.go(self.loop(lin['lineage_id'],factory=Unsure));p=r['metrics']['progress']
+        self.assertEqual(r['stopping_reason'],'REPEATED_INCONCLUSIVE');self.assertIs(p['stopping_condition_met'],True)
+        self.assertEqual((p['informative_experiments'],p['inconclusive_experiments']),(0,2))
+    def test_acceptance_resets_the_streak(self):
+        class Mixed(FakeV2):decisions=('rejected','accepted','rejected')
+        lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Mixed);p=self.go(loop)['metrics']['progress']
+        outcomes=[x['result']['classification']for x in self.records(loop)];self.assertIn('ACCEPTED',outcomes)
+        runs=''.join('A'if o=='ACCEPTED'else'r'for o in outcomes).split('A')
+        self.assertEqual((p['longest_streak_without_acceptance'],p['current_streak_without_acceptance']),(max(map(len,runs)),len(runs[-1])))

@@ -89,7 +89,7 @@ class ClosedLoop:
             'experiment_cost_s':sum(self.store.get(ev['state']['evaluation_ref'])['evidence']['search_cost_s']for i,ev in enumerate(events)if'evaluation_ref'in ev['state']and ev['state']['evaluation_ref']not in[e['state'].get('evaluation_ref')for e in events[:i]]),
             'information_producing_experiments':len(completed),'rollback_count':current.get('rollback_count',0),
             'initial_human_authorizations':1,'human_interventions_during_campaign':len(list((self.store.root/'controls').glob('*.json')))}
-        if self.v2:metrics.update(self.v2_metrics(events))
+        if self.v2:metrics.update(self.v2_metrics(events,reason))
         controlled=self.contract['mode']=='CONTROLLED_AUTONOMOUS'
         passed=phase!='FAILED'and(bool(completed)if controlled else phase=='COMPLETED'and bool(current.get('materialized_ref')))
         levels={'PIPELINE_CLOSED_LOOP':'PASS'if passed else'FAIL','AUTONOMOUS_EXECUTION':'PASS'if completed else'NOT_EXERCISED',
@@ -126,14 +126,14 @@ class ClosedLoop:
             self.lineage.event('BLOCKED',{'campaign_id':self.contract['campaign_id'],
                 'reason':reason if reason in BLOCKING else'INTERRUPTED_IN_FLIGHT_EXPERIMENT','phase':effective_phase(prior),'resolution':'EXPLICIT_HUMAN_REVIEW_REQUIRED'})
 
-    def v2_metrics(self,events):
+    def v2_metrics(self,events,reason=None):
         def unique(key):
             seen=[]
             for ev in events:
                 if key in ev['state']and ev['state'][key]not in seen:seen.append(ev['state'][key])
             return [self.store.get(r)for r in seen]
         records=unique('record_ref');assessments=unique('assessment_ref');selections=unique('selection_ref');skips=unique('candidates_ref')
-        return {'time':self.time_breakdown(events,unique('review_ref')),'distinct_candidates':len({r['proposed_change']['candidate_hash']for r in records}),
+        return {'time':self.time_breakdown(events,unique('review_ref')),'progress':self.progress(records,assessments,unique('strategy_ref'),skips,events,reason),'distinct_candidates':len({r['proposed_change']['candidate_hash']for r in records}),
             'distinct_experiment_contexts':len({(r['proposed_change']['class'],r['proposed_change']['candidate_hash'],r['reference_state']['version'])for r in records}),
             'classes_exercised':sorted({r['proposed_change']['class']for r in records}),
             'hypothesis_assessments':{k:[a['status']for a in assessments].count(k)for k in ('SUPPORTED','NOT_SUPPORTED','INCONCLUSIVE')},
@@ -149,6 +149,35 @@ class ClosedLoop:
             'meta_tunes':len(unique('meta_tune_ref')),
             'learned_ranking_changed_top_plan':sum(1 for x in unique('strategy_ref')if x.get('outcome_statistics')and x['ranking'][:1]!=x['outcome_statistics']['static_ranking'][:1]),
             'strategies_with_linked_outcomes':sum(1 for x in unique('strategy_ref')if x.get('outcome_statistics',{}).get('outcomes'))}
+
+    INTENTIONAL_REPEATS=('CONTROL_EXPERIMENT','BASELINE_RECONFIRMATION','MEASUREMENT_REFINEMENT','REPLICATION','KNOWLEDGE_VALIDATION')
+
+    def progress(self,records,assessments,strategies,skips,events,reason):
+        """§8: progress counters from committed records; an experiment is informative only if its hypothesis was decided."""
+        c=self.contract;final=events[-1]['state'];outcomes=[r['result']['classification']for r in records]
+        streak=longest=0
+        for o in outcomes:
+            streak=0 if o=='ACCEPTED'else streak+1;longest=max(longest,streak)
+        mine={r['record_hash']for r in records};seen=set();redundant=0
+        for r in self.services.records():
+            h=r['proposed_change']['candidate_hash']
+            if r['record_hash']in mine and h in seen and r['proposed_change']['class']not in self.INTENTIONAL_REPEATS:redundant+=1
+            seen.add(h)
+        targets=[r['problem']['target_class']for r in records]
+        tail=outcomes[-c['no_progress_limit']:]
+        expected={'NO_PROGRESS':len(outcomes)>=c['no_progress_limit']and'ACCEPTED'not in tail,
+            'REPEATED_INCONCLUSIVE':outcomes[-2:]==['INCONCLUSIVE','INCONCLUSIVE'],
+            'STOPPED_BUDGET':final.get('iteration',0)>=c['maximum_iterations']or final.get('experiments',0)>=c['maximum_experiments']
+                or bool(final.get('budget_exhausted'))or campaign_elapsed(final)>=min(c['maximum_wall_time'],c['maximum_compute_budget'])}
+        return {'experiments':len(records),'informative_experiments':sum(a['status']in ('SUPPORTED','NOT_SUPPORTED')for a in assessments),
+            'inconclusive_experiments':sum(a['status']=='INCONCLUSIVE'for a in assessments),
+            'longest_streak_without_acceptance':longest,'current_streak_without_acceptance':streak,
+            'repeated_target_iterations':sum(1 for a,b in zip(targets,targets[1:])if a==b),
+            'redundant_experiments':redundant,
+            'decisions_changed_by_learned_ranking':sum(1 for x in strategies if x.get('outcome_statistics')and x['ranking'][:1]!=x['outcome_statistics']['static_ranking'][:1]),
+            'plans_skipped_by_learning':sum(1 for k in skips for x in k['skipped']if x.get('learning_reuse')),
+            'stopping_reason':reason,'stopping_condition_met':expected.get(reason),
+            'scope':'STOPPING_CONDITION_REPLAYED_FOR_NO_PROGRESS_REPEATED_INCONCLUSIVE_AND_BUDGET_OTHERS_NOT_EVALUATED'}
 
     def time_breakdown(self,events,reviews):
         """§3: wall, active, idle, model, tool, experiment, verification and CPU seconds from the stamped journal."""
