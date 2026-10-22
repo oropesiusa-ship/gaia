@@ -151,7 +151,8 @@ class ClosedLoop:
 
     def run(self,*,authorized=False):
         if not authorized:raise ValueError('EXPLICIT_CAMPAIGN_AUTHORIZATION_REQUIRED')
-        current=self.store.current()
+        # Read without repair: the derived cursor is only rewritten under the campaign lock.
+        current=self.store.inspect()['state']
         if current['phase']in TERMINAL:
             if self.lineage:
                 try:

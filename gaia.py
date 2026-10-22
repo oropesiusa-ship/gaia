@@ -215,7 +215,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.epilog = "Arranque automático: bootstrap | doctor | appliance-bootstrap | appliance-rootfs | appliance-image | appliance-verify | appliance-recovery | gaia-transformer-baseline | gaia-transformer-lab | gaia-transformer-benchmark | gaia-transformer-prepare | gaia-transformer-run | gaia-transformer-observe | gaia-transformer-research | gaia-transformer-meta. --no-bootstrap delante del comando usa el runtime/estado manual."
     sub = p.add_subparsers(dest="cmd", required=True)
-    if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "autonomy-create", "autonomy-run", "autonomy-status", "autonomy-trace", "autonomy-pause", "autonomy-resume", "autonomy-stop",
+    if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "autonomy-create", "autonomy-run", "autonomy-status", "autonomy-trace", "autonomy-pause", "autonomy-resume", "autonomy-stop", "autonomy-repair-cursor",
                                            "autonomy-lineage-create", "autonomy-lineage-status", "autonomy-lineage-unblock"):
         from gaia.autonomy.cli import register as register_autonomy
         register_autonomy(sub, ROOT)

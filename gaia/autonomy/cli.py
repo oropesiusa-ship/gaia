@@ -15,7 +15,7 @@ def register(sub,root):
         else:p.add_argument('lineage_id')
         if name=='autonomy-lineage-unblock':p.add_argument('--reason',required=True)
         p.set_defaults(f=lambda args,cmd=name:run_lineage(root,cmd,args),autonomy_command=True)
-    for name in ('autonomy-create','autonomy-run','autonomy-status','autonomy-trace','autonomy-pause','autonomy-resume','autonomy-stop'):
+    for name in ('autonomy-create','autonomy-run','autonomy-status','autonomy-trace','autonomy-pause','autonomy-resume','autonomy-stop','autonomy-repair-cursor'):
         p=sub.add_parser(name,help='Bounded closed-loop numpy_mlp campaign')
         p.add_argument('--state-dir',type=Path,default=Path(root)/'state_autonomy');p.add_argument('--json',action='store_true')
         if name=='autonomy-create':
@@ -46,8 +46,10 @@ def run(root,cmd,args):
                 from .controller import ClosedLoop
                 value=ClosedLoop(root,args.state_dir,args.campaign_id).run(authorized=args.authorize_campaign)
             elif cmd=='autonomy-status':
-                with store.lock():
-                    value=store.current();value={**value,'recovery':'COMPLETED'if value['phase']in ('COMPLETED','STOPPED','FAILED')else'NEEDS_RECOVERY'if value.get('execution_intent')or value.get('rollback_intent')or value.get('research_intent')or value.get('initialization_intent')else'SAFE_TO_RESUME'}
+                # Pure inspection: safe while the campaign runs; never locks, writes or repairs.
+                from .inspection import inspect_campaign
+                value=inspect_campaign(args.state_dir,args.campaign_id)
+            elif cmd=='autonomy-repair-cursor':value={**store.repair_cursor(),'campaign_id':args.campaign_id,'scope':'DERIVED_CURSOR_ONLY_UNDER_CAMPAIGN_LOCK'}
             elif cmd=='autonomy-trace':value={'contract':store.read('contract'),'events':store.events()}
             else:
                 request={'autonomy-pause':'PAUSE','autonomy-resume':'RUN','autonomy-stop':'STOP'}[cmd];store.control(request);value={'request':request,'campaign_id':args.campaign_id,'scope':'APPLIED_AT_SAFE_BOUNDARY'}
