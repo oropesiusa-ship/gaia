@@ -10,6 +10,26 @@
 > completa del closed loop** (`docs/GAIA_1_0_1_INTEGRATION_REPORT.md`), que pasa a ser
 > la base de partida de este plan. Las secciones marcadas «Enmienda» actualizan el plan.
 
+> **Enmienda (re-certificación 1.0.1).** La evidencia posterior a la primera certificación de
+> 1.0.1 obligó a corregir `gaia/` y a re-certificar sobre `09de7eb`. Consecuencias para este plan:
+>
+> - **Referencia del campeón.**
+>   - Cada campaña CONTROLLED numpy re-mide la referencia al admitirse, con el guard de deriva de v0.1 (35 %), y también tras cada promoción y cada rollback.
+>   - Una deriva o una referencia no fiable paran la campaña y **bloquean el linaje** hasta revisión.
+>   - En endurance, un bloqueo `REFERENCE_DRIFT` es un resultado medido, no un fallo que se pueda reintentar en silencio. El supervisor debe exponerlo.
+>   - La telemetría debe registrar cada `REFERENCE_MEASURED`: coste, versión y deriva.
+> - **Matriz de regresión.**
+>   - La política aprobada (re-ejecución única de los tests fallidos y, si pasan, una matriz completa más) puede costar ≈1300 s por verificación.
+>   - Los presupuestos de los Stages deben contarlo. La reserva de 1600 s no se cambió y queda como riesgo conocido: un presupuesto agotado en la verificación revierte la promoción.
+>   - Las señales `REGRESSION_SIGNAL` (primer fallo, transitorio o no) son una métrica de estabilidad que hay que reportar por Stage.
+> - **Interrupciones.**
+>   - Matar el proceso durante una verificación revierte al reanudar una promoción válida. Ocurrió en `26c828c`.
+>   - La inyección de fallos de Stage 1 debe incluir este caso. Resultado esperado: rollback, re-medición de la referencia (contabilidad bajo la gracia) y linaje sin bloquear.
+>   - Las campañas deben correr desacopladas de cualquier sesión interactiva.
+>   - El supervisor debe terminar los hijos de la matriz: tras una muerte del controller quedó un directorio temporal huérfano.
+> - **Host.** Con carga de escritorio interactiva, los tests G2 de v0.1 fallaron en dos suites completas. Endurance requiere un host en reposo, o registrar su carga como variable y no comparar medidas entre ventanas con cargas distintas.
+> - **Cognición.** La comparación de planes es una revisión consultiva sin influencia en la selección. Las métricas de endurance no deben contarla como decisión cognitiva.
+
 GAIA v1.0 está cerrada y congelada; GAIA 1.0.1 integra el ciclo completo sobre ella.
 
 **Base estable**
@@ -90,8 +110,8 @@ larga vida; cada campaña es un proceso hijo `autonomy-run` en su propia sesión
 procesos. Los criterios de RAM se aplican así: pendiente ≤1 MiB/h **del supervisor**;
 para cada campaña, pico y retorno a la banda basal tras su salida (no existe un
 «controller en reposo» de 24 h). La matriz de regresión usa `subprocess.run` sin nueva
-sesión (`gaia/autonomy/services.py`, `regression_matrix`): el supervisor debe cubrir sus
-descendientes. El runtime LLM y los trials ya usan `setsid` + `--die-with-parent`.
+sesión (`gaia/autonomy/services.py`, `matrix_run`), hasta tres veces por verificación: el
+supervisor debe cubrir sus descendientes. El runtime LLM y los trials ya usan `setsid` + `--die-with-parent`.
 
 Se necesita supervisión independiente capaz de:
 
@@ -522,7 +542,7 @@ Máximo total: 6.
 Promotion sólo podrá quedar habilitada si:
 
 (**Enmienda.** En 1.0.1 la promoción numpy exige EXPLORATION ACCEPTED → REPLICATION
-ACCEPTED, reserva ≥1600 s y todos los gates; la de inferencia exige guards 0.8, control
+ACCEPTED, reserva ≥1600 s, todos los gates y la matriz de regresión bajo la política aprobada; la de inferencia exige guards 0.8, control
 fresco, reserva ≥1200 s y verificación A–H. Se espera que ocurra rara vez; NOT_EXERCISED
 es un resultado válido.)
 
