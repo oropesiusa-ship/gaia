@@ -117,7 +117,8 @@ class CampaignStore:
         if phase not in STATES or(not old and phase!='CREATED')or(old and not resumed and phase!=old and phase not in NEXT.get(old,set())and phase not in TERMINAL|{'PAUSED'}):raise ValueError('INVALID_STATE_TRANSITION')
         if old in TERMINAL:raise ValueError('CAMPAIGN_ALREADY_TERMINAL')
         state={**prior,**(updates or {}),'phase':phase}
-        value={'sequence':len(events)+1,'previous_hash':events[-1]['hash']if events else None,'timestamp':time.time(),'state':state}
+        from .clock import stamp
+        clock=stamp();value={'sequence':len(events)+1,'previous_hash':events[-1]['hash']if events else None,'timestamp':clock['wall'],'clock':clock,'state':state}
         value['hash']=digest(value)
         durable(self.root/'events'/f"{value['sequence']:06d}.json",value,True);durable(self.root/'current.json',state);return state
 

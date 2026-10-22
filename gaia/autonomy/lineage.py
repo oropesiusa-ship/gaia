@@ -72,7 +72,8 @@ class LineageStore:
     def event(self,kind,payload):
         if kind not in EVENTS:raise ValueError('INVALID_LINEAGE_EVENT')
         events=self.events()
-        value={'sequence':len(events)+1,'previous_hash':events[-1]['hash']if events else None,'timestamp':time.time(),'kind':kind,'payload':payload}
+        from .clock import stamp
+        clock=stamp();value={'sequence':len(events)+1,'previous_hash':events[-1]['hash']if events else None,'timestamp':clock['wall'],'clock':clock,'kind':kind,'payload':payload}
         value['hash']=digest(value);durable(self.root/'events'/f"{value['sequence']:06d}.json",value,True);return value
 
     def state(self):

@@ -13,6 +13,7 @@ from .inference_surface import NotMaterializable as InferenceNotMaterializable
 from .services import Services
 from . import research
 from .deadline import wall_deadline
+from .clock import elapsed as campaign_elapsed,stamp,interval
 from .hypothesis import carried,assess
 from .records import assemble
 from .lineage import LineageStore,LineageBusy,engine_state_dir,host_experiment_lock
@@ -84,7 +85,7 @@ class ClosedLoop:
         metrics={'iterations':current.get('iteration',0),'experiments':len(completed),'experiment_intents_reserved':current.get('experiments',0),'accepted':outcomes.count('ACCEPTED'),
             'rejected':outcomes.count('REJECTED'),'inconclusive':outcomes.count('INCONCLUSIVE'),'research_calls':current.get('research_calls',0),
             'network_requests':current.get('network_requests',0),'duplicate_experiments_avoided':len(avoided),'learning_reused':len(avoided)+len(coverage),
-            'total_wall_time':time.time()-(current.get('started_at')or time.time()),
+            'total_wall_time':campaign_elapsed(current),
             'experiment_cost_s':sum(self.store.get(ev['state']['evaluation_ref'])['evidence']['search_cost_s']for i,ev in enumerate(events)if'evaluation_ref'in ev['state']and ev['state']['evaluation_ref']not in[e['state'].get('evaluation_ref')for e in events[:i]]),
             'information_producing_experiments':len(completed),'rollback_count':current.get('rollback_count',0),
             'initial_human_authorizations':1,'human_interventions_during_campaign':len(list((self.store.root/'controls').glob('*.json')))}
@@ -132,7 +133,7 @@ class ClosedLoop:
                 if key in ev['state']and ev['state'][key]not in seen:seen.append(ev['state'][key])
             return [self.store.get(r)for r in seen]
         records=unique('record_ref');assessments=unique('assessment_ref');selections=unique('selection_ref');skips=unique('candidates_ref')
-        return {'distinct_candidates':len({r['proposed_change']['candidate_hash']for r in records}),
+        return {'time':self.time_breakdown(events,unique('review_ref')),'distinct_candidates':len({r['proposed_change']['candidate_hash']for r in records}),
             'distinct_experiment_contexts':len({(r['proposed_change']['class'],r['proposed_change']['candidate_hash'],r['reference_state']['version'])for r in records}),
             'classes_exercised':sorted({r['proposed_change']['class']for r in records}),
             'hypothesis_assessments':{k:[a['status']for a in assessments].count(k)for k in ('SUPPORTED','NOT_SUPPORTED','INCONCLUSIVE')},
@@ -148,6 +149,28 @@ class ClosedLoop:
             'meta_tunes':len(unique('meta_tune_ref')),
             'learned_ranking_changed_top_plan':sum(1 for x in unique('strategy_ref')if x.get('outcome_statistics')and x['ranking'][:1]!=x['outcome_statistics']['static_ranking'][:1]),
             'strategies_with_linked_outcomes':sum(1 for x in unique('strategy_ref')if x.get('outcome_statistics',{}).get('outcomes'))}
+
+    def time_breakdown(self,events,reviews):
+        """§3: wall, active, idle, model, tool, experiment, verification and CPU seconds from the stamped journal."""
+        final=events[-1]['state'];active=paused=gaps=0.;discontinuities=0;cpu=0.;boots=[]
+        for a,b in zip(events,events[1:]):
+            ca,cb=a.get('clock'),b.get('clock')
+            if not(ca and cb):continue
+            dt,jump=interval(ca,cb)
+            if jump:discontinuities+=1;continue
+            if b['state'].get('controller_runs',0)!=a['state'].get('controller_runs',0):gaps+=dt;continue
+            if a['state']['phase']=='PAUSED':paused+=dt;continue
+            active+=dt;cpu+=max(0.,cb['cpu_s']-ca['cpu_s'])
+        for e in events:
+            boot=(e.get('clock')or{}).get('boot_id')
+            if boot and(not boots or boots[-1]!=boot):boots.append(boot)
+        performance=[(r.get('cognitive_result')or{}).get('payload',{}).get('performance')or{}for r in reviews]
+        wall=campaign_elapsed(final)
+        return {'wall_s':wall,'active_s':active,'idle_s':max(0.,wall-active),'paused_s':paused,'between_runs_s':gaps,
+            'model_s':sum(p.get('model_time_s',0)for p in performance),'tool_s':sum(p.get('tool_overhead_s',0)for p in performance),
+            'experiment_s':final.get('experiment_s',0.),'verification_s':final.get('verification_s',0.),'cpu_s':cpu,
+            'controller_runs':final.get('controller_runs',0),'boots':len(boots),'clock_discontinuities':discontinuities,
+            'scope':'MONOTONIC_WITHIN_BOOT_WALL_ACROSS_REBOOT_CPU_OF_CONTROLLER_AND_FINISHED_CHILDREN_DURING_ACTIVE_STEPS'}
 
     def run(self,*,authorized=False):
         if not authorized:raise ValueError('EXPLICIT_CAMPAIGN_AUTHORIZATION_REQUIRED')
@@ -169,7 +192,7 @@ class ClosedLoop:
 
     def _run_deadline(self,grace=False):
         current=self.store.current()
-        remaining=min(self.contract['maximum_wall_time'],self.contract['maximum_compute_budget'])-(time.time()-current['started_at']if current.get('started_at')is not None else 0)
+        remaining=min(self.contract['maximum_wall_time'],self.contract['maximum_compute_budget'])-campaign_elapsed(current)
         in_flight=self.v2 and(effective_phase(current)in IN_FLIGHT or current.get('execution_intent'))
         if grace or(in_flight and remaining<=0):remaining=BOOKKEEPING_GRACE_S;grace=True
         self.grace=grace
@@ -190,6 +213,9 @@ class ClosedLoop:
             try:self.check(recovering=True)
             except BudgetExceeded:return self.report('STOPPED','STOPPED_BUDGET')
             except ValueError:return self.report('FAILED','PROTECTED_OR_SOURCE_CHANGED')
+            if self.v2:
+                # Every controller start is counted and stamped: restarts and gaps between runs are measured, never active time.
+                self.store.event(cur['phase'],{'controller_runs':cur.get('controller_runs',0)+1,'run_clock':stamp()})
             if cur['phase']=='PAUSED':
                 if self.store.read('control')['request']!='RUN':return {'status':'PAUSED'}
                 self.store.event(cur['resume_phase'],{'resumed':True})
@@ -247,7 +273,9 @@ class ClosedLoop:
     def step(self,phase,s):
         c=self.contract;svc=self.services;put=self.store.put;get=self.store.get;event=self.store.event
         if phase=='CREATED':
-            event(phase,{'started_at':s.get('started_at')or time.time(),'initialization_intent':False,'initialization_done':False})
+            started=stamp()
+            event(phase,{'started_at':s.get('started_at')or started['wall'],**({}if s.get('started_at')else{'started_clock':started}),
+                         'initialization_intent':False,'initialization_done':False})
             if self.lineage and not s.get('admitted'):
                 # Idempotent admission: a crash after the lineage event reuses it instead of admitting twice.
                 prior=[e for e in self.lineage.events()if e['kind']=='CAMPAIGN_ADMITTED'and e['payload']['campaign_id']==c['campaign_id']]
@@ -357,7 +385,10 @@ class ClosedLoop:
             if s['experiments']>=c['maximum_experiments']:raise BudgetExceeded('STOPPED_BUDGET')
             event('EXPERIMENTING',{'materialized_ref':put('MATERIALIZED',m),'execution_intent':True,'experiments':s['experiments']+1,
                 'expected_experiment_id':f"e{svc.engine().store.load_state()['n_experiments']+1:05d}",'before_version':svc.engine().store.current_version()})
-        elif phase=='EXPERIMENTING':event('EVALUATING',{'evaluation_ref':put('EVALUATION',svc.execute(get(s['materialized_ref']))),'execution_intent':False})
+        elif phase=='EXPERIMENTING':
+            started=stamp();evaluation=svc.execute(get(s['materialized_ref']))
+            timing={'experiment_s':s.get('experiment_s',0)+interval(started,stamp())[0]}if self.v2 else{}
+            event('EVALUATING',{'evaluation_ref':put('EVALUATION',evaluation),'execution_intent':False,**timing})
         elif phase=='EVALUATING':
             evaluation=get(s['evaluation_ref']);decision=evaluation['evidence']['decision']
             if decision not in ('accepted','rejected','deferred','pareto_alternative'):return self.report('FAILED','INVALID_EVALUATION')
@@ -383,6 +414,7 @@ class ClosedLoop:
                 **({'after_version':evaluation['after_version']}if self.v2 else{})})
         elif phase=='PROMOTING':event('VERIFYING',{'promotions':s.get('promotions',0)+1})
         elif phase=='VERIFYING':
+            started=stamp()
             try:
                 if s.get('recovered_publication_health_failure'):checked={'status':'FAIL','reason':'RECOVERED_POST_PUBLICATION_HEALTH_FAILURE'}
                 elif self.v2 and s.get('budget_exhausted'):checked={'status':'FAIL','reason':'VERIFICATION_BUDGET_EXHAUSTED','requires_existing_rollback':True,
@@ -397,7 +429,8 @@ class ClosedLoop:
                 if not self.v2:raise
                 checked={'status':'FAIL','reason':type(exc).__name__,'requires_existing_rollback':True,'regression_matrix_partial':svc.matrix_progress()}
             r=put('POST_PROMOTION_VERIFICATION',checked)
-            event('REEVALUATING'if checked['status']=='PASS'else'ROLLING_BACK',{'verification_ref':r})
+            timing={'verification_s':s.get('verification_s',0)+interval(started,stamp())[0]}if self.v2 else{}
+            event('REEVALUATING'if checked['status']=='PASS'else'ROLLING_BACK',{'verification_ref':r,**timing})
         elif phase=='ROLLING_BACK'and not self.v2:
             if s.get('rollback_intent'):return self.report('STOPPED','NEEDS_RECOVERY')
             event(phase,{'rollback_intent':True});result=svc.rollback(get(s['evaluation_ref']),'Closed-loop post-promotion verification failed')
