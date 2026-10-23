@@ -1,42 +1,34 @@
 # GAIA 1.0.1 integration evidence
 
-Portable export of the **definitive** certification series in [`final/`](final/). All eight
-campaigns ran on the frozen bytes of commit `bdce836` (source identity `48041114…370b`) in a
-fresh state (`state_integration_final2`) with two new lineages, one numpy lineage and one
-inference lineage.
+The current certification runs on commit `09de7eb` (source identity `3383b6a2…1290`). It was
+pre-registered in [`PREREGISTRATION.md`](PREREGISTRATION.md) before any run on those bytes.
 
-[`superseded-af70650/`](superseded-af70650/) is the first final series, run on `af70650`
-(identity `2a93e2be…78b6`). It shows the complete natural promotion chain, and it was superseded
-because later fixes changed hashed sources. It is development evidence and is never combined
-with `final/`.
+- [`final/`](final/): the definitive series (state `state_integration_cert4`): one numpy lineage and one inference lineage, each running DRY_RUN → SHADOW → 2 × CONTROLLED.
+- [`replication/`](replication/): the pre-registered promotion/rollback series (state `state_integration_cert4_replication`): one numpy lineage, DRY_RUN → SHADOW → exactly 6 CONTROLLED.
+- `tests.json`: the full-suite result on the certified bytes.
 
-[`post-certification/`](post-certification/) holds the evidence pre-registered in
-[`PREREGISTRATION.md`](PREREGISTRATION.md). It is on the same certified bytes and is never
-combined with `final/`.
+[`development/`](development/) holds everything earlier. It is **never** combined with the current certification:
 
-- `replication/` is an independent numpy series in `state_integration_replication`, with the same export layout.
-- `cognitive-selection.json` is the counterbalanced evaluation of the cognitive plan selection, produced by `tools/eval_cognitive_selection.py`.
+| Path | Bytes | Content |
+| --- | --- | --- |
+| `development-history.json` | four early identities | 19 development and superseded campaigns |
+| `af70650-final/` | `af70650` | first final series (natural promotion chain) |
+| `BDCE836_CERTIFICATION.md`, `bdce836-final/`, `bdce836-tests.json` | `bdce836` | previous certification, invalidated by the fixes |
+| `bdce836-post-certification/` | `bdce836` | pre-registered replication series, rollback, counterbalanced cognitive evaluation and their pre-registration |
+| `26c828c-interrupted/` | `26c828c` | re-certification interrupted externally. The recovered campaign fails its own audit (`ROLLBACK_WITHOUT_REFERENCE_REMEASUREMENT`), which led to the `09de7eb` fix. The inference SHADOW campaign that was stopped mid-run is not exported. |
+| `09de7eb-suite-attempts.json` | `09de7eb` | two full-suite runs under interactive desktop load, each with one host-timing failure |
 
 Layout of each export:
 
-- `campaigns/<surface>-<mode>.json`: for each campaign, the contract, the final report, the offline v2 audit result produced on the original local state, and its Annex B experiment records.
+- `campaigns/<label>.json`: for each campaign, the contract, the final report, the offline v2 audit result produced on the original local state, and its Annex B experiment records.
 - `lineages/<id>.json`: the committed lineage contract and journal, and the derived state.
 - `manifest.json`: SHA-256 digests of the exported documents.
-- `development-history.json` (top level): all development and superseded campaigns under earlier source identities. They are **not** part of the final series and must not be combined with it.
-- `tests.json` (top level): the full-suite result on the definitive bytes.
 
-Re-audit the original local state (requires the same source identity):
+Audits are bound to source identity. Re-audit an export with the auditor from its own commit:
 
 ```sh
-python3 -B tools/audit_closed_loop.py --state-dir state_integration_final2 --campaign <campaign-id>
+python3 -B tools/audit_closed_loop.py --state-dir <state> --campaign <campaign-id>
 ```
 
-Re-export (read-only on state; the export is refused if it would contain a private path):
-
-```sh
-python3 -B tools/export_integration_evidence.py --state-dir state_integration_final2 --out <dir> label=<campaign-id> ...
-```
-
-Not exported: engine trial attestations with local mount paths, runtime binaries, model
-weights, raw logs and hidden reasoning. The audit results embedded here were computed on
-the originals before export.
+The exporter refuses any export that would contain a private path. Not exported: engine trial
+attestations with local mount paths, runtime binaries, model weights, raw logs and hidden reasoning.

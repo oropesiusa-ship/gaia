@@ -1,0 +1,14 @@
+{
+ "schema": "gaia_suite_result_v1",
+ "commit_head": "c259ca5",
+ "source_identity": "3383b6a25ba9d4d179ffe5844a93950763c8f432b112b716d4ed899a8a641290",
+ "certified_code_commit": "09de7eb",
+ "command": "PYTHONDONTWRITEBYTECODE=1 python -B -W error::ResourceWarning -m unittest discover -s tests",
+ "tests": 938,
+ "duration_s": 1049.108,
+ "failures_and_errors": 0,
+ "skipped": 9,
+ "status": "OK",
+ "host": "quiet window (operator away, desktop closed)",
+ "earlier_attempts": "development/09de7eb-suite-attempts.json"
+}
