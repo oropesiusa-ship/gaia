@@ -245,7 +245,7 @@ def tests(ids):
 def main():
     ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--out',required=True);ap.add_argument('--state',default='state_endurance_stage0')
     ap.add_argument('--repeat',type=int,default=3);ap.add_argument('--skip-suite',action='store_true')
-    a=ap.parse_args();out=Path(a.out);run=Run(out);state=ROOT/a.state;faults=ROOT/(a.state+'_faults')
+    opt=ap.parse_args();out=Path(opt.out);run=Run(out);state=ROOT/opt.state;faults=ROOT/(opt.state+'_faults')
     for p in (state,faults):
         if p.exists():raise SystemExit(f'{p} exists: Stage 0 always starts from fresh states')
     from gaia.autonomy.policy import identities
@@ -300,8 +300,8 @@ def main():
     # 12 fault injection (disposable states)
     faults.mkdir()
     cases={}
-    cases['process_kill'],rows=fault_process_kill(run,faults,a.repeat);kill=rows
-    cases['hang'],hang=fault_hang(run,faults,a.repeat)
+    cases['process_kill'],rows=fault_process_kill(run,faults,opt.repeat);kill=rows
+    cases['hang'],hang=fault_hang(run,faults,opt.repeat)
     cases['lock_after_holder_death'],lock=fault_lock(faults)
     cases['disk_pressure_simulated'],disk=fault_disk(faults)
     cases['interrupted_write'],write=fault_interrupted_write(faults)
@@ -321,7 +321,7 @@ def main():
     ok,detail=tests(['test_endurance_inspection','test_endurance_clock','test_endurance_supervisor','test_endurance_catalog','test_autonomy_integration','test_autonomy'])
     run.record(13,'specific_tests','PASS'if ok else'FAIL',**detail)
     # 14 full suite
-    if a.skip_suite:run.record(14,'full_suite','SKIPPED')
+    if opt.skip_suite:run.record(14,'full_suite','SKIPPED')
     else:
         r=subprocess.run([PY,'-B','-W','error::ResourceWarning','-m','unittest','discover','-s','tests'],cwd=ROOT,capture_output=True,text=True,timeout=7200,
                          env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
