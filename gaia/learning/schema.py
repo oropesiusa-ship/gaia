@@ -39,7 +39,7 @@ def valid_context(value):
         raise ValueError("Unsupported ingestion domain/family")
     if not finite(value["quality_threshold"]) or not 0 <= value["quality_threshold"] <= 1:
         raise ValueError("Invalid quality threshold")
-    if not re.fullmatch(r"gaia-v[0-9]+\.[0-9]+", value["gaia_version"]) or not re.fullmatch(r"v[0-9]{4,}", value["baseline_version"]):
+    if not re.fullmatch(r"gaia-v[0-9]+\.[0-9]+(\.[0-9]+)?", value["gaia_version"]) or not re.fullmatch(r"v[0-9]{4,}", value["baseline_version"]):
         raise ValueError("Invalid version scope")
 
 

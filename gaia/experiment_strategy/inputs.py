@@ -10,8 +10,13 @@ from ..prioritization.targets import CLASSES as TARGETS
 from ..provenance import digest
 
 
-def ingest(priority, learning_runs, context, diagnoses, analysis_mode):
+CONTEXT_SCOPES = ("OBSERVATION_ENVIRONMENT", "EXECUTION_MANIFEST")
+
+
+def ingest(priority, learning_runs, context, diagnoses, analysis_mode, context_scope="OBSERVATION_ENVIRONMENT"):
     validate_priority(priority)
+    if context_scope not in CONTEXT_SCOPES or (context_scope == "EXECUTION_MANIFEST" and context is None):
+        raise ValueError("Unknown or unbound context scope")
     if analysis_mode not in ("CURRENT_TARGET", "HISTORICAL_ANALYSIS"):
         raise ValueError("Unknown analysis mode")
     if context is not None:
@@ -46,7 +51,9 @@ def ingest(priority, learning_runs, context, diagnoses, analysis_mode):
                 issue = next((i for i in d["issues"] if i["issue_id"] == ref["issue_id"]), None)
                 if not issue or ref["hypothesis_id"] not in issue["hypothesis_ids"] or not set(ref["evidence_refs"]) <= {e["evidence_id"] for e in d["evidence"]}:
                     raise ValueError("Diagnostic target lineage mismatch")
-    if analysis_mode == "CURRENT_TARGET" and context is not None:
+    # An execution-manifest context is the identity of protected trials, declared
+    # separately; it is never presented as the observation environment hash.
+    if analysis_mode == "CURRENT_TARGET" and context is not None and context_scope == "OBSERVATION_ENVIRONMENT":
         current_environments = {r["environment_hash"] for r in priority["source_observations"] if r["role"] == "current"}
         if current_environments != {context["environment_hash"]}:
             raise ValueError("Explicit current context does not bind to target observation identity")

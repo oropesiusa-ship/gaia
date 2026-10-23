@@ -62,12 +62,16 @@ class History:
 
 
 class Strategy:
-    def __init__(self, params, rng):
+    def __init__(self, params, rng, op_names=None, random_genome=None):
         self.p = {**DEFAULT_STRATEGY, **params}
         self.rng = rng
+        # Optional contracted surface: operator subset and a matching global sampler. Defaults are unchanged.
+        self.op_names = op_names
+        self.random_genome = random_genome or mutate.random_genome
 
-    def _op_weights(self, hist):
-        names = mutate.OP_NAMES
+    def _op_weights(self, hist, names=None):
+        # A caller may restrict the operator set (e.g. a contracted surface); default is unchanged.
+        names = names if names is not None else self.op_names if self.op_names is not None else mutate.OP_NAMES
         n_tot = sum(hist.op_n.values())
         if not self.p["learn"] or self.p["kind"] == "uniform":
             return np.ones(len(names)) / len(names)
@@ -87,24 +91,25 @@ class Strategy:
         """Devuelve (genoma, ops, parent_hash, parent_cost)."""
         rng = self.rng
         if self.p["kind"] == "random":
-            return mutate.random_genome(rng), ["random_global"], None, None
+            return self.random_genome(rng), ["random_global"], None, None
         pg = self.p["p_global"] + self.p["stagnation_boost"] * min(1.0, hist.since_improve / 30)
         elites = hist.elites(int(self.p["elite_k"]))
         for _ in range(60):
             if not elites or rng.random() < pg:
-                g = mutate.random_genome(rng)
+                g = self.random_genome(rng)
                 return g, ["random_global"], None, None
             w = 1.0 / (np.arange(len(elites)) + 1.0)
             par = elites[rng.choice(len(elites), p=w / w.sum())]
             child, ops = par["genome"], []
-            if len(elites) > 1 and rng.random() < 0.1:
+            if len(elites) > 1 and rng.random() < 0.1 and self.op_names is None:
                 other = elites[rng.integers(len(elites))]
                 child, ops = mutate.crossover(child, other["genome"], rng), ["crossover"]
             n = 1 + rng.poisson(max(0.0, self.p["n_mut_mean"] - 1.0))
+            names = self.op_names if self.op_names is not None else mutate.OP_NAMES
             weights = self._op_weights(hist)
             ok = True
             for _ in range(n):
-                name = mutate.OP_NAMES[rng.choice(len(weights), p=weights)]
+                name = names[rng.choice(len(weights), p=weights)]
                 try:
                     child, _ = mutate.apply(name, child, rng)
                     ops.append(name)
@@ -113,4 +118,4 @@ class Strategy:
                     break
             if ok and ops and G.genome_hash(child) not in hist.seen:
                 return child, ops, par["hash"], par["cost"]
-        return mutate.random_genome(rng), ["random_global"], None, None
+        return self.random_genome(rng), ["random_global"], None, None

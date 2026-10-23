@@ -9,7 +9,8 @@ from .confidence import assess
 DIAGNOSIS_SCHEMA = "gaia_system_diagnosis_v1"
 TAXONOMY = {"COMPUTE_PRESSURE", "MEMORY_PRESSURE", "GPU_MEMORY_PRESSURE", "STORAGE_PRESSURE",
             "RUNTIME_REGRESSION", "RESOURCE_CONTENTION", "MEASUREMENT_NOISE", "QUALITY_REGRESSION",
-            "CAPABILITY_GAP", "ENVIRONMENT_CHANGE", "UNKNOWN_CAUSE"}
+            "CAPABILITY_GAP", "ENVIRONMENT_CHANGE", "UNKNOWN_CAUSE",
+            "TRAINER_OPTIMIZATION_OPPORTUNITY", "INFERENCE_OPTIMIZATION_OPPORTUNITY"}
 OUTCOMES = {"ISSUES_DETECTED", "NO_SIGNIFICANT_ISSUE", "INSUFFICIENT_EVIDENCE"}
 REQUIRED = {"diagnosis_id", "schema", "timestamp", "source_observations", "identity", "outcome", "issues", "hypotheses",
             "alternatives", "evidence", "contradictions", "missing_evidence", "confidence", "limitations",

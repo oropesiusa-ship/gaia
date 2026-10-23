@@ -21,13 +21,20 @@ def seal(document):
 
 
 def validate(value):
-    if set(value) != FIELDS or value["schema"] != SCHEMA or not re.fullmatch(r"s[0-9]{6,}", value["strategy_id"]):
+    if set(value) not in (FIELDS, FIELDS | {"outcome_statistics"}) or value["schema"] != SCHEMA or not re.fullmatch(r"s[0-9]{6,}", value["strategy_id"]):
         raise ValueError("Invalid strategy schema/id")
     if value["mode"] != "SHADOW" or value["analysis_mode"] not in ("CURRENT_TARGET", "HISTORICAL_ANALYSIS") or datetime.fromisoformat(value["timestamp"]).tzinfo is None:
         raise ValueError("Invalid strategy mode/timestamp")
     cfg = settings({"meta_strategy": value["policy"]["settings"]})
     if value["policy"] != identity(cfg):
         raise ValueError("Strategy policy hash mismatch")
+    linked = value.get("outcome_statistics")
+    if linked is not None:
+        from .engine import validate_outcomes
+        from .policy import outcome_statistics
+        if (set(linked) != {"mode", "outcomes", "by_class", "static_ranking", "bound"} or linked["mode"] != "LINKED_EXECUTED_OUTCOMES"
+                or linked["by_class"] != outcome_statistics(validate_outcomes(linked["outcomes"]))):
+            raise ValueError("Linked outcome statistics do not reproduce")
     plans = value["candidate_plans"]
     if len(plans) > cfg["max_candidate_plans"] or len({p["plan_id"] for p in plans}) != len(plans):
         raise ValueError("Invalid candidate budget/duplicate plan id")
@@ -80,7 +87,7 @@ def validate(value):
             raise ValueError("Insufficient plan budget unblocked")
         if (estimates["risk"] == "HIGH" or estimates["reversibility"] in ("DIFFICULT", "UNKNOWN")) and "SENSITIVE_OR_UNBOUNDED_INVESTIGATION" not in plan["blocked_by"]:
             raise ValueError("Sensitive plan without blocker")
-        components = score(plan, cfg)
+        components = score(plan, cfg, linked["by_class"] if linked else None)
         if plan["utility"] != {"components": components, "ordinal_total": sum(components.values()), "calibrated_expected_value": False}:
             raise ValueError("Utility components mismatch")
         if plan["plan_hash"] != digest({k: v for k, v in plan.items() if k != "plan_hash"}):
@@ -89,6 +96,8 @@ def validate(value):
             raise ValueError("Plan identity mismatch")
     if value["ranking"] != [p["plan_id"] for p in rank(plans)]:
         raise ValueError("Strategy ranking mismatch")
+    if linked is not None and linked["static_ranking"] != [p["plan_id"] for p in rank(plans, static=True)]:
+        raise ValueError("Static comparison ranking mismatch")
     metrics = value["meta_metrics"]
     if metrics["metrics_hash"] != digest({k: v for k, v in metrics.items() if k != "metrics_hash"}):
         raise ValueError("Meta-metrics hash mismatch")

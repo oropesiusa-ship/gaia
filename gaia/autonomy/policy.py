@@ -3,7 +3,7 @@ import hashlib
 from pathlib import Path
 import time
 from ..provenance import digest,bwrap_capability
-from .schema import validate_campaign,SUPPORTED
+from .schema import validate_campaign,supported
 
 
 def identities(root):
@@ -28,13 +28,25 @@ def disk_bytes(path):
 class BudgetExceeded(ValueError):pass
 
 
+def disk_used(contract,current,state_path,engine_path=None):
+    """v1 counts the whole state dir; v2 counts its campaign plus lineage growth since admission."""
+    engine=disk_bytes(engine_path)if engine_path and Path(engine_path).exists()else 0
+    if contract.get('schema')!='gaia_closed_loop_campaign_v2':return disk_bytes(state_path)+engine
+    campaign=disk_bytes(Path(state_path)/'autonomy'/'campaigns'/contract['campaign_id'])
+    if contract['lineage_id']is None:return campaign+engine
+    # Before admission the campaign has consumed nothing of the shared lineage.
+    if 'admission_lineage_bytes'not in current:return campaign
+    lineage=Path(state_path)/'autonomy'/'lineages'/contract['lineage_id']
+    return campaign+max(0,disk_bytes(lineage)+engine-current['admission_lineage_bytes'])
+
+
 def budget_check(contract,current,state_path,engine_path=None,now=None):
     validate_campaign(contract);now=time.time()if now is None else now
     if current.get('started_at')is not None:
         elapsed=now-current['started_at']
         if elapsed<0 or elapsed>=min(contract['maximum_wall_time'],contract['maximum_compute_budget']):raise BudgetExceeded('STOPPED_BUDGET')
     if current.get('iteration',0)>contract['maximum_iterations']or current.get('experiments',0)>contract['maximum_experiments']or current.get('research_calls',0)>contract['maximum_network_research']or current.get('compute_reserved_s',0)>contract['maximum_compute_budget']:raise BudgetExceeded('STOPPED_BUDGET')
-    if disk_bytes(state_path)+(disk_bytes(engine_path)if engine_path and Path(engine_path).exists()else 0)>=contract['maximum_disk_budget']:raise BudgetExceeded('STOPPED_BUDGET')
+    if disk_used(contract,current,state_path,engine_path)>=contract['maximum_disk_budget']:raise BudgetExceeded('STOPPED_BUDGET')
     return True
 
 
@@ -47,15 +59,15 @@ def authorize(contract,target,plan,review,*,remaining,integrity,sandbox):
         reasons.append('PLAN_REQUESTS_PROTECTED_OR_AUTHORITY_CHANGE')
     if target['component_id']not in contract['allowed_components']or target['component_id']in ('gpu','appliance','protected_evaluator'):reasons.append('COMPONENT_NOT_ALLOWED')
     if target['target_class']not in contract['allowed_target_classes']or target['blocked_by']or target['priority']=='DEFER':reasons.append('TARGET_NOT_AUTHORIZED')
-    if plan['class']not in contract['allowed_experiment_classes']or plan['class']not in SUPPORTED or plan['blocked_by']:reasons.append('EXPERIMENT_CLASS_NOT_AUTHORIZED')
+    if plan['class']not in contract['allowed_experiment_classes']or plan['class']not in supported(contract)or plan['blocked_by']:reasons.append('EXPERIMENT_CLASS_NOT_AUTHORIZED')
     if plan['target_ref']['target_id']!=target['target_id']:reasons.append('TARGET_PLAN_MISMATCH')
     if plan['candidate_variation']['code']is not None or plan['candidate_variation']['numeric_values']is not None:reasons.append('FREE_FORM_EXECUTION_FORBIDDEN')
     if plan['estimates']['risk']=='HIGH'or plan['estimates']['reversibility']not in ('EASY','MODERATE'):reasons.append('RISK_OR_REVERSIBILITY')
-    if plan['class']in ('REPLICATION','PARAMETER_LOCAL_SEARCH')and any(k['stale']or k['effective_status']=='CONTRADICTED'or k['applicability']!='EXACT_CONTEXT'for k in plan['knowledge_refs']):reasons.append('KNOWLEDGE_NOT_QUALIFIED')
+    if plan['class']in ('REPLICATION','PARAMETER_LOCAL_SEARCH','EXPLOITATION')and any(k['stale']or k['effective_status']=='CONTRADICTED'or k['applicability']!='EXACT_CONTEXT'for k in plan['knowledge_refs']):reasons.append('KNOWLEDGE_NOT_QUALIFIED')
     if not remaining:reasons.append('STOPPED_BUDGET')
     if not integrity:reasons.append('PROTECTED_OR_SOURCE_CHANGED')
     if not sandbox:reasons.append('SANDBOX_REQUIRED')
     if review.get('status')!='OK'or review.get('authority')!='NONE':reasons.append('COGNITIVE_REVIEW_INSUFFICIENT')
     return {'status':'AUTHORIZED'if not reasons else'NEEDS_HUMAN_AUTHORIZATION'if any(r in reasons for r in ('PROTECTED_OR_SOURCE_CHANGED','SANDBOX_REQUIRED','RISK_OR_REVERSIBILITY'))else'REJECTED',
             'reasons':reasons,'campaign_hash':contract['hash'],'target_id':target['target_id'],'plan_id':plan['plan_id'],
-            'surface':'numpy_mlp_genome_hyperparameters','authority_source':'DETERMINISTIC_CAMPAIGN_POLICY_NOT_LLM','network_escalation':False}
+            'surface':contract['authority_profile']['surface'],'authority_source':'DETERMINISTIC_CAMPAIGN_POLICY_NOT_LLM','network_escalation':False}

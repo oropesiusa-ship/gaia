@@ -34,7 +34,34 @@ def identity(cfg):
             "policy_hash": digest({"version": VERSION, "settings": cfg, "rules": RULES})}
 
 
-def score(plan, cfg):
+LINKED_BOUND = 3
+CONTROLS = ("CONTROL_EXPERIMENT", "BASELINE_RECONFIRMATION", "MEASUREMENT_REFINEMENT")
+
+
+def outcome_statistics(outcomes):
+    """Executed-plan outcomes per (class, target class); hypothesis assessments come from protected evaluation."""
+    stats = {}
+    for o in outcomes:
+        key = o["class"] + "|" + o["target_class"]
+        row = stats.setdefault(key, {"executed": 0, "accepted": 0, "supported": 0, "not_supported": 0, "inconclusive": 0})
+        row["executed"] += 1
+        row["accepted"] += o["outcome"] == "ACCEPTED"
+        row[{"SUPPORTED": "supported", "NOT_SUPPORTED": "not_supported", "INCONCLUSIVE": "inconclusive"}[o["hypothesis_assessment"]]] += 1
+    return {k: stats[k] for k in sorted(stats)}
+
+
+def linked_bonus(plan, stats):
+    """Bounded learned preference; an untried class gets 0, never an invented prior."""
+    row = stats.get(plan["class"] + "|" + plan["target_ref"]["target_class"])
+    if not row:
+        return 0
+    if plan["class"] in CONTROLS:
+        # A consistent control already informed this context; repeating it adds little.
+        return -min(LINKED_BOUND, 2 * row["supported"])
+    return max(-LINKED_BOUND, min(LINKED_BOUND, 2 * row["accepted"] + row["inconclusive"] - row["not_supported"]))
+
+
+def score(plan, cfg, stats=None):
     d = plan["estimates"]
     penalty = cfg["exact_repeat_penalty"] if plan["duplication"]["risk"] == "HIGH" and not plan["duplication"]["intentional"] else 0
     return {"information": ORDINAL[d["information_value"]] * cfg["information_value_weight"],
@@ -47,11 +74,15 @@ def score(plan, cfg):
             "cost": -COST[d["cost"]] * cfg["cost_penalty"],
             "risk": -(ORDINAL[d["risk"]] - 1) * cfg["risk_penalty"],
             "reversibility": -{"EASY": 0, "MODERATE": 1, "DIFFICULT": 3, "UNKNOWN": 3}[d["reversibility"]],
-            "duplication": -penalty}
+            "duplication": -penalty,
+            **({"linked_outcomes": linked_bonus(plan, stats)} if stats is not None else {})}
 
 
-def rank(plans):
+def rank(plans, static=False):
+    # static=True ignores learned linked components, for an independent comparison of both rankings.
+    def total(p):
+        return p["utility"]["ordinal_total"] - (p["utility"]["components"].get("linked_outcomes", 0) if static else 0)
     return sorted((p for p in plans if not p["blocked_by"]), key=lambda p: (
         ("P0", "P1", "P2", "P3", "DEFER").index(p["target_ref"]["priority"]),
-        -p["utility"]["ordinal_total"], -ORDINAL[p["target_ref"]["impact"]],
+        -total(p), -ORDINAL[p["target_ref"]["impact"]],
         -ORDINAL[p["estimates"]["information_value"]], COST[p["estimates"]["cost"]], p["plan_id"]))

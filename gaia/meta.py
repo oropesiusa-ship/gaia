@@ -60,12 +60,13 @@ class Landscape:
         return res
 
 
-def simulate(params, landscape, budget, seed):
+def simulate(params, landscape, budget, seed, surface=None):
     rng = np.random.default_rng(seed)
     base = G.new_genome()
     hist = search.History()
     hist.add(base, landscape.base_cost, "ok", None, [])
-    strat = search.Strategy(params, rng)
+    # surface: optional (op_names, random_genome) restriction of a contracted search surface.
+    strat = search.Strategy(params, rng, *(surface or ()))
     best, traj = landscape.base_cost, []
     for _ in range(budget):
         g, ops, _, pc = strat.propose(hist)
@@ -80,10 +81,10 @@ def simulate(params, landscape, budget, seed):
                                     if b <= 0.8 * landscape.base_cost), budget + 1)}
 
 
-def compare(pa, pb, landscape, budget, seeds):
+def compare(pa, pb, landscape, budget, seeds, surface=None):
     """Diferencias pareadas (b - a) del AUC log-coste; negativo = b es mejor."""
-    ra = [simulate(pa, landscape, budget, s) for s in seeds]
-    rb = [simulate(pb, landscape, budget, s) for s in seeds]
+    ra = [simulate(pa, landscape, budget, s, surface) for s in seeds]
+    rb = [simulate(pb, landscape, budget, s, surface) for s in seeds]
     d = [b["auc"] - a["auc"] for a, b in zip(ra, rb)]
     m, lo, hi = stats.paired_bootstrap(d)
     return {"mean_auc_diff": round(m, 4), "ci90": [round(lo, 4), round(hi, 4)],
@@ -109,7 +110,7 @@ def mutate_strategy(p, rng):
     return q
 
 
-def tune(engine, rounds=3, seeds=None, budget=None):
+def tune(engine, rounds=3, seeds=None, budget=None, surface=None):
     """Nivel 4: GAIA propone variantes de su estrategia y adopta una solo si gana por pares."""
     cfg = engine.cfg["meta"]
     budget = budget or cfg["budget"]
@@ -124,11 +125,13 @@ def tune(engine, rounds=3, seeds=None, budget=None):
         if engine.store.stop_requested():
             break
         cand = mutate_strategy(cur, rng)
-        cmp = compare(cur, cand, ls, budget, seeds)
+        cmp = compare(cur, cand, ls, budget, seeds, surface)
         adopt = cmp["mean_auc_diff"] < 0 and cmp["ci90"][1] < 0
         rec = {"type": "meta", "from_version": cur.get("version", 0), "candidate": cand,
                "comparison": cmp, "adopted": adopt, "fresh_evals": ls.fresh_evals,
                "fresh_seconds": round(ls.fresh_seconds, 1)}
+        if surface is not None:
+            rec["surface_operators"] = list(surface[0])
         engine.store.append(rec)
         if adopt:
             cand["version"] = cur.get("version", 0) + 1

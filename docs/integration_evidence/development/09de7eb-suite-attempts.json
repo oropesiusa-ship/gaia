@@ -1,0 +1,49 @@
+{
+ "schema": "gaia_suite_attempts_v1",
+ "commit": "09de7eb",
+ "source_identity": "3383b6a25ba9d4d179ffe5844a93950763c8f432b112b716d4ed899a8a641290",
+ "scope": "DEVELOPMENT_EVIDENCE_NOT_CERTIFICATION",
+ "attempts": [
+  {
+   "attempt": "attempt1",
+   "tests": 938,
+   "duration_s": 1143.169,
+   "failed_tests": [
+    "test_rollback.RollbackTests.test_after_rollback_new_parent_is_current_and_next_promotion_v0002"
+   ],
+   "cause": [
+    {
+     "gate": "G2_reliability",
+     "reason_codes": [
+      "BASELINE_UNSTABLE"
+     ],
+     "cv": 0.2152,
+     "drift": 0.252
+    }
+   ],
+   "host_context": "interactive desktop load (browser, several editor windows); load average 2.8-3.6",
+   "isolated_reruns": "3/3 OK"
+  },
+  {
+   "attempt": "attempt2",
+   "tests": 938,
+   "duration_s": 1074.459,
+   "failed_tests": [
+    "test_rollback.RollbackTests.test_non_immediate_ancestor_and_new_branch_numbering"
+   ],
+   "cause": [
+    {
+     "gate": "G2_reliability",
+     "reason_codes": [
+      "BASELINE_UNSTABLE",
+      "BASELINE_DRIFT"
+     ],
+     "cv": 0.2429,
+     "drift": 0.649
+    }
+   ],
+   "host_context": "interactive desktop load (browser, several editor windows); load average 2.8-3.6",
+   "isolated_reruns": null
+  }
+ ]
+}

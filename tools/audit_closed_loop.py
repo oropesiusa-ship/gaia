@@ -49,8 +49,10 @@ def get_artifacts(store):
     return values
 
 
-def audit_data(contract,configuration,events,artifacts,*,core=None,check_source=True,allow_privacy_projections=False):
+def audit_data(contract,configuration,events,artifacts,*,core=None,check_source=True,allow_privacy_projections=False,lineage_records=None,intelligence=None):
     validate_campaign(contract)
+    if contract['schema']=='gaia_closed_loop_campaign_v2':
+        return audit_data_v2(contract,configuration,events,artifacts,core=core,check_source=check_source,lineage_records=lineage_records or[],intelligence=intelligence)
     if configuration['engine_config_hash']!=digest(configuration['engine_config']):raise ValueError('CONFIGURATION_HASH')
     if configuration['engine_config']['workload']['state_dir']!='state_closed_loop_cpu_'+contract['campaign_id'][2:]:raise ValueError('ENGINE_STATE_ESCAPE')
     if check_source and identities(ROOT)!=configuration['source_identity']:raise ValueError('SOURCE_OR_PROTECTED_IDENTITY_CHANGED')
@@ -191,6 +193,217 @@ def audit_data(contract,configuration,events,artifacts,*,core=None,check_source=
         'privacy_projected_evaluations':len(projected),'audit_scope':'PROJECTED_NATIVE_METADATA_WITH_ORIGINAL_LOCAL_AUDIT_COMMITMENTS'if projected else'ORIGINAL_LOCAL_ARTIFACTS'}
 
 
+V2_SKIP_REASONS={'NO_NOVEL_CANDIDATE','NOT_MATERIALIZABLE_ON_SURFACE','QUALIFIED_REFERENCE_CONFIGURATION_MISSING','REFERENCE_REQUIRES_UNSUPPORTED_CODE_VARIATION',
+    'REFERENCE_OUTSIDE_HYPERPARAMETER_SURFACE','FACTORIAL_DESIGN_COMPLETE','EXACT_REJECTED_CONFIGURATION_AVOIDED','BUDGETED_REPEAT_DEFERRED_USING_EXISTING_LEARNING',
+    'CONFIGURATION_ALREADY_EVALUATED_IN_LINEAGE','INTENTIONAL_REPEAT_CAP_REACHED','CONTROL_ALREADY_EXECUTED_FOR_CURRENT_CHAMPION','STACK_OUTSIDE_QUALIFIED_BUDGET'}
+V2_METHODS={'IDENTICAL_CURRENT_BASELINE','EXISTING_HP_OPERATOR_FROM_CURRENT_CHAMPION','FIXED_FACTORIAL_CELL_FROM_REFERENCE','EXACT_LEARNING_REFERENCE_REPEAT',
+    'EXISTING_HP_OPERATOR_FROM_QUALIFIED_REFERENCE','IDENTICAL_CURRENT_PRIMARY_STACK','ONE_FACTOR_QUALIFIED_STACK_VARIATION'}
+
+
+def audit_references(events,get,evaluations):
+    """Screens use a reference measured in this campaign for exactly the champion they ran against; every rollback is re-measured."""
+    measured=[];executed=False;pending_rollback=None
+    for e in events:
+        s=e['state']
+        if s.get('reference_ref')and s['reference_ref']not in[r for r,_ in measured]:
+            v=get(s['reference_ref'],'REFERENCE_MEASUREMENT');measured.append((s['reference_ref'],v))
+            if pending_rollback and v['reason']=='AFTER_ROLLBACK'and v['status']=='MEASURED'and pending_rollback in (v['version'],'ANY_VERSION'):pending_rollback=None
+        if s.get('rollback_ref')and not any(x['state'].get('rollback_ref')==s['rollback_ref']for x in events[:events.index(e)]):
+            pending_rollback=get(s['rollback_ref'],'ROLLBACK').get('resulting_current')or'ANY_VERSION'
+        if s['phase']=='EXPERIMENTING'and s.get('execution_intent')and not executed:
+            executed=True
+            if not any(v['reason']=='CAMPAIGN_ADMISSION'and v['status']=='MEASURED'for _,v in measured):raise ValueError('NO_ADMISSION_REFERENCE_BEFORE_EXPERIMENT')
+        if pending_rollback and s['phase']=='EXPERIMENTING':raise ValueError('EXPERIMENT_AFTER_ROLLBACK_WITHOUT_REFERENCE')
+    if pending_rollback and events[-1]['state']['reason']not in ('REFERENCE_UNRELIABLE',):raise ValueError('ROLLBACK_WITHOUT_REFERENCE_REMEASUREMENT')
+    refs={r['id']:v for r,v in measured}
+    for s in evaluations:
+        used=get(s['evaluation_ref']).get('reference_used')or{};version=get(s['evaluation_ref'])['before_version']
+        source=refs.get((used.get('measurement_ref')or{}).get('id'))
+        if not source or source['status']!='MEASURED'or source['version']!=version or used['version']!=version or source['cost_s']!=used['cost_s']:
+            raise ValueError('SCREEN_REFERENCE_NOT_BOUND_TO_CHAMPION')
+
+
+def matrix_key(events,m):
+    return next((e['state']['matrix_progress']['key']for e in events if(e['state'].get('matrix_progress')or{}).get('attempt_refs')==m['attempt_refs']),None)
+
+
+def matrix_runs_accounted(events,matrix):
+    """Every journaled attempt intent is either a recorded attempt or a declared interrupted re-run."""
+    key=matrix_key(events,matrix);intents=[];last=None
+    for e in events:
+        progress=e['state'].get('matrix_progress')or{}
+        mark=(progress.get('intent'),len(progress.get('attempt_refs',[])),len(progress.get('interrupted',[])))
+        if progress.get('key')==key and progress.get('intent')and mark!=last:intents.append(mark)
+        last=mark
+    if len(intents)!=len(matrix['attempts'])+len(matrix['interrupted_attempts_rerun']):raise ValueError('REGRESSION_MATRIX_RUN_NOT_ACCOUNTED')
+
+
+def matrix_policy(m,status,get=None):
+    """Replay the approved matrix policy from its recorded attempts."""
+    a=m['attempts'];kinds=[x['kind']for x in a];first=a[0]
+    ids=[f.get('rerun_id')for f in first['failed_tests']];rerun=list(dict.fromkeys(ids))if ids and None not in ids else None
+    if first['status']=='PASS':expected,outcome=['FULL'],'PASS'
+    elif not rerun:expected,outcome=['FULL'],'FAIL'
+    elif len(a)>1 and a[1]['status']=='FAIL':expected,outcome=['FULL','FAILED_ONLY_RERUN'],'FAIL'
+    else:expected,outcome=['FULL','FAILED_ONLY_RERUN','FULL_CONFIRMATION'],a[-1]['status']
+    if kinds!=expected or m['status']!=outcome or(len(a)>1 and a[1]['only']!=rerun)or(m['status']=='FAIL'and status=='PASS'):raise ValueError('REGRESSION_MATRIX_POLICY_DOES_NOT_REPRODUCE')
+    signal=m['first_failure_signal']
+    if first['status']=='FAIL'and(not signal or signal['first_failed_test_ids']!=[f['id']for f in first['failed_tests']]or signal['transient']!=(outcome=='PASS')):
+        raise ValueError('FIRST_MATRIX_FAILURE_NOT_RECORDED')
+    if first['status']=='PASS'and signal is not None:raise ValueError('REGRESSION_MATRIX_POLICY_DOES_NOT_REPRODUCE')
+    if get is not None and[get(r,'REGRESSION_MATRIX_ATTEMPT')for r in m['attempt_refs']]!=a:raise ValueError('REGRESSION_MATRIX_ATTEMPT_NOT_JOURNALED')
+
+
+def audit_data_v2(contract,configuration,events,artifacts,*,core=None,check_source=True,lineage_records=(),intelligence=None):
+    """v2: structural replay of the integrated loop; weight-based operator choice is checked by surface and novelty, not re-sampled."""
+    from gaia.autonomy.lineage import engine_state_dir
+    from gaia.autonomy.hypothesis import assess
+    from gaia.autonomy.records import assemble
+    from gaia.autonomy.schema import supported
+    if configuration['engine_config_hash']!=digest(configuration['engine_config']):raise ValueError('CONFIGURATION_HASH')
+    expected=engine_state_dir(contract['lineage_id'])if contract['lineage_id']else'state_closed_loop_cpu_'+contract['campaign_id'][2:]
+    if configuration['engine_config']['workload']['state_dir']!=expected:raise ValueError('ENGINE_STATE_ESCAPE')
+    if check_source and identities(ROOT)!=configuration['source_identity']:raise ValueError('SOURCE_OR_PROTECTED_IDENTITY_CHANGED')
+    if not events or events[0]['state']['phase']!='CREATED':raise ValueError('JOURNAL_INITIAL_STATE')
+    def get(r,kind=None):
+        v=validate_artifact(artifacts[r['id']])
+        if ref(v)!=r or kind and v['kind']!=kind:raise ValueError('CROSS_ARTIFACT_REFERENCE_MISMATCH')
+        return v['payload']
+    previous=None;prior_phase=None;prior_state={};prior_time=0;unique={}
+    for i,event in enumerate(events,1):
+        if event['sequence']!=i or event['previous_hash']!=previous or event['hash']!=digest({k:v for k,v in event.items()if k!='hash'}):raise ValueError('JOURNAL_HASH')
+        if event['timestamp']<prior_time:raise ValueError('JOURNAL_TIME_REGRESSION')
+        s=event['state'];phase=s['phase'];resumed=prior_phase=='PAUSED'and phase==prior_state.get('resume_phase')
+        if prior_phase in TERMINAL or(prior_phase and phase!=prior_phase and not resumed and phase not in NEXT.get(prior_phase,set())and phase not in TERMINAL|{'PAUSED'}):raise ValueError('INVALID_JOURNAL_TRANSITION')
+        for field,maximum in [('iteration','maximum_iterations'),('experiments','maximum_experiments'),('network_requests','maximum_network_research')]:
+            if s.get(field,0)>contract[maximum]:raise ValueError('CAMPAIGN_BUDGET_ESCALATION')
+            if s.get(field,0)<prior_state.get(field,0):raise ValueError('CAMPAIGN_COUNTER_RESET')
+        if prior_state.get('started_at')is not None and s['started_at']!=prior_state['started_at']:raise ValueError('WALL_CLOCK_RESET')
+        for key,r in s.items():
+            if key.endswith('_ref')and isinstance(r,dict):get(r);unique.setdefault(key,{})[r['id']]=r
+        if phase=='EXPERIMENTING'and prior_phase!='EXPERIMENTING':
+            decision=get(s['authorization_ref'],'AUTHORIZATION')
+            if decision['status']!='AUTHORIZED'or not s['execution_intent']or contract['mode']!='CONTROLLED_AUTONOMOUS':raise ValueError('EXPERIMENT_WITHOUT_AUTHORITY')
+            m=get(s['materialized_ref'],'MATERIALIZED')
+            if m['genome_hash']!=s['preview_hash']:raise ValueError('PREVIEW_MATERIALIZATION_MISMATCH')
+        previous=event['hash'];prior_phase=phase;prior_state=s;prior_time=event['timestamp']
+    final=events[-1]['state'];report=get(final['report_ref'],'REPORT')
+    if final['phase']not in TERMINAL or report['trace_hash']!=events[-1]['previous_hash']or report['campaign_id']!=contract['campaign_id']or report['contract_hash']!=contract['hash']:raise ValueError('REPORT_TRACE_BINDING')
+    if report['permission_expansions']!=0:raise ValueError('AUTHORITY_EXPANSION')
+    for r in unique.get('observation_ref',{}).values():valid_observation(get(r))
+    for r in unique.get('diagnosis_ref',{}).values():valid_diagnosis(get(r))
+    for r in unique.get('priority_ref',{}).values():valid_priority(get(r))
+    prior_ids={rec['experiment_id']for rec in lineage_records}
+    for r in unique.get('strategy_ref',{}).values():
+        strategy=valid_strategy(get(r))
+        linked=strategy.get('outcome_statistics')
+        if linked and any(o['experiment_id']not in prior_ids|{x['experiment_id']for x in [get(q)for q in unique.get('record_ref',{}).values()]}for o in linked['outcomes']):
+            raise ValueError('LINKED_OUTCOME_WITHOUT_EXPERIMENT_RECORD')
+    for r in unique.get('candidates_ref',{}).values():
+        c=get(r,'ELIGIBLE_CANDIDATES')
+        if len(c['candidates'])>4 or any(x['reason']not in V2_SKIP_REASONS for x in c['skipped']):raise ValueError('UNKNOWN_PLAN_SKIP_REASON')
+        for x in c['candidates']:
+            if x['plan']['class']not in supported(contract)or x['plan']['blocked_by']:raise ValueError('INELIGIBLE_CANDIDATE_PREVIEWED')
+    for r in unique.get('authorization_ref',{}).values():
+        events_with=[e['state']for e in events if e['state'].get('authorization_ref')==r]
+        s=events_with[0];replay=authorize(contract,get(s['target_ref']),get(s['plan_ref']),get(s['review_ref']),remaining=True,integrity=True,sandbox=True)
+        if replay!=get(r):raise ValueError('AUTHORIZATION_DOES_NOT_REPRODUCE')
+        selection=get(s['selection_ref'],'PLAN_SELECTION');candidates=get(s['candidates_ref'],'ELIGIBLE_CANDIDATES')['candidates']
+        if selection['selected_plan_id']not in{x['plan']['plan_id']for x in candidates}or selection['selected_plan_id']!=get(s['plan_ref'])['plan_id']:raise ValueError('SELECTION_OUTSIDE_PREVIEWED_CANDIDATES')
+        # The advisory cognitive review never selects: the first eligible ranked candidate is always the plan.
+        if selection['method']!='DETERMINISTIC_FIRST_ELIGIBLE_PLAN'or selection['selected_plan_id']!=candidates[0]['plan']['plan_id']:raise ValueError('ADVISORY_REVIEW_INFLUENCED_SELECTION')
+        entry=next(x for x in candidates if x['plan']['plan_id']==selection['selected_plan_id'])
+        if s.get('preview_hash')!=entry['preview_hash']:raise ValueError('PREVIEW_HASH_NOT_FROM_ELIGIBLE_CANDIDATE')
+    seen=set(rec['proposed_change']['candidate_hash']for rec in lineage_records);surface=contract['surface']
+    for r in unique.get('materialized_ref',{}).values():
+        m=get(r,'MATERIALIZED')
+        if m['arbitrary_code_generated']or m['method']not in V2_METHODS:raise ValueError('MATERIALIZED_CODE_ESCAPE')
+        if surface=='numpy_mlp':
+            g=m['genome']
+            if m['surface']!='numpy_mlp_genome_hyperparameters'or g['lits']or g['drops']or any(not str(c[0]).startswith('hp.')for c in m['changes']):raise ValueError('MATERIALIZED_SURFACE_ESCAPE')
+            if digest(g)!=m['genome_hash']or hashlib.sha256(G.render(g).encode()).hexdigest()!=m['trainer_hash']or G.genome_hash(g)!=m['candidate_hash']:raise ValueError('CANDIDATE_IDENTITY')
+            if len(m['ops'])>1 and m['method']!='FIXED_FACTORIAL_CELL_FROM_REFERENCE':raise ValueError('MULTI_FACTOR_ESCAPE')
+        else:
+            if m['surface']!='local_inference_stack_configuration'or m['model_or_weight_change']or len(m['changes'])>1 or digest(m['stack'])!=m['genome_hash']:raise ValueError('INFERENCE_SURFACE_ESCAPE')
+    evaluations=[]
+    for s in [e['state']for e in events]:
+        if s.get('record_ref')and s['record_ref']in[x for x in unique.get('record_ref',{}).values()]and s['record_ref']['id']not in[x['record_ref']['id']for x in evaluations]:
+            evaluations.append(s)
+    for s in evaluations:
+        record=get(s['record_ref'],'EXPERIMENT_RECORD');m=get(s['materialized_ref']);evaluation=get(s['evaluation_ref'])
+        candidate=m['candidate_hash']
+        if candidate in seen and not m['intentional_repeat']and m['class']not in ('CONTROL_EXPERIMENT','BASELINE_RECONFIRMATION','MEASUREMENT_REFINEMENT'):raise ValueError('UNINTENDED_REPEATED_EXPERIMENT')
+        seen.add(candidate)
+        replay=assess(get(s['hypothesis_ref']),evaluation,s['classification'])
+        if replay!=get(s['assessment_ref']):raise ValueError('HYPOTHESIS_ASSESSMENT_DOES_NOT_REPRODUCE')
+        rebuilt=assemble(contract,configuration,s['iteration'],get(s['target_ref']),get(s['plan_ref']),get(s['hypothesis_ref']),m,evaluation,s['classification'],replay,
+                         get(s['learning_ref']),get(s['selection_ref']))
+        if rebuilt!=record:raise ValueError('EXPERIMENT_RECORD_DOES_NOT_REPRODUCE')
+        e=evaluation['evidence']
+        if surface=='numpy_mlp':
+            if e['candidate_genome_hash']!=m['genome_hash']:raise ValueError('EXECUTED_CANDIDATE_IDENTITY')
+            if not e['overall_gates_passed']:raise ValueError('FAILED_PROTECTED_GATES')
+            if e.get('confirm'):
+                n=e['confirm']['n'];trials=[t['result']for t in e['trial_metrics']][1:];champ=[];cand=[]
+                if len(trials)!=2*n:raise ValueError('PAIRED_TRIAL_COUNT')
+                for i in range(n):
+                    first=configuration['engine_config']['acceptance']['confirm_seeds'];parity=i%2 if i<first else(i-first+1)%2
+                    a,b=trials[2*i:2*i+2];champ.append(b if parity else a);cand.append(a if parity else b)
+                decision=stats.decide(champ,cand,configuration['engine_config']['acceptance'])
+                if decision['decision']!=e['decision']:raise ValueError('PROTECTED_ACCEPTANCE_DOES_NOT_REPRODUCE')
+            elif e['decision']!='rejected':raise ValueError('ACCEPTANCE_WITHOUT_CONFIRMATION')
+            learned=get(s['learning_ref']);source=validate_source(learned['source'])
+            if source['experiments'][0]['outcome']!=learned['outcome']:raise ValueError('LEARNING_OUTCOME_MISMATCH')
+        else:
+            from gaia.autonomy.inference_surface import decide
+            from gaia.local_intelligence.selection import dimensions
+            if intelligence is None:raise ValueError('INFERENCE_EVIDENCE_STORE_REQUIRED')
+            control=intelligence.read(e['control_ref']['id'],'BENCHMARK')
+            cand=intelligence.read(e['candidate_ref']['id'],'BENCHMARK')if e['candidate_ref']else None
+            def dims(b):return dimensions(b)if b and b['payload']['status']=='QUALIFIED'and b['payload']['backend_verification']['verified']else None
+            if {'id':control['id'],'hash':control['hash']}!=e['control_ref']or dims(control)!=e['control_dimensions']or dims(cand)!=e['candidate_dimensions']:raise ValueError('INFERENCE_BENCHMARK_BINDING')
+            if cand and cand['payload']['stack']['stack_id']!=candidate:raise ValueError('INFERENCE_CANDIDATE_IDENTITY')
+            if decide(e['control_dimensions'],e['candidate_dimensions'])!=(e['decision'],e['reason']):raise ValueError('INFERENCE_DECISION_DOES_NOT_REPRODUCE')
+        if evaluation['before_version']!=evaluation['after_version']:
+            approvals=[get(r)for r in unique.get('promotion_decision_ref',{}).values()]
+            if not any(a['allowed']and a['experiment_id']==e['id']and a['class']in contract['promotion_policy']['allowed_classes']for a in approvals):raise ValueError('PROMOTION_WITHOUT_CAMPAIGN_POLICY')
+    if surface=='numpy_mlp'and contract['mode']=='CONTROLLED_AUTONOMOUS':audit_references(events,get,evaluations)
+    for r in unique.get('verification_ref',{}).values():
+        matrix=get(r).get('regression_matrix')
+        if matrix is not None:
+            matrix_policy(matrix,get(r)['status'],get)
+            matrix_runs_accounted(events,matrix)
+            if matrix['attempts'][0]['status']=='FAIL'and len(matrix['attempts'])>1:
+                # The first failure is journaled before the selective re-run starts.
+                signal=next((i for i,e in enumerate(events)if(e['state'].get('regression_first_failure')or{}).get('key')==matrix_key(events,matrix)),None)
+                rerun=next((i for i,e in enumerate(events)if(e['state'].get('matrix_progress')or{}).get('intent')=='FAILED_ONLY_RERUN'
+                            and(e['state'].get('matrix_progress')or{}).get('key')==matrix_key(events,matrix)),None)
+                if signal is None or rerun is None or signal>rerun:raise ValueError('FIRST_MATRIX_FAILURE_NOT_JOURNALED_BEFORE_RERUN')
+    # Every executed evaluation must be learned and recorded, and any version change must be under campaign policy.
+    from gaia.autonomy.controller import BLOCKING,IN_FLIGHT,effective_phase
+    # A journal stopped between a side effect and its bookkeeping is an integrity record of a blocked lineage, never a certifiable loop.
+    interrupted=final['reason']in BLOCKING or(len(events)>1 and effective_phase(events[-2]['state'])in IN_FLIGHT)
+    evaluation_refs=list(unique.get('evaluation_ref',{}).values());recorded={x['evaluation_ref']['id']for x in evaluations}
+    if not recorded<={r['id']for r in evaluation_refs}or len(evaluation_refs)-len(recorded)>(1 if interrupted else 0):raise ValueError('EVALUATION_WITHOUT_EXPERIMENT_RECORD')
+    reserved=max([e['state'].get('experiments',0)for e in events]+[0])
+    if not len(evaluation_refs)<=reserved<=len(evaluation_refs)+(1 if interrupted else 0):raise ValueError('EXECUTION_INTENT_ACCOUNTING')
+    for r in evaluation_refs:
+        evaluation=get(r)
+        if evaluation['before_version']!=evaluation['after_version']:
+            approvals=[get(q)for q in unique.get('promotion_decision_ref',{}).values()]
+            if not any(a['allowed']and a['experiment_id']==evaluation['evidence']['id']for a in approvals):raise ValueError('PROMOTION_WITHOUT_CAMPAIGN_POLICY')
+    if report['metrics']['experiments']!=len(unique.get('learning_ref',{}))or len(evaluations)!=len(unique.get('learning_ref',{})):raise ValueError('EXPERIMENT_ACCOUNTING')
+    if contract['mode']!='CONTROLLED_AUTONOMOUS'and evaluations:raise ValueError('SIMULATION_EXECUTED_CANDIDATE')
+    if report['status']=='PASS'and contract['mode']=='CONTROLLED_AUTONOMOUS':
+        required=('OBSERVING','DIAGNOSING','PRIORITIZING','RETRIEVING','RESEARCHING','PLANNING','REVIEWING','AUTHORIZING','MATERIALIZING','EXPERIMENTING','EVALUATING','LEARNING','REEVALUATING')
+        if not evaluations or any(phase not in[e['state']['phase']for e in events]for phase in required):raise ValueError('PARTIAL_LOOP_CANNOT_BE_CERTIFIED')
+    return {'status':'PASS','campaign_id':contract['campaign_id'],'lineage_id':contract['lineage_id'],'surface':surface,'mode':contract['mode'],'report_status':report['status'],
+        'events':len(events),'experiments':len(evaluations),'distinct_candidates':len({get(s['materialized_ref'])['candidate_hash']for s in evaluations}),
+        'metrics':report['metrics'],'levels':report['levels'],'protected_hash':configuration['source_identity']['protected_hash'],'claim':report['claim'],
+        'interrupted_integrity_record':interrupted,
+        'audit_scope':'V2_STRUCTURAL_REPLAY_SURFACE_NOVELTY_RECORDS_ASSESSMENTS_PROTECTED_DECISIONS_NOT_OPERATOR_WEIGHT_RESAMPLING'}
+
+
 def core_documents(directory):
     root=Path(directory);result={}
     for pattern in ('benchmark.json','state.json','stable/*/*.json','experiments/*/*.json','campaigns/*/*.json'):
@@ -200,13 +413,32 @@ def core_documents(directory):
     return result
 
 
+def lineage_records_before(state,contract):
+    """Records the lineage held before this campaign was admitted (prior novelty set)."""
+    from gaia.autonomy.lineage import LineageStore
+    if not contract.get('lineage_id'):return []
+    lineage=LineageStore(state,contract['lineage_id']);result=[]
+    for ev in lineage.events():
+        if ev['kind']=='CAMPAIGN_ADMITTED'and ev['payload']['campaign_id']==contract['campaign_id']:break
+        if ev['kind']=='EXPERIMENT_RECORDED':
+            value=json.loads((lineage.root/'records'/(ev['payload']['record_ref']['hash']+'.json')).read_bytes())
+            if digest({k:v for k,v in value.items()if k!='record_hash'})!=value['record_hash']:raise ValueError('LINEAGE_RECORD_CORRUPTED')
+            result.append(value)
+    return result
+
+
 def audit_campaign(root,state,identifier):
     store=CampaignStore(state,identifier);configuration=store.read('configuration');contract=store.read('contract')
     path=Path(root)/configuration['engine_config']['workload']['state_dir'];core=core_documents(path)if(path/'benchmark.json').exists()else None
-    result=audit_data(contract,configuration,store.events(),get_artifacts(store),core=core)
+    intelligence=None
+    if contract.get('surface')=='local_inference':
+        from gaia.local_intelligence.store import IntelligenceStore
+        intelligence=IntelligenceStore(Path(root)/configuration['intelligence_state'])
+    result=audit_data(contract,configuration,store.events(),get_artifacts(store),core=core,lineage_records=lineage_records_before(state,contract),intelligence=intelligence)
     from gaia.cognition.store import CognitiveStore
     from tools.audit_cognition import audit_trace
-    cognition=CognitiveStore(store.root/'subsystems');cognitive=[]
+    from gaia.autonomy.lineage import LineageStore
+    cognition=CognitiveStore(LineageStore(state,contract['lineage_id']).subsystems if contract.get('lineage_id')else store.root/'subsystems');cognitive=[]
     for r in result_review_refs(store.events()):
         review=store.get(r);trace=review['cognitive_trace']
         cognitive.append(audit_trace(cognition,trace))
