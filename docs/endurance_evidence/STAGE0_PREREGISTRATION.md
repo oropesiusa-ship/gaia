@@ -6,9 +6,18 @@ Committed before the Stage 0 run. Stage 0 follows the "Stage 0 — Pre-flight" s
 
 - **Base:** `main` at `gaia-v1.0.1`, i.e. 1.0.1 certified and merged.
 - **Branch:** `feat/gaia-1.1-endurance`.
-- **Bytes:** code commit `477644f`, source identity `74c18707e4956d5b69cdcfeef6b9665cfced1be29681c82b6800747816bda568` (protected hash unchanged: `9376438978e4c78ecee88ca5c839914760b13f312f340f4691905ddc94261e1f`).
+- **Bytes:** code commit `9b9222e`, source identity `9e79cda91d6770aeebb73d04406df935dba43cc066d7e1a3b76671ced58c860d` (protected hash unchanged: `9376438978e4c78ecee88ca5c839914760b13f312f340f4691905ddc94261e1f`).
 - **States:** fresh disposable states `state_endurance_stage0` and `state_endurance_stage0_faults`.
 - **Host:** at rest, run detached from the operator session.
+
+## Earlier attempts (development evidence, not part of Stage 0)
+
+1. **Attempt 1, on `477644f`.** Stopped at action 12 by a runbook bug: argument shadowing in `tools/`. Actions 1–11 had passed.
+2. **Attempt 2.** Stopped by the operator during fault injection. That stop exposed a real defect, now fixed in `9b9222e`:
+   - an operator STOP sent while a v2 campaign was experimenting interrupted the trial and blocked the lineage;
+   - this contradicted the controller's deferral of STOP and PAUSE.
+
+Because `gaia/` changed, Stage 0 restarts from fresh states on the bytes below.
 
 ## Actions (plan order)
 
