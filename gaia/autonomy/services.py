@@ -39,7 +39,10 @@ class BoundedEngine(engine.Engine):
             remaining=min(contract['maximum_wall_time'],contract['maximum_compute_budget'])-elapsed(current)
             cap=min(cap or self.lim['max_experiment_seconds'],contract['maximum_trial_seconds'],remaining)
             if cap<=0:raise BudgetExceeded('STOPPED_BUDGET')
-            if store.read('control')['request']!='RUN':raise InterruptedError('OPERATOR_CONTROL_AT_TRIAL_BOUNDARY')
+            # v1 interrupts at the next trial. v2 defers STOP/PAUSE to the controller, which applies them once the committed
+            # experiment is learned and verified: interrupting a trial would turn an orderly stop into a blocked lineage.
+            if contract.get('schema')!='gaia_closed_loop_campaign_v2'and store.read('control')['request']!='RUN':
+                raise InterruptedError('OPERATOR_CONTROL_AT_TRIAL_BOUNDARY')
         return super().trial(src,seed,task,cap,**kwargs)
 
 

@@ -176,6 +176,20 @@ class ReviewFindingTests(SessionFixture):
         result=self.supervisor(c,behaviour).run();kinds=[k for k,_ in self.events(c)]
         self.assertIn('CAMPAIGN_RECONCILE',kinds);self.assertEqual(len(self.launched),2)
         self.assertEqual(SessionStore(self.state,c['session_id']).state_view()['restarts'],0)
+    def test_v2_trials_are_not_interrupted_by_a_stop_request(self):
+        from gaia.autonomy.services import BoundedEngine
+        from gaia.autonomy.schema import campaign
+        from gaia.autonomy.controller import create_campaign
+        lin=self.lineage()['lineage_id'];caps=[]
+        for contract in (campaign(),campaign('IMPROVE_NUMPY_MLP_EXISTING_CRITERIA','CONTROLLED_AUTONOMOUS',lineage_id=lin)):
+            c=create_campaign(self.root,self.state,contract);store=CampaignStore(self.state,c['campaign_id']);store.event('CREATED',{'started_at':time.time()})
+            store.control('STOP');eng=BoundedEngine.__new__(BoundedEngine);eng.lim={'max_experiment_seconds':60}
+            eng.campaign_budget=(c,store,self.state,self.root/'native')
+            with patch('gaia.engine.Engine.trial',side_effect=lambda src,seed,task,cap,**k:caps.append(cap)or{'reached':True}):
+                if c['schema']=='gaia_closed_loop_campaign_v1':
+                    with self.assertRaises(InterruptedError):eng.trial('src',1)
+                else:eng.trial('src',1)
+        self.assertEqual(len(caps),1)  # only the v2 trial ran; the controller applies its STOP after bookkeeping
     def test_compute_is_charged_even_without_a_report(self):
         c=self.make(maximum_campaigns=1);self.supervisor(c,'crash').run();f=SessionStore(self.state,c['session_id']).state_view()['finished'][0]
         self.assertIsNone(f['campaign_wall_s']);self.assertGreater(f['wall_s'],0);self.assertEqual(f['wall_s'],f['supervised_s'])
