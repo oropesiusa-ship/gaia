@@ -10,6 +10,17 @@ from .lineage import LineageStore,engine_state_dir
 OWN_POINTER_REASONS=('CLOSED_LOOP_PROMOTION','CLOSED_LOOP_ROLLBACK')
 
 
+def pointer_moves_owned(entries,frozen_selection,lineages):
+    """Pointer entries since the freeze are the session's own: promotions by its lineages, and closed-loop rollbacks that
+    restore the frozen selection or one the session itself promoted."""
+    allowed=[frozen_selection]
+    for e in entries:
+        if e['reason']=='CLOSED_LOOP_PROMOTION'and e['receipt'].get('lineage_id')in lineages:allowed.append(e['selection_ref']);continue
+        if e['reason']=='CLOSED_LOOP_ROLLBACK'and e['selection_ref']in allowed:continue
+        return False
+    return True
+
+
 def git(root,*args):
     try:return subprocess.run(['git',*args],cwd=root,capture_output=True,text=True,timeout=30).stdout.strip()or None
     except (OSError,subprocess.SubprocessError):return None
@@ -48,7 +59,6 @@ def changes(root,state,frozen):
     for key,now in (('source_identity_hash',source['hash']),('protected_hash',source['protected_hash']),('engine_config_hash',digest(cfg)),
                     ('acceptance',cfg['acceptance'])):
         if frozen[key]!=now:found.append(key.upper()+'_CHANGED')
-    if git(root,'rev-parse','HEAD')!=frozen['commit']:found.append('COMMIT_CHANGED')
     for lineage_id,v in frozen['lineages'].items():
         lineage=LineageStore(state,lineage_id).read()
         if lineage['hash']!=v['hash']:found.append('LINEAGE_CONTRACT_CHANGED')
@@ -60,7 +70,7 @@ def changes(root,state,frozen):
             if(root/state_name).is_dir():found.append('SELECTION_CHANGED_OUTSIDE_SESSION')
             continue
         store=IntelligenceStore(root/state_name);entries=store.pointer_entries()
-        if any(e['reason']not in OWN_POINTER_REASONS or(e['reason']=='CLOSED_LOOP_PROMOTION'and e['receipt'].get('lineage_id')not in frozen['lineages'])
-               for e in entries[v['pointer_entries']:]):found.append('SELECTION_CHANGED_OUTSIDE_SESSION')
-        elif len(entries)==v['pointer_entries']and selection(root,state_name)['selection']!=v['selection']:found.append('SELECTION_CHANGED_OUTSIDE_SESSION')
+        if not pointer_moves_owned(entries[v['pointer_entries']:],v['selection'],frozen['lineages']):found.append('SELECTION_CHANGED_OUTSIDE_SESSION')
+        elif selection(root,state_name)['selection']!=(entries[-1]['selection_ref']if len(entries)>v['pointer_entries']else v['selection']):
+            found.append('SELECTION_CHANGED_OUTSIDE_SESSION')
     return sorted(set(found))

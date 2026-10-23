@@ -92,7 +92,8 @@ class RecoveryClassificationTests(Fixture):
                 s,_=self.campaign();self.walk(s,'OBSERVING',**{intent:True})
                 value=self.status(s);self.assertEqual((value['recovery'],value['reason']),('NEEDS_RECOVERY','AMBIGUOUS_'+intent.upper()))
         s,_=self.campaign();self.walk(s,'PLANNING');s.event('PAUSED',{'resume_phase':'PLANNING'})
-        self.assertEqual((self.status(s)['recovery'],self.status(s)['action']),('RECOVERABLE','RESUME_THEN_RUN'))
+        self.assertEqual((self.status(s)['recovery'],self.status(s)['action'],self.status(s)['resumable']),('RECOVERABLE','OPERATOR_RESUME_THEN_RUN',True))
+        s.control('PAUSE');self.assertFalse(self.status(s)['resumable'])  # run() alone makes no progress under a PAUSE request
     def test_blocked_lineage_makes_a_resumable_campaign_need_recovery(self):
         store,lin=self.campaign(lineage=True);self.walk(store,'PLANNING')
         LineageStore(self.state,lin).event('BLOCKED',{'campaign_id':'other','reason':'HEALTH_INVALID','phase':'CREATED','resolution':'EXPLICIT_HUMAN_REVIEW_REQUIRED'})

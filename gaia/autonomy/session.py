@@ -10,7 +10,7 @@ from .lineage import LineageStore,engine_state_dir
 from .policy import disk_bytes
 
 EVENTS=('CREATED','CAMPAIGN_STARTED','CAMPAIGN_RELAUNCHED','CAMPAIGN_FINISHED','HANG_DETECTED','CHILD_EXITED','LINEAGE_SKIPPED',
-        'STOP_REQUESTED','STORAGE_GATE','STOPPED')
+        'STOP_REQUESTED','STORAGE_GATE','SUPERVISOR_STARTED','STOPPED')
 LIMITS={'storage_sample_s':(1,3600),'maximum_campaigns':(1,500),'maximum_wall_s':(60,30*86400),'maximum_compute_s':(60,30*86400),'maximum_storage_bytes':(1,64*2**30),
         'maximum_restarts':(0,100),'maximum_recoveries':(0,100),'maximum_research':(0,0),'relaunches_per_campaign':(0,2),
         'hang_timeout_s':(60,6*3600),'heartbeat_s':(1,600),'minimum_campaign_s':(60,3600)}
@@ -89,7 +89,7 @@ class SessionStore:
     def state_view(self):
         """Pure fold of the session journal."""
         s={'campaigns':[],'running':None,'finished':[],'compute_s':0.,'restarts':0,'recoveries':0,'research':0,'skipped':{},'stopped':None,
-           'stop_requested':False,'started_clock':None,'baseline_storage_bytes':None}
+           'stop_requested':False,'stop_reason':None,'started_clock':None,'baseline_storage_bytes':None,'supervisor_starts':0}
         for ev in self.events():
             k,p=ev['kind'],ev['payload']
             if k=='CREATED':s['started_clock']=ev['clock'];s['baseline_storage_bytes']=p['baseline_storage_bytes']
@@ -98,7 +98,8 @@ class SessionStore:
             elif k=='CAMPAIGN_FINISHED':
                 s['finished'].append(p);s['running']=None;s['compute_s']+=p.get('wall_s')or 0.;s['research']+=p.get('research_calls')or 0
             elif k=='LINEAGE_SKIPPED':s['skipped'][p['lineage_id']]=p['reason']
-            elif k=='STOP_REQUESTED':s['stop_requested']=True
+            elif k=='STOP_REQUESTED':s['stop_requested']=True;s['stop_reason']=s['stop_reason']or p.get('reason')
+            elif k=='SUPERVISOR_STARTED':s['supervisor_starts']+=1
             elif k=='STORAGE_GATE':s['storage_gate']=max(s.get('storage_gate')or 0,p['gate'])
             elif k=='STOPPED':s['stopped']=p
         return s
@@ -114,6 +115,8 @@ def budget(contract,view,storage_bytes,now_clock):
     if limits['maximum_wall_s']-wall<limits['minimum_campaign_s']:reasons.append('SESSION_WALL_BUDGET')
     if limits['maximum_compute_s']-view['compute_s']<limits['minimum_campaign_s']:reasons.append('SESSION_COMPUTE_BUDGET')
     if storage_bytes-(view['baseline_storage_bytes']or 0)>=limits['maximum_storage_bytes']:reasons.append('SESSION_STORAGE_BUDGET')
-    if view['restarts']>limits['maximum_restarts']or view['recoveries']>limits['maximum_recoveries']:reasons.append('SESSION_RESTART_BUDGET')
+    # Campaign relaunches and supervisor restarts beyond the first start share the restart budget.
+    if view['restarts']+max(0,view.get('supervisor_starts',0)-1)>limits['maximum_restarts']or view['recoveries']>limits['maximum_recoveries']:
+        reasons.append('SESSION_RESTART_BUDGET')
     if view['research']>limits['maximum_research']:reasons.append('SESSION_RESEARCH_BUDGET')
     return max(0.,remaining),reasons

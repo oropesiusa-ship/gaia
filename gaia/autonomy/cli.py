@@ -50,7 +50,7 @@ def register_catalog(sub,root):
     p.add_argument('--state-dir',type=Path,default=Path(root)/'state_autonomy');p.add_argument('--lineage',action='append')
     def show(args):
         from .catalog import catalog
-        try:print(json.dumps(catalog(args.state_dir,args.lineage),indent=2,sort_keys=True));return 0
+        try:print(json.dumps(catalog(args.state_dir,args.lineage,root),indent=2,sort_keys=True));return 0
         except (OSError,ValueError,KeyError):print('Autonomy blocked: INVALID_CATALOG_STATE');return 2
     p.set_defaults(f=show,autonomy_command=True)
 

@@ -25,7 +25,7 @@ def classify(events,lineage_blocked=False):
     if lineage_blocked:return 'NEEDS_RECOVERY','LINEAGE_BLOCKED','HUMAN_REVIEW_THEN_LINEAGE_UNBLOCK'
     if state.get('meta_tune_intent'):return 'RECOVERABLE','INTERRUPTED_META_TUNE_RECORDED_NOT_REPLAYED','RUN'
     if phase=='EXPERIMENTING'and state.get('execution_intent'):return 'RECOVERABLE','COMMITTED_EVIDENCE_RECOVERY_ON_RUN','RUN'
-    if phase=='PAUSED':return 'RECOVERABLE','PAUSED_AT_'+str(state.get('resume_phase')),'RESUME_THEN_RUN'
+    if phase=='PAUSED':return 'RECOVERABLE','PAUSED_AT_'+str(state.get('resume_phase')),'OPERATOR_RESUME_THEN_RUN'
     return 'RECOVERABLE','RESUMES_AT_'+phase,'RUN'
 
 
@@ -46,7 +46,10 @@ def inspect_campaign(state_dir,identifier):
                     'action':'INSPECT_CORRUPTION','resumable':False,'inspection':'READ_ONLY_NO_LOCK_NO_REPAIR'}
     cls,reason,action=classify(seen['events'],bool(blocked))
     state=seen['state']
+    try:control=store.read('control')['request']
+    except (OSError,ValueError,KeyError):control=None
     return {'campaign_id':identifier,'phase':state['phase'],'stopping_reason':state.get('reason'),'recovery':cls,'reason':reason,'action':action,
-            'resumable':cls=='RECOVERABLE','events':len(seen['events']),'cursor':seen['cursor'],'lineage_id':contract.get('lineage_id'),
+            # A paused campaign under a PAUSE request needs the operator's resume first; run() alone makes no progress.
+            'resumable':cls=='RECOVERABLE'and not(state['phase']=='PAUSED'and control!='RUN'),'control':control,'events':len(seen['events']),'cursor':seen['cursor'],'lineage_id':contract.get('lineage_id'),
             'lineage_blocked':blocked,'iteration':state.get('iteration'),'experiments':state.get('experiments'),
             'inspection':'READ_ONLY_NO_LOCK_NO_REPAIR'}

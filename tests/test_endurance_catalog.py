@@ -29,6 +29,13 @@ class CatalogTests(Fixture):
         class Reverted(Promoting):verification='FAIL'
         a=self.lineage()['lineage_id'];r=self.go(self.loop(a,factory=Reverted,promotion=True))
         self.assertEqual(r['stopping_reason'],'POST_PROMOTION_REGRESSION_ROLLED_BACK');self.assertEqual(references(self.state,a),[])
+    def test_engine_ledger_rollback_reverts_a_reference(self):
+        import json
+        from gaia.autonomy.lineage import engine_state_dir
+        a=self.lineage()['lineage_id'];self.go(self.loop(a,factory=Promoting,promotion=True))
+        ref=references(self.state,a,self.root)[0];engine=self.root/engine_state_dir(a);engine.mkdir(exist_ok=True)
+        (engine/'ledger.jsonl').write_text(json.dumps({'event_type':'rollback','payload':{'from_version':ref['version_after']}})+'\n')
+        self.assertEqual(references(self.state,a,self.root),[]);self.assertTrue(references(self.state,a))  # without the engine ledger it stays
     def test_catalog_is_read_only(self):
         a=self.lineage()['lineage_id'];self.go(self.loop(a))
         before={str(p):p.read_bytes()for p in self.state.rglob('*')if p.is_file()}

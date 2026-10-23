@@ -13,6 +13,7 @@ from gaia.autonomy.session import SessionStore,session_contract,validate_session
 from gaia.autonomy.supervisor import Supervisor,status,alive
 from gaia.autonomy.freeze import freeze,changes
 from gaia.autonomy.store import CampaignStore
+from gaia.autonomy.lineage import LineageStore
 from test_autonomy_integration import Fixture,ROOT
 
 CHILD='''
@@ -29,6 +30,10 @@ if behaviour=='hang_once'and not os.path.exists(marker):
 if behaviour=='hang':time.sleep(600)
 if behaviour=='slow_ok':time.sleep(1.5)
 if behaviour=='crash':sys.exit(3)
+if behaviour=='pause':
+    s.control('PAUSE');s.event('PAUSED',{{'resume_phase':'OBSERVING'}});sys.exit(0)
+if behaviour=='orphan_exit':
+    open(marker,'w').write(str(subprocess.Popen([sys.executable,'-c','import time;time.sleep(600)']).pid))  # same process group
 reason='NEEDS_RECOVERY'if behaviour=='needs_recovery'else'NO_PROGRESS'
 s.event('STOPPED',{{'reason':reason,'report_ref':s.put('REPORT',{{'status':'PASS','metrics':{{'total_wall_time':12.5,'research_calls':0,'experiments':1}}}})}})
 '''
@@ -109,6 +114,7 @@ class SupervisorTests(SessionFixture):
         sup.heartbeat(campaign_id=cid,child_pid=orphan.pid)
         result=sup.run();orphan.wait(5)
         self.assertEqual(SessionStore(self.state,c['session_id']).state_view()['finished'][0]['recovery'],'TERMINAL_OK')
+        self.assertNotIn('HANG_DETECTED',[k for k,_ in self.events(c)])
         self.assertEqual(self.launched,[]);self.assertEqual(result['reason'],'SESSION_CAMPAIGN_BUDGET')
     def test_status_is_pure_and_reports_heartbeat(self):
         c=self.make(maximum_campaigns=1);self.supervisor(c).run();root=SessionStore(self.state,c['session_id']).root
@@ -139,6 +145,56 @@ class SupervisorTests(SessionFixture):
         (self.root/'state_local_intelligence').mkdir();self.assertEqual(changes(self.root,self.state,frozen),['SELECTION_CHANGED_OUTSIDE_SESSION'])
         (self.root/'gaia/new_module.py').write_text('x=1\n')
         with self.assertRaisesRegex(ValueError,'LINEAGE_SOURCE_DIFFERS'):freeze(self.root,self.state,lin)
+
+
+class ReviewFindingTests(SessionFixture):
+    def test_operator_pause_is_not_relaunched_and_keeps_the_lineage(self):
+        c=self.make();result=self.supervisor(c,'pause').run();view=SessionStore(self.state,c['session_id']).state_view()
+        self.assertEqual(result['reason'],'CAMPAIGN_PAUSED_BY_OPERATOR');self.assertEqual((len(self.launched),view['restarts'],view['skipped']),(1,0,{}))
+    def test_lock_held_outside_the_session_is_waited_for_not_relaunched(self):
+        c=self.make()
+        with LineageStore(self.state,c['lineages'][0]).lock():result=self.supervisor(c).run()
+        view=SessionStore(self.state,c['session_id']).state_view()
+        self.assertEqual(result['reason'],'LOCK_BUSY_OUTSIDE_SESSION');self.assertEqual((self.launched,view['restarts'],view['skipped']),([],0,{}))
+    def test_compute_is_charged_even_without_a_report(self):
+        c=self.make(maximum_campaigns=1);self.supervisor(c,'crash').run();f=SessionStore(self.state,c['session_id']).state_view()['finished'][0]
+        self.assertIsNone(f['campaign_wall_s']);self.assertGreater(f['wall_s'],0);self.assertEqual(f['wall_s'],f['supervised_s'])
+        self.assertGreater(SessionStore(self.state,c['session_id']).state_view()['compute_s'],0)
+    def test_restarted_supervisor_inspects_before_relaunching(self):
+        c=self.make(maximum_campaigns=1);store=SessionStore(self.state,c['session_id']);sup=self.supervisor(c)
+        cid=sup.create(c['lineages'][0],600);store.event('CAMPAIGN_STARTED',{'campaign_id':cid,'lineage_id':c['lineages'][0],'campaign_seconds':600})
+        campaign=CampaignStore(self.state,cid);campaign.event('OBSERVING');campaign.event('STOPPED',{'reason':'NEEDS_RECOVERY'})
+        sup.run();self.assertEqual(self.launched,[]);self.assertEqual(store.state_view()['finished'][0]['recovery'],'NEEDS_RECOVERY')
+        d=self.make(maximum_campaigns=1);other=SessionStore(self.state,d['session_id']);sup=self.supervisor(d);self.launched=[]
+        cid=sup.create(d['lineages'][0],600);other.event('CAMPAIGN_STARTED',{'campaign_id':cid,'lineage_id':d['lineages'][0],'campaign_seconds':600})
+        sup.run();self.assertEqual(len(self.launched),1);self.assertEqual(other.state_view()['restarts'],1)
+        self.assertEqual([p['reason']for k,p in self.events(d)if k=='CAMPAIGN_RELAUNCHED'],['SUPERVISOR_RESTART'])
+    def test_processes_outliving_the_controller_are_stopped(self):
+        c=self.make(maximum_campaigns=1);self.supervisor(c,'orphan_exit').run()
+        cid=next(p['campaign_id']for k,p in self.events(c)if k=='CAMPAIGN_STARTED')
+        orphan=int((self.root/('marker-'+cid)).read_text());time.sleep(.3)
+        self.assertFalse(alive(orphan));self.assertTrue(any(p['orphans_stopped']for k,p in self.events(c)if k=='CHILD_EXITED'))
+    def test_pid_reuse_and_zombies_are_not_alive(self):
+        from gaia.autonomy.supervisor import proc_info
+        me=proc_info(os.getpid());self.assertTrue(alive(os.getpid(),me[7]));self.assertFalse(alive(os.getpid(),me[7]+1))
+        z=subprocess.Popen([sys.executable,'-c','pass']);time.sleep(.5);self.assertFalse(alive(z.pid));z.wait()
+    def test_supervisor_restarts_count_against_the_restart_budget(self):
+        c=self.make(maximum_restarts=0,maximum_campaigns=5);store=SessionStore(self.state,c['session_id'])
+        store.event('SUPERVISOR_STARTED',{'pid':1})
+        self.assertEqual(self.supervisor(c).run()['reason'],'SESSION_RESTART_BUDGET')
+    def test_pointer_moves_owned_by_the_session(self):
+        from gaia.autonomy.freeze import pointer_moves_owned
+        a,b,x={'id':'lia','hash':'1'},{'id':'lib','hash':'2'},{'id':'lix','hash':'3'};mine=['al'+'1'*24]
+        promo=lambda sel,lin:{'reason':'CLOSED_LOOP_PROMOTION','selection_ref':sel,'receipt':{'lineage_id':lin}}
+        back=lambda sel:{'reason':'CLOSED_LOOP_ROLLBACK','selection_ref':sel,'receipt':{}}
+        self.assertTrue(pointer_moves_owned([promo(b,mine[0]),back(a)],a,mine))
+        self.assertFalse(pointer_moves_owned([back(x)],a,mine));self.assertFalse(pointer_moves_owned([promo(b,'al'+'9'*24)],a,mine))
+        self.assertFalse(pointer_moves_owned([{'reason':'MANUAL','selection_ref':b,'receipt':{}}],a,mine))
+    def test_partial_telemetry_line_does_not_break_status(self):
+        from gaia.autonomy.telemetry import Telemetry
+        t=Telemetry(self.root/'tele');t.append({'kind':'PROCESS','i':1})
+        with t.files()[-1].open('a')as f:f.write('{"kind": "PROC')
+        self.assertEqual([r['i']for r in t.samples()],[1])
 
 
 class TelemetryTests(SessionFixture):

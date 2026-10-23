@@ -63,7 +63,12 @@ class Telemetry:
 
     def samples(self):
         rows=[]
-        for path in self.files():rows+=[json.loads(x)for x in path.read_text().splitlines()if x.strip()]
+        for path in self.files():
+            try:lines=path.read_text().splitlines()
+            except OSError:continue  # rotated away while reading
+            for x in lines:
+                try:rows.append(json.loads(x))
+                except ValueError:pass  # a line still being written
         return rows
 
 

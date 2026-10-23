@@ -242,12 +242,12 @@ class ClosedLoop:
             try:self.check(recovering=True)
             except BudgetExceeded:return self.report('STOPPED','STOPPED_BUDGET')
             except ValueError:return self.report('FAILED','PROTECTED_OR_SOURCE_CHANGED')
-            if self.v2:
-                # Every controller start is counted and stamped: restarts and gaps between runs are measured, never active time.
-                self.store.event(cur['phase'],{'controller_runs':cur.get('controller_runs',0)+1,'run_clock':stamp()})
             if cur['phase']=='PAUSED':
                 if self.store.read('control')['request']!='RUN':return {'status':'PAUSED'}
                 self.store.event(cur['resume_phase'],{'resumed':True})
+            if self.v2:
+                # Every controller start that will make progress is counted and stamped: restarts and gaps between runs are measured.
+                cur=self.store.current();self.store.event(cur['phase'],{'controller_runs':cur.get('controller_runs',0)+1,'run_clock':stamp()})
             # A durable execution intent without a receipt is never blindly repeated.
             cur=self.store.current()
             if cur.get('research_intent')or cur.get('rollback_intent')or cur.get('initialization_intent'):return self.report('STOPPED','NEEDS_RECOVERY')
