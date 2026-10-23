@@ -94,7 +94,8 @@ class SessionStore:
             k,p=ev['kind'],ev['payload']
             if k=='CREATED':s['started_clock']=ev['clock'];s['baseline_storage_bytes']=p['baseline_storage_bytes']
             elif k=='CAMPAIGN_STARTED':s['campaigns'].append(p['campaign_id']);s['running']=p['campaign_id']
-            elif k=='CAMPAIGN_RELAUNCHED':s['restarts']+=1;s['recoveries']+=1;s['running']=p['campaign_id']
+            # A relaunch after a supervisor restart is already counted by that SUPERVISOR_STARTED.
+            elif k=='CAMPAIGN_RELAUNCHED':s['restarts']+=0 if p.get('reason')=='SUPERVISOR_RESTART'else 1;s['recoveries']+=1;s['running']=p['campaign_id']
             elif k=='CAMPAIGN_FINISHED':
                 s['finished'].append(p);s['running']=None;s['compute_s']+=p.get('wall_s')or 0.;s['research']+=p.get('research_calls')or 0
             elif k=='LINEAGE_SKIPPED':s['skipped'][p['lineage_id']]=p['reason']
@@ -103,6 +104,11 @@ class SessionStore:
             elif k=='STORAGE_GATE':s['storage_gate']=max(s.get('storage_gate')or 0,p['gate'])
             elif k=='STOPPED':s['stopped']=p
         return s
+
+
+def restarts_used(view):
+    """Campaign relaunches plus supervisor restarts beyond the first start."""
+    return view['restarts']+max(0,view.get('supervisor_starts',0)-1)
 
 
 def budget(contract,view,storage_bytes,now_clock):
@@ -116,7 +122,7 @@ def budget(contract,view,storage_bytes,now_clock):
     if limits['maximum_compute_s']-view['compute_s']<limits['minimum_campaign_s']:reasons.append('SESSION_COMPUTE_BUDGET')
     if storage_bytes-(view['baseline_storage_bytes']or 0)>=limits['maximum_storage_bytes']:reasons.append('SESSION_STORAGE_BUDGET')
     # Campaign relaunches and supervisor restarts beyond the first start share the restart budget.
-    if view['restarts']+max(0,view.get('supervisor_starts',0)-1)>limits['maximum_restarts']or view['recoveries']>limits['maximum_recoveries']:
+    if restarts_used(view)>limits['maximum_restarts']or view['recoveries']>limits['maximum_recoveries']:
         reasons.append('SESSION_RESTART_BUDGET')
     if view['research']>limits['maximum_research']:reasons.append('SESSION_RESEARCH_BUDGET')
     return max(0.,remaining),reasons

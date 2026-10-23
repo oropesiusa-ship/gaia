@@ -16,7 +16,7 @@ import time
 from .clock import stamp,interval
 from .inspection import inspect_campaign
 from .lineage import LineageStore,LineageBusy
-from .session import SessionStore,budget
+from .session import SessionStore,budget,restarts_used
 from .store import CampaignStore,durable
 from .telemetry import Telemetry,storage_by_owner,filesystem,gates,bound_log
 
@@ -101,8 +101,10 @@ class Supervisor:
         """SIGTERM then SIGKILL the child's group and the given rows that are still the same processes (pid + start time)."""
         mine=[r for r in rows if r['pid']!=proc.pid]
         for sig in (signal.SIGTERM,signal.SIGKILL):
-            try:os.killpg(proc.pid,sig)
-            except (ProcessLookupError,PermissionError):pass
+            # The group is signalled only while its leader is ours or members of it remain (no reused group id).
+            if proc.poll()is None or any(i[1]==proc.pid and i[6]!='Z'for i in processes().values()):
+                try:os.killpg(proc.pid,sig)
+                except (ProcessLookupError,PermissionError):pass
             for r in mine:
                 if alive(r['pid'],r['starttime']):
                     try:os.kill(r['pid'],sig)
@@ -221,7 +223,7 @@ class Supervisor:
 
     def supervise(self,campaign_id,lineage_id,adopted=None):
         """Run a campaign to a final class. Returns (inspection, outcome, supervised seconds); outcome is DONE, PAUSED or LOCK_BUSY."""
-        relaunches=0;supervised=0.
+        relaunches=0;supervised=0.;lock_deadline=time.monotonic()+self.contract['limits']['hang_timeout_s']
         while True:
             if adopted is None and not self.wait_for_locks(lineage_id):
                 return inspect_campaign(self.state,campaign_id),'LOCK_BUSY',supervised
@@ -230,10 +232,14 @@ class Supervisor:
             _,seconds=self.watch(proc,campaign_id);supervised+=seconds
             info=inspect_campaign(self.state,campaign_id);view=self.session.state_view()
             if info.get('phase')=='PAUSED'and CampaignStore(self.state,campaign_id).read('control')['request']!='RUN':
-                return info,'PAUSED',supervised
+                # A stop the session itself requested also leaves the campaign paused: that is a session stop, not an operator pause.
+                return info,'STOPPED'if self.stopping()else'PAUSED',supervised
             if info['recovery']!='RECOVERABLE':return info,'DONE',supervised
-            if info.get('events')==before and not self.locks_free(lineage_id):continue  # refused by a lock: wait, not a relaunch
-            if relaunches<self.contract['limits']['relaunches_per_campaign']and view['restarts']<self.contract['limits']['maximum_restarts']and not self.stopping():
+            if info.get('events')==before and proc.poll()==0:
+                # A clean exit without progress is a lock refusal (BLOCKED): retried within one cumulative wait, never a relaunch.
+                if time.monotonic()>=lock_deadline:return info,'LOCK_BUSY',supervised
+                self.sleep(min(LOCK_WAIT_POLL_S,self.contract['limits']['heartbeat_s']or LOCK_WAIT_POLL_S));continue
+            if relaunches<self.contract['limits']['relaunches_per_campaign']and restarts_used(view)<self.contract['limits']['maximum_restarts']and not self.stopping():
                 relaunches+=1;self.session.event('CAMPAIGN_RELAUNCHED',{'campaign_id':campaign_id,'lineage_id':lineage_id,'relaunch':relaunches,'reason':info['reason']})
                 continue
             return info,'DONE',supervised
@@ -278,7 +284,7 @@ class Supervisor:
         live=controllers(campaign_id)
         if live:return self.finish(campaign_id,lineage,*self.supervise(campaign_id,lineage,Adopted(live[0])))
         info=inspect_campaign(self.state,campaign_id)
-        if info['recovery']!='RECOVERABLE'or view['restarts']>=self.contract['limits']['maximum_restarts']:return self.finish(campaign_id,lineage,info,'DONE',0.)
+        if info['recovery']!='RECOVERABLE'or restarts_used(view)>self.contract['limits']['maximum_restarts']:return self.finish(campaign_id,lineage,info,'DONE',0.)
         self.session.event('CAMPAIGN_RELAUNCHED',{'campaign_id':campaign_id,'lineage_id':lineage,'relaunch':0,'reason':'SUPERVISOR_RESTART'})
         return self.finish(campaign_id,lineage,*self.supervise(campaign_id,lineage))
 

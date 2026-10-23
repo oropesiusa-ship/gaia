@@ -36,6 +36,7 @@ class CatalogTests(Fixture):
         ref=references(self.state,a,self.root)[0];engine=self.root/engine_state_dir(a);engine.mkdir(exist_ok=True)
         (engine/'ledger.jsonl').write_text(json.dumps({'event_type':'rollback','payload':{'from_version':ref['version_after']}})+'\n')
         self.assertEqual(references(self.state,a,self.root),[]);self.assertTrue(references(self.state,a))  # without the engine ledger it stays
+        self.assertEqual(catalog(self.state,root=self.root)['references'],[])  # the public path applies it too
     def test_catalog_is_read_only(self):
         a=self.lineage()['lineage_id'];self.go(self.loop(a))
         before={str(p):p.read_bytes()for p in self.state.rglob('*')if p.is_file()}

@@ -77,8 +77,8 @@ def references(state,lineage_id,root=None):
 
 
 def catalog(state,lineages=None,root=None):
-    root=Path(state)/'autonomy'/'lineages'
-    ids=lineages or(sorted(p.name for p in root.iterdir()if p.is_dir())if root.exists()else[])
+    lineage_root=Path(state)/'autonomy'/'lineages'
+    ids=lineages or(sorted(p.name for p in lineage_root.iterdir()if p.is_dir())if lineage_root.exists()else[])
     entries=[];index=[]
     for lineage_id in ids:
         store=LineageStore(state,lineage_id);contract=store.read();view=store.state()

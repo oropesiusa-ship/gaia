@@ -21,6 +21,7 @@ import os,sys,time,subprocess
 sys.path.insert(0,{root!r})
 from gaia.autonomy.store import CampaignStore
 state,cid,behaviour,marker=sys.argv[1:5]
+if behaviour=='noop':sys.exit(0)  # like a controller refused by a lock: clean exit, no journal progress
 s=CampaignStore(state,cid)
 if s.inspect()['state']['phase']=='CREATED':s.event('OBSERVING')
 if behaviour=='hang_once'and not os.path.exists(marker):
@@ -156,6 +157,14 @@ class ReviewFindingTests(SessionFixture):
         with LineageStore(self.state,c['lineages'][0]).lock():result=self.supervisor(c).run()
         view=SessionStore(self.state,c['session_id']).state_view()
         self.assertEqual(result['reason'],'LOCK_BUSY_OUTSIDE_SESSION');self.assertEqual((self.launched,view['restarts'],view['skipped']),([],0,{}))
+    def test_clean_runs_without_progress_are_never_relaunches(self):
+        c=self.make();result=self.supervisor(c,'noop').run();view=SessionStore(self.state,c['session_id']).state_view()
+        self.assertEqual(result['reason'],'LOCK_BUSY_OUTSIDE_SESSION');self.assertEqual((view['restarts'],view['skipped']),(0,{}))
+        self.assertGreater(len(self.launched),1)
+    def test_a_session_stop_during_a_pause_keeps_the_stop_reason(self):
+        c=self.make();root=SessionStore(self.state,c['session_id']).root
+        def behaviour(cid,n):(root/'control.json').write_text('{"request":"STOP"}');return 'pause'
+        result=self.supervisor(c,behaviour).run();self.assertEqual(result['reason'],'OPERATOR_STOP')
     def test_compute_is_charged_even_without_a_report(self):
         c=self.make(maximum_campaigns=1);self.supervisor(c,'crash').run();f=SessionStore(self.state,c['session_id']).state_view()['finished'][0]
         self.assertIsNone(f['campaign_wall_s']);self.assertGreater(f['wall_s'],0);self.assertEqual(f['wall_s'],f['supervised_s'])
@@ -166,8 +175,11 @@ class ReviewFindingTests(SessionFixture):
         campaign=CampaignStore(self.state,cid);campaign.event('OBSERVING');campaign.event('STOPPED',{'reason':'NEEDS_RECOVERY'})
         sup.run();self.assertEqual(self.launched,[]);self.assertEqual(store.state_view()['finished'][0]['recovery'],'NEEDS_RECOVERY')
         d=self.make(maximum_campaigns=1);other=SessionStore(self.state,d['session_id']);sup=self.supervisor(d);self.launched=[]
-        cid=sup.create(d['lineages'][0],600);other.event('CAMPAIGN_STARTED',{'campaign_id':cid,'lineage_id':d['lineages'][0],'campaign_seconds':600})
-        sup.run();self.assertEqual(len(self.launched),1);self.assertEqual(other.state_view()['restarts'],1)
+        cid=sup.create(d['lineages'][0],600);other.event('SUPERVISOR_STARTED',{'pid':1})  # the previous supervisor
+        other.event('CAMPAIGN_STARTED',{'campaign_id':cid,'lineage_id':d['lineages'][0],'campaign_seconds':600})
+        sup.run();self.assertEqual(len(self.launched),1)
+        from gaia.autonomy.session import restarts_used
+        view=other.state_view();self.assertEqual((view['restarts'],restarts_used(view)),(0,1))  # counted once, by the supervisor restart
         self.assertEqual([p['reason']for k,p in self.events(d)if k=='CAMPAIGN_RELAUNCHED'],['SUPERVISOR_RESTART'])
     def test_processes_outliving_the_controller_are_stopped(self):
         c=self.make(maximum_campaigns=1);self.supervisor(c,'orphan_exit').run()
