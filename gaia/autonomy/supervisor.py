@@ -232,7 +232,7 @@ class Supervisor:
 
     def supervise(self,campaign_id,lineage_id,adopted=None):
         """Run a campaign to a final class. Returns (inspection, outcome, supervised seconds); outcome is DONE, PAUSED or LOCK_BUSY."""
-        relaunches=0;supervised=0.;lock_deadline=time.monotonic()+self.contract['limits']['hang_timeout_s']
+        relaunches=0;supervised=0.;reconciled=False;lock_deadline=time.monotonic()+self.contract['limits']['hang_timeout_s']
         while True:
             if adopted is None and not self.wait_for_locks(lineage_id):
                 return inspect_campaign(self.state,campaign_id),'LOCK_BUSY',supervised
@@ -243,6 +243,10 @@ class Supervisor:
             if info.get('phase')=='PAUSED'and CampaignStore(self.state,campaign_id).read('control')['request']!='RUN':
                 # A stop the session itself requested also leaves the campaign paused: that is a session stop, not an operator pause.
                 return info,'STOPPED'if self.stopping()else'PAUSED',supervised
+            if info['recovery']=='NEEDS_RECOVERY'and info.get('phase')not in('COMPLETED','STOPPED','FAILED')and not reconciled:
+                # An ambiguous campaign left non-terminal (killed mid-intent) gets one reconciliation run: run() reports
+                # NEEDS_RECOVERY before any side effect and blocks its lineage durably. It is not a relaunch.
+                reconciled=True;self.session.event('CAMPAIGN_RECONCILE',{'campaign_id':campaign_id,'reason':info['reason']});continue
             if info['recovery']!='RECOVERABLE':return info,'DONE',supervised
             if info.get('events')==before and proc.poll()==0:
                 # A clean exit without progress is a lock refusal (BLOCKED): retried within one cumulative wait, never a relaunch.

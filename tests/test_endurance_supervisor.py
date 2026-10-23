@@ -31,6 +31,8 @@ if behaviour=='hang_once'and not os.path.exists(marker):
 if behaviour=='hang':time.sleep(600)
 if behaviour=='slow_ok':time.sleep(1.5)
 if behaviour=='crash':sys.exit(3)
+if behaviour=='reconcile':
+    s.event('STOPPED',{{'reason':'NEEDS_RECOVERY','report_ref':s.put('REPORT',{{'status':'FAIL','metrics':{{'total_wall_time':1.0}}}})}});sys.exit(0)
 if behaviour=='pause':
     s.control('PAUSE');s.event('PAUSED',{{'resume_phase':'OBSERVING'}});sys.exit(0)
 if behaviour=='orphan_exit':
@@ -165,6 +167,15 @@ class ReviewFindingTests(SessionFixture):
         c=self.make();root=SessionStore(self.state,c['session_id']).root
         def behaviour(cid,n):(root/'control.json').write_text('{"request":"STOP"}');return 'pause'
         result=self.supervisor(c,behaviour).run();self.assertEqual(result['reason'],'OPERATOR_STOP')
+    def test_ambiguous_non_terminal_campaign_gets_one_reconciliation_run(self):
+        c=self.make(maximum_campaigns=1)
+        def behaviour(cid,n):
+            if n==0:
+                s=CampaignStore(self.state,cid);s.event('OBSERVING',{'initialization_intent':True});return 'crash'
+            return 'reconcile'
+        result=self.supervisor(c,behaviour).run();kinds=[k for k,_ in self.events(c)]
+        self.assertIn('CAMPAIGN_RECONCILE',kinds);self.assertEqual(len(self.launched),2)
+        self.assertEqual(SessionStore(self.state,c['session_id']).state_view()['restarts'],0)
     def test_compute_is_charged_even_without_a_report(self):
         c=self.make(maximum_campaigns=1);self.supervisor(c,'crash').run();f=SessionStore(self.state,c['session_id']).state_view()['finished'][0]
         self.assertIsNone(f['campaign_wall_s']);self.assertGreater(f['wall_s'],0);self.assertEqual(f['wall_s'],f['supervised_s'])

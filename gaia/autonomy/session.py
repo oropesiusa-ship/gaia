@@ -10,7 +10,7 @@ from .lineage import LineageStore,engine_state_dir
 from .policy import disk_bytes
 
 EVENTS=('CREATED','CAMPAIGN_STARTED','CAMPAIGN_RELAUNCHED','CAMPAIGN_FINISHED','HANG_DETECTED','CHILD_EXITED','LINEAGE_SKIPPED',
-        'STOP_REQUESTED','STORAGE_GATE','RESOURCE_RESERVE','SUPERVISOR_STARTED','STOPPED')
+        'STOP_REQUESTED','STORAGE_GATE','RESOURCE_RESERVE','SUPERVISOR_STARTED','CAMPAIGN_RECONCILE','STOPPED')
 LIMITS={'campaign_wall_s':(60,3600),'campaign_iterations':(1,5),'campaign_experiments':(1,5),'campaign_disk_bytes':(2**20,2*2**30),
         'vram_sample_s':(1,3600),'storage_sample_s':(1,3600),'maximum_campaigns':(1,500),'maximum_wall_s':(60,30*86400),'maximum_compute_s':(60,30*86400),'maximum_storage_bytes':(1,64*2**30),
         'maximum_restarts':(0,100),'maximum_recoveries':(0,100),'maximum_research':(0,0),'relaunches_per_campaign':(0,2),
