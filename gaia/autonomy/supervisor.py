@@ -18,7 +18,7 @@ from .inspection import inspect_campaign
 from .lineage import LineageStore,LineageBusy
 from .session import SessionStore,budget,restarts_used
 from .store import CampaignStore,durable
-from .telemetry import Telemetry,storage_by_owner,filesystem,gates,bound_log
+from .telemetry import Telemetry,storage_by_owner,filesystem,gates,bound_log,memory,vram
 
 ROLES=(('gaia.autonomy.regression','MATRIX'),('autonomy-run','CONTROLLER'),('runtime_worker','BACKEND'),('koboldcpp','BACKEND'),
        ('llama','BACKEND'),('bwrap','WORKER'),('worker','WORKER'))
@@ -85,7 +85,7 @@ class Supervisor:
     def __init__(self,root,state,session_id,*,launch=None,create=None,sleep=time.sleep):
         self.root=Path(root);self.state=Path(state);self.session=SessionStore(state,session_id);self.contract=self.session.read()
         self.launch=launch or self.launch_run;self.create=create or self.create_campaign;self.sleep=sleep;self.cursor=0
-        self.telemetry=Telemetry(self.session.root/'telemetry');self.sampled=None
+        self.telemetry=Telemetry(self.session.root/'telemetry');self.sampled=None;self.vram_sampled=None
 
     # ------------------------------------------------------------------ process control
     def launch_run(self,campaign_id):
@@ -129,8 +129,10 @@ class Supervisor:
         from .controller import create_campaign
         from .schema import campaign
         lineage=LineageStore(self.state,lineage_id).read()
+        limits=self.contract['limits']
         c=campaign(lineage['objective'],mode=self.contract['mode'],promotion=self.contract['allow_promotion'],lineage_id=lineage_id,
-                   limits={'maximum_wall_time':int(seconds),'maximum_compute_budget':int(seconds)})
+                   limits={'maximum_wall_time':int(seconds),'maximum_compute_budget':int(seconds),'maximum_iterations':limits['campaign_iterations'],
+                           'maximum_experiments':limits['campaign_experiments'],'maximum_disk_budget':limits['campaign_disk_bytes']})
         return create_campaign(self.root,self.state,c,intelligence_state=lineage['intelligence_state'])['campaign_id']
 
     def next_lineage(self,view):
@@ -201,7 +203,14 @@ class Supervisor:
                 processes={r:sum(1 for x in current if x['role']==r)for r in sorted({x['role']for x in current})},
                 child_rss_bytes=sum(x['rss_bytes']for x in current),child_fds=sum(x['fds']or 0 for x in current),
                 controller_alive=proc.poll()is None,backend_processes=sum(1 for x in current if x['role']=='BACKEND'))
-            self.heartbeat(**sample);self.telemetry.append({'kind':'PROCESS',**sample,'supervisor_rss_bytes':(proc_info(os.getpid())or(0,0,0,0))[3]})
+            host=memory();me=proc_info(os.getpid())or(0,0,0,0,0)
+            self.heartbeat(**sample);self.telemetry.append({'kind':'PROCESS',**sample,'supervisor_rss_bytes':me[3],'supervisor_fds':me[4],'host_memory':host})
+            if self.vram_sampled is None or time.monotonic()-self.vram_sampled>=limits['vram_sample_s']:
+                self.telemetry.append({'kind':'VRAM','campaign_id':campaign_id,**vram()});self.vram_sampled=time.monotonic()
+            if host['below_reserve']and not stop_sent:
+                # Host memory reserve: max(2 GiB, 15 % RAM). The campaign stops at a safe boundary and the session stops.
+                if not any(e['kind']=='RESOURCE_RESERVE'for e in self.session.events()):self.session.event('RESOURCE_RESERVE',{'campaign_id':campaign_id,'memory':host})
+                self.request_stop(campaign_id,'HOST_MEMORY_RESERVE');stop_sent=True
             storage=None
             if self.sampled is None or time.monotonic()-self.sampled>=limits['storage_sample_s']:storage=self.storage_check(campaign_id)
             if storage and not stop_sent:self.request_stop(campaign_id,storage);stop_sent=True
@@ -304,6 +313,7 @@ class Supervisor:
                 if changed:return self.stop('PROTOCOL_CHANGED',changes=changed)
                 storage=self.storage_check()
                 if storage:return self.stop(storage)
+                if memory()['below_reserve']:return self.stop('HOST_MEMORY_RESERVE',memory=memory())
                 seconds,reasons=budget(self.contract,view,self.session.storage(self.root),stamp())
                 if reasons:return self.stop(reasons[0],reasons=reasons)
                 lineage=self.next_lineage(view)

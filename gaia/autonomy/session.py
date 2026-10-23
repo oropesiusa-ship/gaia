@@ -10,12 +10,15 @@ from .lineage import LineageStore,engine_state_dir
 from .policy import disk_bytes
 
 EVENTS=('CREATED','CAMPAIGN_STARTED','CAMPAIGN_RELAUNCHED','CAMPAIGN_FINISHED','HANG_DETECTED','CHILD_EXITED','LINEAGE_SKIPPED',
-        'STOP_REQUESTED','STORAGE_GATE','SUPERVISOR_STARTED','STOPPED')
-LIMITS={'storage_sample_s':(1,3600),'maximum_campaigns':(1,500),'maximum_wall_s':(60,30*86400),'maximum_compute_s':(60,30*86400),'maximum_storage_bytes':(1,64*2**30),
+        'STOP_REQUESTED','STORAGE_GATE','RESOURCE_RESERVE','SUPERVISOR_STARTED','STOPPED')
+LIMITS={'campaign_wall_s':(60,3600),'campaign_iterations':(1,5),'campaign_experiments':(1,5),'campaign_disk_bytes':(2**20,2*2**30),
+        'vram_sample_s':(1,3600),'storage_sample_s':(1,3600),'maximum_campaigns':(1,500),'maximum_wall_s':(60,30*86400),'maximum_compute_s':(60,30*86400),'maximum_storage_bytes':(1,64*2**30),
         'maximum_restarts':(0,100),'maximum_recoveries':(0,100),'maximum_research':(0,0),'relaunches_per_campaign':(0,2),
         'hang_timeout_s':(60,6*3600),'heartbeat_s':(1,600),'minimum_campaign_s':(60,3600)}
-DEFAULTS={'storage_sample_s':300,'maximum_campaigns':4,'maximum_wall_s':4*3600,'maximum_compute_s':4*3600,'maximum_storage_bytes':2**30,'maximum_restarts':2,
-          'maximum_recoveries':2,'maximum_research':0,'relaunches_per_campaign':2,'hang_timeout_s':2700,'heartbeat_s':30,'minimum_campaign_s':900}
+# Plan cadences (heartbeat 10 s, processes with each heartbeat, VRAM 30 s, disk 60 s) and recovery limits (2/campaign, 3/session).
+DEFAULTS={'campaign_wall_s':3600,'campaign_iterations':5,'campaign_experiments':5,'campaign_disk_bytes':512*2**20,'vram_sample_s':30,
+          'storage_sample_s':60,'maximum_campaigns':4,'maximum_wall_s':4*3600,'maximum_compute_s':4*3600,'maximum_storage_bytes':2**30,'maximum_restarts':3,
+          'maximum_recoveries':3,'maximum_research':0,'relaunches_per_campaign':2,'hang_timeout_s':2700,'heartbeat_s':10,'minimum_campaign_s':900}
 CAMPAIGN_CAP_S=3600
 
 
@@ -116,7 +119,7 @@ def budget(contract,view,storage_bytes,now_clock):
     from .clock import interval
     limits=contract['limits'];reasons=[]
     wall=interval(view['started_clock'],now_clock)[0]if view['started_clock']else 0.
-    remaining=min(limits['maximum_wall_s']-wall,limits['maximum_compute_s']-view['compute_s'],CAMPAIGN_CAP_S)
+    remaining=min(limits['maximum_wall_s']-wall,limits['maximum_compute_s']-view['compute_s'],CAMPAIGN_CAP_S,limits['campaign_wall_s'])
     if len(view['campaigns'])>=limits['maximum_campaigns']:reasons.append('SESSION_CAMPAIGN_BUDGET')
     if limits['maximum_wall_s']-wall<limits['minimum_campaign_s']:reasons.append('SESSION_WALL_BUDGET')
     if limits['maximum_compute_s']-view['compute_s']<limits['minimum_campaign_s']:reasons.append('SESSION_COMPUTE_BUDGET')

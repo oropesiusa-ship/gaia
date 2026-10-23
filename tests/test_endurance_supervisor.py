@@ -231,6 +231,31 @@ class TelemetryTests(SessionFixture):
         with patch('gaia.autonomy.supervisor.filesystem',return_value={'total_bytes':1,'free_bytes':0,'reserve_bytes':1,'below_reserve':True}):
             self.assertEqual(self.supervisor(c).run()['reason'],'FILESYSTEM_RESERVE')
         self.assertEqual(self.launched,[])
+    def test_stage_budgets_reach_every_campaign_contract(self):
+        c=self.make(maximum_campaigns=1,campaign_wall_s=900,campaign_iterations=3,campaign_experiments=1,campaign_disk_bytes=512*2**20)
+        self.supervisor(c).run();cid=next(p['campaign_id']for k,p in self.events(c)if k=='CAMPAIGN_STARTED')
+        contract=CampaignStore(self.state,cid).read('contract')
+        self.assertEqual((contract['maximum_wall_time'],contract['maximum_compute_budget'],contract['maximum_iterations'],contract['maximum_experiments'],
+                          contract['maximum_disk_budget'],contract['maximum_network_research'],contract['promotion_policy']['enabled']),(900,900,3,1,512*2**20,0,False))
+    def test_host_memory_reserve_stops_before_launching(self):
+        c=self.make()
+        with patch('gaia.autonomy.supervisor.memory',return_value={'available_bytes':1,'total_bytes':2,'reserve_bytes':2,'below_reserve':True}):
+            self.assertEqual(self.supervisor(c).run()['reason'],'HOST_MEMORY_RESERVE')
+        self.assertEqual(self.launched,[])
+    def test_host_memory_reserve_during_a_campaign_stops_it_at_a_safe_boundary(self):
+        c=self.make();calls=[0]
+        def mem():
+            calls[0]+=1;low=calls[0]>2
+            return {'available_bytes':1 if low else 10**12,'total_bytes':10**12,'reserve_bytes':2,'below_reserve':low}
+        with patch('gaia.autonomy.supervisor.memory',side_effect=mem):result=self.supervisor(c,'slow_ok').run()
+        self.assertEqual(result['reason'],'HOST_MEMORY_RESERVE');self.assertIn('RESOURCE_RESERVE',[k for k,_ in self.events(c)])
+        self.assertEqual(len(self.launched),1)
+    def test_vram_and_host_memory_are_sampled(self):
+        from gaia.autonomy.telemetry import Telemetry
+        c=self.make(maximum_campaigns=1);self.supervisor(c,'slow_ok').run()
+        rows=Telemetry(SessionStore(self.state,c['session_id']).root/'telemetry').samples()
+        self.assertTrue(any(r['kind']=='VRAM'and r['source']in('NVIDIA_SMI','UNAVAILABLE')for r in rows))
+        self.assertTrue(all('host_memory'in r and'supervisor_fds'in r for r in rows if r['kind']=='PROCESS'))
     def test_campaign_logs_are_bounded(self):
         from gaia.autonomy.telemetry import bound_log
         path=self.root/'big.log';path.write_bytes(b'x'*5000)

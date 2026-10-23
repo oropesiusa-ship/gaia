@@ -40,6 +40,28 @@ def filesystem(path):
     return {'total_bytes':usage.total,'free_bytes':usage.free,'reserve_bytes':reserve,'below_reserve':usage.free<reserve}
 
 
+def memory():
+    """Host memory against the plan reserve: stop before available memory falls below max(2 GiB, 15 % of RAM)."""
+    info={}
+    try:
+        for line in Path('/proc/meminfo').read_text().splitlines():
+            k,v=line.split(':',1);info[k]=int(v.split()[0])*1024
+    except (OSError,ValueError):return {'available_bytes':None,'total_bytes':None,'reserve_bytes':None,'below_reserve':False}
+    total,available=info.get('MemTotal'),info.get('MemAvailable');reserve=max(2*2**30,int(0.15*total))if total else None
+    return {'available_bytes':available,'total_bytes':total,'reserve_bytes':reserve,'swap_free_bytes':info.get('SwapFree'),
+            'below_reserve':bool(available is not None and reserve and available<reserve)}
+
+
+def vram():
+    """GPU memory in use, from nvidia-smi when present (bounded call); absent GPUs are reported, never guessed."""
+    import subprocess
+    try:
+        out=subprocess.run(['nvidia-smi','--query-gpu=index,memory.used,memory.total','--format=csv,noheader,nounits'],capture_output=True,text=True,timeout=5)
+        rows=[[int(x)for x in line.split(',')]for line in out.stdout.strip().splitlines()]if out.returncode==0 else[]
+        return {'gpus':[{'index':i,'used_mib':u,'total_mib':t}for i,u,t in rows],'source':'NVIDIA_SMI'if rows else'UNAVAILABLE'}
+    except (OSError,ValueError,subprocess.SubprocessError):return {'gpus':[],'source':'UNAVAILABLE'}
+
+
 def gates(used,ceiling):
     """Highest crossed gate (percent of the session storage ceiling), or None."""
     percent=100*used/ceiling if ceiling else 100
