@@ -81,7 +81,9 @@ class SupervisorTests(SessionFixture):
         self.assertEqual(result['reason'],'SESSION_COMPUTE_BUDGET');self.assertEqual(len(SessionStore(self.state,c['session_id']).state_view()['campaigns']),1)
     def test_hang_preserves_evidence_stops_only_its_processes_and_relaunches(self):
         c=self.make(maximum_campaigns=1)
-        bystander=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'],start_new_session=True);self.addCleanup(bystander.kill)
+        bystander=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'],start_new_session=True)
+        self.addCleanup(bystander.wait,timeout=10)
+        self.addCleanup(bystander.kill)
         result=self.supervisor(c,'hang_once').run()
         kinds=[k for k,_ in self.events(c)];self.assertIn('HANG_DETECTED',kinds);self.assertIn('CAMPAIGN_RELAUNCHED',kinds)
         hang=next(p for k,p in self.events(c)if k=='HANG_DETECTED')

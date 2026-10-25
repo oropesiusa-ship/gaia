@@ -239,7 +239,8 @@ def fault_backend(base):
 def tests(ids):
     r=subprocess.run([PY,'-B','-W','error::ResourceWarning','-m','unittest',*ids],cwd=ROOT,capture_output=True,text=True,timeout=3600,
                      env={**os.environ,'PYTHONPATH':f'{ROOT}:{ROOT/"tests"}','PYTHONDONTWRITEBYTECODE':'1'})
-    tail=r.stderr.strip().splitlines()[-3:];return r.returncode==0,{'ids':ids,'returncode':r.returncode,'tail':tail}
+    tail=r.stderr.strip().splitlines()[-3:];return r.returncode==0,{'ids':ids,'returncode':r.returncode,'tail':tail,
+        'stdout':r.stdout,'stderr':r.stderr}
 
 
 def main():
@@ -326,6 +327,7 @@ def main():
         r=subprocess.run([PY,'-B','-W','error::ResourceWarning','-m','unittest','discover','-s','tests'],cwd=ROOT,capture_output=True,text=True,timeout=7200,
                          env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
         run.record(14,'full_suite','PASS'if r.returncode==0 else'FAIL',returncode=r.returncode,tail=r.stderr.strip().splitlines()[-3:],
+                   stdout=r.stdout,stderr=r.stderr,
                    failed=[l for l in r.stderr.splitlines()if l.startswith(('FAIL:','ERROR:'))])
     # 15 seal
     from gaia.provenance import digest
