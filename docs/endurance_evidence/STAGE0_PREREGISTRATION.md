@@ -21,6 +21,19 @@ Because `gaia/` changed, Stage 0 restarts from fresh states on the bytes below.
 
 ## Actions (plan order)
 
+### Re-run registered 2026-10-25
+
+The run on `6ab6c0b` ended FAIL: action 13 failed although action 14 passed.
+Diagnosis reproduced a shared `time.time` mock leaking from a test (patches
+stopped in FIFO rather than LIFO order). Commit `aa139cb` fixes test isolation,
+reaps the supervisor test's bystander process, and retains complete suite output.
+No `gaia/` or evaluator bytes changed; the source identity above is unchanged.
+The 215 specific tests pass after these fixes, without ResourceWarnings; the
+previous full re-check passed 998 tests with 9 skips before the cleanup change.
+Repeat all Stage 0 actions, including both suites, on fresh disposable states
+`state_endurance_stage0_attempt3` and `state_endurance_stage0_attempt3_faults`.
+Preserve the failed evidence in `.gaia/stage0/20261025T200310`.
+
 1. **Commit, tag and working tree.** Sources clean; `gaia-v1.0.1` is an ancestor.
 2. **Observation.** A full observation, which measures the protected workload.
 3. **bwrap.** Verified.
