@@ -20,6 +20,8 @@ import audit_closed_loop
 # 1.0 v1 campaign defaults: a stage may only be as strict or stricter.
 V1_LIMITS={'maximum_iterations':3,'maximum_experiments':3,'maximum_wall_time':1800,'maximum_compute_budget':1200,'maximum_network_research':0}
 STAGES={'stage0':{'maximum_iterations':3,'maximum_experiments':1,'maximum_wall_time':900,'maximum_compute_budget':900,
+                  'maximum_disk_budget':512*2**20,'maximum_network_research':0,'promotion':False,'surface':'numpy_mlp'},
+        'stage1':{'maximum_iterations':3,'maximum_experiments':2,'maximum_wall_time':900,'maximum_compute_budget':900,
                   'maximum_disk_budget':512*2**20,'maximum_network_research':0,'promotion':False,'surface':'numpy_mlp'}}
 EXPLAINED_STOPS={'DRY_RUN_COMPLETE_NO_EXPERIMENT_EXECUTED','SHADOW_COMPLETE_NO_EXPERIMENT_EXECUTED','NO_PROGRESS','STOPPED_BUDGET',
                  'NO_NOVEL_CANDIDATE','NO_AUTHORIZED_NON_DUPLICATE_EXPERIMENT','REPEATED_INCONCLUSIVE','POST_PROMOTION_REGRESSION_ROLLED_BACK',
@@ -42,6 +44,12 @@ def gaps(rows,cadence,key=None):
 def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL_OK',)):
     root,state=Path(root),Path(state);session=SessionStore(state,session_id);failures=[];notes=[]
     contract=validate_session(session.read());events=session.events();view=session.state_view();limits=contract['limits']
+    if stage=='stage1':
+        for key,ceiling in {'maximum_campaigns':5,'maximum_wall_s':5400,'maximum_compute_s':5400,
+                            'maximum_storage_bytes':2*2**30,'maximum_research':0}.items():
+            if limits[key]>ceiling:failures.append(f'SESSION_STAGE_LIMIT:{key}')
+        if contract['stage']!='stage1'or contract['allow_promotion']or contract['mode']!='CONTROLLED_AUTONOMOUS':
+            failures.append('SESSION_STAGE_SCOPE')
     if not view['stopped']:failures.append('SESSION_NOT_STOPPED')
     started=[e['payload']for e in events if e['kind']=='CAMPAIGN_STARTED']
     if len({p['campaign_id']for p in started})!=len(started):failures.append('DUPLICATE_CAMPAIGN')
