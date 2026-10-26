@@ -84,3 +84,36 @@ previous controller, non-terminal previous campaign, or non-disposable namespace
 Record the previous lineage journal tip and experiment count before admission.
 Normal admission still remeasures the reference and applies its drift guard.
 Keep NOT_EXERCISED/FAIL as measured; no further campaign is automatically allowed.
+
+## Final authorized drill and claim separation — 2026-10-26
+
+The operator explicitly authorized ONE FINAL drill, then full regression,
+offline re-audit and Stage 1 closure, with no Stage 2 launch. No further search
+is allowed after this drill, regardless of whether promotion occurs.
+
+Use the same isolated disposable lineage named above, retaining all four prior
+rejected experiments and learning, never the natural endurance lineage. Exactly
+one new session/campaign; at most 3 iterations and 2 additional experiments;
+3000 s campaign wall/compute plus the existing 600 s bookkeeping grace, within
+the 3600 s authorized envelope. Storage, sandbox, thresholds, policy, promotion
+reserve and one permitted supervisor relaunch remain as specified above.
+The unchanged checkpoint is VERIFYING with a live native regression-matrix
+descendant, observed for at least 5 s and present in the supervisor heartbeat.
+One SIGKILL of the exact controller pid/start-time, never a forced publication.
+
+All three drill attempts are retained and reported, including the two earlier
+NOT_EXERCISED outcomes; this is not a best-of series or an improvement claim.
+If this final bounded campaign yields no legitimate promotion/checkpoint,
+POST_PROMOTION_RECOVERY_REAL_DRILL = NOT_EXERCISED. Do not repeat it.
+
+The operator resolves the earlier claim coupling prospectively: endurance
+closure is assessed from the full 90-minute natural session, stability,
+idempotence, learning, stopping, resources, frozen-source identity, full-suite
+result and offline audits. Absence of a natural promotion in the separate drill
+does NOT invalidate STAGE_1_ENDURANCE = PASS. An actually injected fault with
+unsafe recovery remains FAIL, not NOT_EXERCISED. The native recovery claim is
+never inferred from unit fixtures, earlier versions or the endurance PASS.
+
+Run `tools/stage1_final_close.py`: one drill only, then the full suite once,
+reaudits and a consolidated report. Failures are preserved without automatic
+test retries, campaign retries, threshold changes, new authority or Stage 2.
