@@ -14,6 +14,7 @@ class Stage2ExecutorTests(Fixture):
  def ready(self):
   # Contract validator is separately tested; this is a fully hashed preflight fixture.
   c={'schema':'gaia_stage2_contract_v2','stage':'stage2','status':'READY_TO_EXECUTE','state_path':str(self.state.resolve()),'commit':'c','identity':{'hash':'i'},'freeze':self.f,'limits':stage2.LIMITS,'lineages':[self.lin],'preregistration_sha256':'p','baseline':{},'plan':{},'executor_sha256':'e','runtime':{},'boot_id':'b','resources':{},'inventory':{},'campaigns_authorized':0,'sessions_started':0,'execution_prohibited':True,'clock':{}}
+  c['plan']=stage2.scratch_plan(self.state.parent)
   c['hash']=stage2.digest(c);return c
  def test_any_frozen_hash_change_blocks_admission(self):
   c=self.ready();changed=copy.deepcopy(self.f);changed['protected_hash']='different'
@@ -127,7 +128,7 @@ class Stage2ExecutorTests(Fixture):
 
  def test_preflight_pass_requires_all_current_conditions(self):
    c=self.ready();c['runtime']={'python':sys.version,'executable':sys.executable}
-   c['plan']={'administrative_hashes':{p:'e'for p in stage2.ADMIN_FILES}}
+   c['plan'].update(administrative_hashes={p:'e'for p in stage2.ADMIN_FILES})
    c['hash']=stage2.digest({k:v for k,v in c.items()if k!='hash'})
    with patch.object(stage2,'frozen',return_value=self.f),patch.object(stage2,'git',return_value='c'),\
         patch.object(stage2,'identities',return_value={'hash':'i'}),patch.object(stage2,'changes',return_value=[]),\
@@ -137,10 +138,54 @@ class Stage2ExecutorTests(Fixture):
         patch.object(stage2,'memory',return_value={'available_bytes':10**10,'below_reserve':False}),\
         patch.object(stage2,'filesystem',return_value={'free_bytes':10**11,'below_reserve':False}):
     self.assertEqual(stage2.admission(c,self.root,self.state)['status'],'PASS')
+    historical=self.root/next(iter(self.f['selections']))/'work'
+    historical.mkdir(parents=True,exist_ok=True);(historical/'inference-retained-fixture').mkdir()
+    self.assertEqual(stage2.admission(c,self.root,self.state)['status'],'PASS')
+    scratch=Path(c['plan']['scratch_root']);(scratch/'inference-retained-fixture').mkdir()
+    blocked=stage2.admission(c,self.root,self.state)
+    self.assertEqual(blocked['status'],'BLOCKED_PREEXECUTION')
+    self.assertIn('OPERATIONAL_BACKEND_SCRATCH_BUSY',blocked['reasons'])
     with patch.object(stage2,'qualify_backend',side_effect=ValueError('artifact changed')):
      self.assertIn('BACKEND_QUALIFICATION_FAILED',stage2.admission(c,self.root,self.state)['reasons'])
 
  def test_missing_selected_backend_cannot_qualify(self):
    with self.assertRaisesRegex(ValueError,'BACKEND_REQUIRED'):stage2.qualify_backend(self.root,{'selections':{}})
+
+ def test_contract_binds_only_canonical_isolated_scratch(self):
+   c=self.ready()
+   self.assertEqual(stage2.validate_contract(c)['plan']['scratch_root'],str(self.state.parent/'backend-work'))
+   for change in ({'scratch_root':str(self.root/'state_local_intelligence'/'work')},
+                  {'scratch_scope':'ADOPT_INHERITED_WORK'}, {'scratch_identity':{'device':True,'inode':1}},
+                  {'scratch_root':str(self.state.parent/'other-attempt'/'backend-work')}):
+    altered=copy.deepcopy(c);altered['plan'].update(change)
+    altered['hash']=stage2.digest({k:v for k,v in altered.items()if k!='hash'})
+    with self.assertRaisesRegex(ValueError,'SCRATCH_PLAN'):stage2.validate_contract(altered)
+
+ def test_operational_root_replacement_missing_symlink_and_nonempty_block(self):
+   c=self.ready();scratch=Path(c['plan']['scratch_root'])
+   stage2.operational_scratch(c,empty=True)
+   scratch.rename(scratch.with_name('original-root'))
+   with self.assertRaisesRegex(ValueError,'ROOT_INVALID'):stage2.operational_scratch(c,empty=True)
+   scratch.mkdir()
+   with self.assertRaisesRegex(ValueError,'ROOT_REPLACED'):stage2.operational_scratch(c,empty=True)
+   scratch.rmdir()  # Disposable empty fixture only.
+   scratch.symlink_to(scratch.with_name('original-root'),target_is_directory=True)
+   with self.assertRaisesRegex(ValueError,'SYMLINK'):stage2.operational_scratch(c,empty=True)
+
+ def test_prepare_uses_fresh_attempt_and_never_inspects_historical_work(self):
+   historical=self.root/'state_local_intelligence'/'work';historical.mkdir(parents=True)
+   (historical/'inference-inherited').mkdir();(historical/'inference-inherited'/'data').write_bytes(b'preserve')
+   before=stage2.inventory([historical],include_cache=True)
+   out=self.root/'.gaia'/'stage2'/'disposable-preparation'
+   def fixture_contract(root,path,lineages,state):
+    plan=stage2.scratch_plan(path.parent)
+    stage2.operational_scratch({'plan':plan},empty=True)
+    self.assertEqual(stage2.inventory([historical],include_cache=True),before)
+    return {'plan':plan}
+   with patch.object(stage2,'safe_git',return_value=''),patch.object(stage2,'contract',side_effect=fixture_contract):
+    result=stage2.prepare(self.root,out)
+   self.assertEqual(result['plan']['scratch_root'],str(out/'backend-work'))
+   self.assertEqual(list((out/'backend-work').iterdir()),[])
+   with self.assertRaises(FileExistsError):stage2.prepare(self.root,out)
 
 if __name__=='__main__':unittest.main()

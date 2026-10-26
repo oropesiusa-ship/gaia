@@ -6,6 +6,8 @@ from pathlib import Path
 import signal
 import time
 import argparse
+import subprocess
+import sys
 from tools.stage2_children import ChildBoundary
 
 from tools import stage2_executor as ex
@@ -95,6 +97,7 @@ class FirstSessionSupervisor(Supervisor):
         if self.stage_contract['commit']!=ex.git(self.root,'rev-parse','HEAD'):raise RuntimeError('COMMIT_CHANGED')
         if self.stage_contract['preregistration_sha256']!=ex.sha(ex.PREREG):raise RuntimeError('PREREGISTRATION_CHANGED')
         if self.stage_contract['plan']['administrative_hashes']!={p:ex.sha(ex.ROOT/p)for p in ex.ADMIN_FILES}:raise RuntimeError('ADMINISTRATIVE_TOOL_CHANGED')
+        ex.operational_scratch(self.stage_contract)
         if ex.changes(self.root,self.state,self.contract['freeze']):raise RuntimeError('PROTOCOL_CHANGED')
         if self.benchmark is not None:
             path,expected=self.benchmark
@@ -175,7 +178,17 @@ class FirstSessionSupervisor(Supervisor):
         self.guard()
         if self.boundary is None:raise RuntimeError('DEDICATED_SUBREAPER_REQUIRED')
         self.boundary.begin()
-        proc=super().launch_run(campaign_id);self.child=proc;self.child_started=self.now()
+        scratch=ex.operational_scratch(self.stage_contract)
+        binding=self.stage_contract['plan']['scratch_identity']
+        logs=self.session.root/'logs';logs.mkdir(exist_ok=True)
+        with (logs/f'{campaign_id}.out').open('ab') as out,(logs/f'{campaign_id}.err').open('ab') as err:
+            proc=subprocess.Popen([sys.executable,'-B','-m','tools.stage2_campaign','autonomy-run',
+                '--session',self.session.identifier,'--campaign',campaign_id,'--state-dir',str(self.state),
+                '--scratch-root',str(scratch),'--scratch-device',str(binding['device']),'--scratch-inode',str(binding['inode']),
+                '--journal',str(self.session.root/'evidence'/'scratch-lifecycle.jsonl')],
+                cwd=self.root,stdout=out,stderr=err,stdin=subprocess.DEVNULL,start_new_session=True,
+                env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
+        self.child=proc;self.child_started=self.now()
         self.boundary.attach(proc)
         info=proc_info(proc.pid)
         if info is None and proc.poll()is None:
@@ -278,7 +291,7 @@ def _run_first(root,contract_path,boundary):
     root=root.resolve();contract_path=ex.safe_out(root,contract_path).resolve();out=contract_path.parent
     c=ex.validate_contract(json.loads(contract_path.read_bytes()));state=Path(c['state_path'])
     if state!=out/'state':raise ValueError('CANONICAL_STAGE2_STATE_REQUIRED')
-    scratch=[root/name/'work'for name in c['freeze']['selections']]
+    scratch=[ex.operational_scratch(c)]
     roots=[out,state,*[root/engine_state_dir(lin)for lin in c['lineages']],*scratch]
     aggregate=ex.StageBudget(out/'budget',c['hash'],roots)
     with aggregate.exclusive():
@@ -286,7 +299,7 @@ def _run_first(root,contract_path,boundary):
         preflight=ex.admission(c,root,state)
         if preflight['status']!='PASS':raise ValueError('BLOCKED_PREEXECUTION:'+','.join(preflight['reasons']))
         ex.fresh_lineage(root,state,c['lineages'])
-        if any(p.exists()and any(p.iterdir())for p in scratch):raise ValueError('SHARED_BACKEND_SCRATCH_BUSY')
+        ex.operational_scratch(c,empty=True)
         if any(i[6]!='Z'and any(token in i[5]for token in ('runtime_worker','koboldcpp','llama-server'))for i in processes().values()):
             raise ValueError('EXTERNAL_BACKEND_BUSY')
         from gaia import provenance
@@ -350,7 +363,7 @@ def run_first(root,contract_path):
     durable(contract_path.parent/'result-s1.json',result,True)
     c=json.loads(contract_path.read_bytes())
     roots=[contract_path.parent,Path(c['state_path']),*[root/engine_state_dir(lin)for lin in c['lineages']],
-           *[root/name/'work'for name in c['freeze']['selections']]]
+           Path(c['plan']['scratch_root'])]
     durable(contract_path.parent/'manifest-s1.json',ex.inventory(roots,include_cache=True),True)
     return result
 

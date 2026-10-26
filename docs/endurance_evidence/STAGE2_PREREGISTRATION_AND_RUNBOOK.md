@@ -1,5 +1,10 @@
 # GAIA 1.1 — Stage 2 Medium Endurance: preregistro y runbook
 
+> Base operativa nueva autorizada: archivo conservador de scratch histórico y
+> ownership/lifecycle durable para los adapters nuevos del wrapper Stage 2, sin cambios
+> en fuentes `gaia/` ni criterios de aceptación. Véase `STAGE2_CLEAN_BASE.md`.
+> Este paso sólo prepara `READY_TO_EXECUTE`; no autoriza un lanzamiento automático.
+
 **Estado:** `DESIGNED_NOT_AUTHORIZED`. No ejecutar hasta revisión y autorización explícita.
 
 Stage 1 permanece cerrado: `STAGE_1_ENDURANCE = PASS` y
@@ -57,8 +62,12 @@ El cargo real y su auditoría usan `max(supervised_s, report_wall_s)`. Un exceso
 retry automático tras interrupción. El ledger bloquea un segundo arranque de S1.
 
 El almacenamiento acumulado incluye intento, estado persistente, engine de linaje y
-scratch `work` del backend seleccionado, sin restar baseline ni contar roots solapados
+scratch operativo exclusivo `<intento>/backend-work`, sin restar baseline ni contar roots solapados
 dos veces. Hay headroom de 64 MiB y reserva adicional de 512 MiB antes de admisión.
+El scratch histórico permanece intacto fuera de esa base y tiene una copia archivística
+verificada; no se carga a Stage 2 ni se usa para nuevos workers. El wrapper redirige toda
+nueva asignación al root operativo vinculado por ruta absoluta, device e inode en el
+contrato. Symlinks, sustitución del root y scratch no vacío antes de admitir se rechazan.
 Estos son gates de polling con margen, **no una cuota física absoluta**: una escritura
 puede exceder el techo entre muestras. Una violación observada detiene y falla el
 intento; no se cambian las policies ni los mecanismos de presupuesto de producción,

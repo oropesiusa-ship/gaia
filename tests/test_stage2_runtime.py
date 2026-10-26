@@ -128,7 +128,7 @@ class Stage2RuntimeTests(Fixture):
     def test_live_guard_rechecks_freeze_boot_and_campaign_deadline(self):
         s,b,_,now=self.setup_supervisor()
         s.stage_contract={'boot_id':ex.boot_id(),'commit':'unit','preregistration_sha256':ex.sha(ex.PREREG),
-            'plan':{'administrative_hashes':{p:ex.sha(ex.ROOT/p)for p in ex.ADMIN_FILES}}}
+            'plan':{**ex.scratch_plan(self.root),'administrative_hashes':{p:ex.sha(ex.ROOT/p)for p in ex.ADMIN_FILES}}}
         with patch.object(ex,'git',return_value='unit'),patch.object(ex,'changes',return_value=[]),\
              patch.object(rt,'memory',return_value={'available_bytes':10**10,'below_reserve':False}),\
              patch.object(rt,'filesystem',return_value={'free_bytes':10**11,'below_reserve':False}):
@@ -137,8 +137,13 @@ class Stage2RuntimeTests(Fixture):
                 with self.assertRaisesRegex(RuntimeError,'BOOT_ID'):s.guard()
             with patch.object(ex,'changes',return_value=['PROTECTED_HASH_CHANGED']):
                 with self.assertRaisesRegex(RuntimeError,'PROTOCOL_CHANGED'):s.guard()
+            with patch.object(rt,'processes',return_value={987654:(1,987654,987654,0,3,'runtime_worker','S',1)}):
+                with self.assertRaisesRegex(RuntimeError,'EXTERNAL_BACKEND_BUSY'):s.guard()
             s.child=Mock();s.child.poll.return_value=None;s.child_started=now[0]-1770
             with self.assertRaisesRegex(RuntimeError,'SUPERVISION_DEADLINE'):s.guard()
+            scratch=rt.Path(s.stage_contract['plan']['scratch_root'])
+            scratch.rename(scratch.with_name('original-root'));scratch.mkdir()
+            with self.assertRaisesRegex(ValueError,'SCRATCH_ROOT_REPLACED'):s.guard()
 
     def test_supervisor_loop_admits_only_two_sequential_unit_campaigns(self):
         s,b,lin,now=self.setup_supervisor();start=now[0];admitted=[]

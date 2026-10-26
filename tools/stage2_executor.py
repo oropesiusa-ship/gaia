@@ -13,6 +13,7 @@ from gaia.autonomy.session import SessionStore,budget
 from gaia.autonomy.store import CampaignStore,TERMINAL
 from gaia.autonomy.telemetry import filesystem,memory
 from gaia.autonomy.catalog import applicability
+from tools.stage2_scratch import check_scratch_root,directory_identity,durable_directory,safe
 
 LIMITS={'campaign_wall_s':1800,'campaign_iterations':5,'campaign_experiments':3,'campaign_disk_bytes':512*2**20,
  'maximum_campaigns':2,'maximum_wall_s':7200,'maximum_compute_s':7200,'maximum_storage_bytes':4*2**30,
@@ -20,6 +21,7 @@ LIMITS={'campaign_wall_s':1800,'campaign_iterations':5,'campaign_experiments':3,
  'hang_timeout_s':2700,'heartbeat_s':10,'vram_sample_s':30,'storage_sample_s':60,'minimum_campaign_s':900}
 PREREG=ROOT/'docs/endurance_evidence/STAGE2_PREREGISTRATION_AND_RUNBOOK.md'
 ADMIN_FILES=('tools/stage2_executor.py','tools/stage2_runtime.py','tools/stage2_children.py','tools/audit_endurance_session.py',
+             'tools/stage2_campaign.py','tools/stage2_scratch.py',
              'tools/audit_closed_loop.py','tools/stage1_coverage.py','docs/endurance_evidence/STAGE1_FINAL_REPORT.md')
 CONTRACT_KEYS={'schema','stage','status','commit','identity','freeze','limits','lineages','preregistration_sha256','baseline','plan',
   'executor_sha256','runtime','boot_id','resources','inventory','campaigns_authorized','sessions_started',
@@ -54,6 +56,22 @@ def inventory(paths,*,include_cache=False):
     return result
 def frozen(root,state,lineages):return freeze(Path(root),Path(state),list(lineages))
 
+SCRATCH_SCOPE='ISOLATED_ATTEMPT_ONLY_NO_INHERITED_SCRATCH'
+
+def scratch_plan(out):
+    """Create a NEW operational root, never inspect/adopt inherited work."""
+    path=safe(Path(out)/'backend-work')
+    if path.exists():raise ValueError('OPERATIONAL_SCRATCH_ALREADY_EXISTS')
+    durable_directory(path.parent)
+    path.mkdir(mode=0o700)
+    durable_directory(path)
+    binding=directory_identity(path)
+    check_scratch_root(path,binding,empty=True)
+    return {'scratch_root':str(path),'scratch_identity':binding,'scratch_scope':SCRATCH_SCOPE}
+
+def operational_scratch(c,*,empty=False):
+    return check_scratch_root(c['plan']['scratch_root'],c['plan']['scratch_identity'],empty=empty)
+
 def qualify_backend(root,frozen_protocol):
     """Read-only qualification/artifact checks; never load or infer with a model."""
     from gaia.local_intelligence.controller import selected_backend
@@ -76,6 +94,12 @@ def validate_contract(c):
     if c['hash']!=digest({k:v for k,v in c.items()if k!='hash'}):raise ValueError('STAGE2_CONTRACT_HASH_MISMATCH')
     if c['stage']!='stage2' or c['limits']!=LIMITS or c['campaigns_authorized']!=0 or c['sessions_started']!=0 or not c['execution_prohibited']:
         raise ValueError('STAGE2_CONTRACT_SCOPE_INVALID')
+    plan=c['plan'];expected=Path(c['state_path']).parent/'backend-work'
+    binding=plan.get('scratch_identity',{})
+    if (not expected.is_absolute() or str(expected)!=str(expected.resolve())
+        or plan.get('scratch_root')!=str(expected) or plan.get('scratch_scope')!=SCRATCH_SCOPE
+        or set(binding)!= {'device','inode'} or any(type(v)is not int or v<0 for v in binding.values())):
+        raise ValueError('STAGE2_SCRATCH_PLAN_INVALID')
     return c
 
 def admission(c,root=ROOT,state=None):
@@ -84,6 +108,8 @@ def admission(c,root=ROOT,state=None):
     if c['status']!='READY_TO_EXECUTE':reasons.append('TOOLING_NOT_READY')
     if c['state_path']!=str(state.resolve()):reasons.append('STATE_PATH_CHANGED')
     current=frozen(root,state,c['lineages'])
+    try:operational_scratch(c,empty=True)
+    except (OSError,ValueError) as exc:reasons.append(str(exc))
     if c['commit']!=git(root,'rev-parse','HEAD'):reasons.append('COMMIT_CHANGED')
     if c['identity']!=identities(root):reasons.append('SOURCE_IDENTITY_CHANGED')
     if c['freeze']!=current:reasons.append('FROZEN_PROTOCOL_CHANGED')
@@ -384,7 +410,8 @@ def contract(root,out,lineages,state):
     try:signal.pidfd_send_signal(fd,0)
     finally:os.close(fd)
     protocol=frozen(root,state,lineages);qualify_backend(root,protocol)
-    plan={'sessions':2,'max_campaigns_per_session':2,'maximum_campaigns_total':4,'campaign_roles':['S1-C1','S1-C2','S2-C3','S2-C4'],
+    scratch=scratch_plan(out.parent)
+    plan={**scratch,'sessions':2,'max_campaigns_per_session':2,'maximum_campaigns_total':4,'campaign_roles':['S1-C1','S1-C2','S2-C3','S2-C4'],
           'administrative_hashes':{p:sha(ROOT/p)for p in ADMIN_FILES},'slot_s':3600,'campaign_execution_s':1740,
           'process_ownership':'DEDICATED_LINUX_SUBREAPER_PIDFD','storage_enforcement':'POLLING_NOT_PHYSICAL_QUOTA',
           'final_pass_blockers':['ZERO_EPHEMERAL_CHILDREN_NOT_PROVEN','SESSION_2_NOT_EXERCISED','FULL_DRIFT_ATTRIBUTION_NOT_EXERCISED',
@@ -398,7 +425,12 @@ def contract(root,out,lineages,state):
     value['hash']=digest(value);out.parent.mkdir(parents=True,exist_ok=True);durable(out,value,True);return validate_contract(value)
 
 def prepare(root,out):
-    """Create only fresh administrative state/lineage and freeze; never run a campaign."""
+    """Create fresh state/lineage and isolated backend-work; never run a campaign.
+
+    Inherited backend work is neither consulted for admission nor adopted into
+    the new budget. It remains preserved outside this attempt's operational
+    scope. Runtime/model/selection qualification is still against original state.
+    """
     from gaia.autonomy.lineage import create_lineage
     root,out=Path(root).resolve(),Path(out).resolve();safe_out(root,out/'contract.json')
     if out.exists():raise FileExistsError('STAGE_ATTEMPT_EXISTS')
