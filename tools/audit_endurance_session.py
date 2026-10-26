@@ -79,7 +79,9 @@ def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL
     rows=Telemetry(session.root/'telemetry').samples()
     # Periodic streams are sampled while a campaign runs; the storage checks between campaigns are gates, not a stream.
     process=[r for r in rows if r['kind']=='PROCESS'];vram=[r for r in rows if r['kind']=='VRAM'];storage=[r for r in rows if r['kind']=='STORAGE'and r.get('campaign_id')]
-    telemetry_gaps=gaps(process,limits['heartbeat_s'],'campaign_id')+gaps(vram,limits['vram_sample_s'],'campaign_id')+gaps(storage,limits['storage_sample_s'],'campaign_id')
+    # VRAM is one host sensor, including scheduled idle. Partitioning by campaign
+    # invents holes in the idle stream every time a campaign is running.
+    telemetry_gaps=gaps(process,limits['heartbeat_s'],'campaign_id')+gaps(vram,limits['vram_sample_s'])+gaps(storage,limits['storage_sample_s'],'campaign_id')
     if telemetry_gaps:failures.append('TELEMETRY_GAPS')
     if started and not process:failures.append('NO_PROCESS_TELEMETRY')
     bands={}

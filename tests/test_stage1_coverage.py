@@ -6,9 +6,17 @@ import unittest
 from unittest.mock import patch
 
 from tools import stage1_coverage as coverage
+from tools.audit_endurance_session import gaps
 
 
 class Stage1CoverageTests(unittest.TestCase):
+    def test_host_vram_stream_stays_continuous_across_idle_and_campaigns(self):
+        rows=[{'clock':{'monotonic':t,'wall':t,'boot_id':'b'},'campaign_id':cid}
+              for t,cid in [(0,None),(30,None),(60,'ac1'),(90,'ac1'),(120,'ac1'),(150,None)]]
+        self.assertTrue(gaps(rows,30,'campaign_id'))  # the old, incorrect grouping
+        self.assertEqual(gaps(rows,30),[])
+        self.assertTrue(gaps(rows[:2]+rows[-1:],30))  # a genuine sensor gap still fails
+
     def test_slots_cover_the_window_without_increasing_campaign_count(self):
         limits={'maximum_wall_s':5400,'maximum_campaigns':5}
         self.assertEqual([coverage.slot_deadline(100,n,limits)for n in range(1,6)],
