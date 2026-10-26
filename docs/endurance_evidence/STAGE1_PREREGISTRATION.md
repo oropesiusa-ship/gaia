@@ -36,3 +36,43 @@ the session auditor PASS alone is not a blanket endurance certification.
 
 On any failure: preserve evidence, stop progression, investigate. No automatic
 Stage 2 launch. The previous Stage 0 failure remains preserved.
+
+## Coverage completion pre-registration — 2026-10-26
+
+The first session passed its operational audit but stopped at five campaigns
+after 1289.915 s. It is not accepted as a 90-minute endurance window.
+Its five terminal campaigns and stopped session were replayed via the real CLI:
+all 862 owned files, including native engine state, retained identical content.
+Supplemental evidence: `06-terminal-replay-complement.json` in that run's folder.
+
+Repeat on fresh state `state_endurance_stage1_attempt2` using
+`tools/stage1_endurance.py --paced`. Keep all original campaign and aggregate
+ceilings, authority, evaluators, reserves and promotion restrictions unchanged.
+The administrative `PacedSupervisor` extends only scheduling: after each
+terminal campaign, observe labelled SCHEDULED_IDLE until the next 18-minute
+slot. Five slots span 90 real minutes. During idle, check the frozen protocol,
+storage, host memory, heartbeat and VRAM. Do not insert experiments or fabricate
+busy time. The unchanged production supervisor still creates, runs, cleans up,
+and accounts for every campaign; admission budgets are rechecked after idle.
+An unsafe campaign is never paced or silently retried.
+
+Require the full observed 5400 s, one boot, observation gaps under 25 s,
+the existing offline audit, resource evidence and terminal byte-for-byte replay.
+Report actual campaign elapsed compute separately from the scheduled idle.
+Pacing is an explicitly different schedule, not a retroactive reinterpretation
+of the first run. It measures low-duty-cycle stability, not 90 minutes of load.
+
+Five new administrative tests and all 32 supervisor tests pass with
+`-W error::ResourceWarning` before launch. No `gaia/` bytes changed.
+
+### Unresolved post-promotion fault-drill requirement
+
+The plan's introductory amendment asks for interruption during post-promotion
+verification, with rollback and reference remeasurement. Stage 1 simultaneously
+forbids promotion and caps campaigns at 900 s. The publication policy requires
+1600 s remaining to authorize promotion, so the demanded state is unreachable
+under this contract. Unit fixtures do not discharge a real end-to-end drill.
+This completion run does not waive that requirement or authorize a wider scope.
+Full Stage 1 closure remains pending either a separately authorized, disposable
+real promotion/recovery drill with its own preregistered budgets, or an explicit
+operator-approved resolution of the conflicting plan requirements. No Stage 2.

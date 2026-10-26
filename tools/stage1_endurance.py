@@ -21,6 +21,7 @@ def resources():
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--out',required=True);ap.add_argument('--state',required=True)
+    ap.add_argument('--paced',action='store_true',help='Observe a real 90 minute window with labelled idle slots')
     a=ap.parse_args();state=ROOT/a.state;run=Run(a.out)
     if state.exists():raise SystemExit('Fresh state required')
     if git(ROOT,'status','--porcelain'):raise SystemExit('Clean working tree required')
@@ -37,15 +38,25 @@ def main():
     for k,v in limits.items():args+=['--limit',f'{k}={v}']
     sid=cli(*args)['session_id']
     run.record(2,'contract','PASS',session_id=sid,lineage_id=lin,limits=limits)
-    result=cli('endurance-session-run',sid,'--state-dir',str(state),timeout=6000,check=False)
+    if a.paced:
+        from stage1_coverage import PacedSupervisor
+        result=PacedSupervisor(ROOT,state,sid).run()
+    else:result=cli('endurance-session-run',sid,'--state-dir',str(state),timeout=6000,check=False)
     run.record(3,'session_finished','PASS'if 'reason'in result else'FAIL',result=result)
     audit=audit_session(ROOT,state,sid,stage='stage1')
     run.record(4,'audit',audit['status'],audit=audit,resources_after=resources())
+    from stage1_coverage import terminal_replay,window_coverage
+    from gaia.autonomy.session import SessionStore
+    replay=terminal_replay(ROOT,state,sid,cli)
+    run.record(5,'terminal_replay',replay['status'],replay=replay)
+    if a.paced:
+        coverage=window_coverage(SessionStore(state,sid))
+        run.record(6,'window_coverage',coverage['status'],coverage=coverage)
     verdict='PASS'if all(r['status']=='PASS'for r in run.results)else'FAIL'
-    run.record(5,'seal',verdict,session_id=sid,identity=identities(ROOT),
+    run.record(7,'seal',verdict,session_id=sid,identity=identities(ROOT),scope='SESSION_COVERAGE_NOT_FINAL_STAGE_CLOSURE',
                evidence={p.name:__import__('hashlib').sha256(p.read_bytes()).hexdigest()
                          for p in sorted(Path(a.out).glob('*.json'))})
-    print('STAGE1',verdict,flush=True)
+    print('STAGE1_SESSION',verdict,flush=True)
     return 0 if verdict=='PASS'else 2
 
 
