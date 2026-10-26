@@ -31,10 +31,63 @@ boot ID, inventario y baseline. Cualquier diferencia bloquea admisión.
 | Local backend selection/hash | `lia02f893b5c87c4b4880e8fc0` / `2b73f933605849a7313c01eb8b5c84489e4efc7874532975b13e7fe35cddc0f1` |
 | Local stack/hash | `stack-a424bbb1c10e43df` / `360ed8b681f5f751ee88eb7bb4024b1884978bdaea272a8a0a93b7051bd085ce` |
 
-El ejecutor Stage 2 aún no existe en `tools/`. Antes de ejecutar debe existir una
-herramienta revisada, sólo administrativa y hasheada en el contrato; no se permiten
-pasos manuales ad hoc. Crear esa herramienta no puede cambiar `gaia/`, evaluadores,
-thresholds ni policies, y exige nuevo commit/contrato antes de una sesión.
+El ejecutor administrativo está en `tools/stage2_executor.py` y
+`tools/stage2_runtime.py`. Requiere revisión independiente y nuevo commit/contrato
+con árbol limpio antes de ejecutar; no cambia `gaia/`, evaluadores, thresholds ni
+policies. No se permiten pasos manuales ad hoc. Los valores históricos anteriores
+se conservan; el contrato nuevo congela el commit y hashes administrativos efectivos.
+
+Estado de implementación (no evidencia de endurance): `prepare` crea exclusivamente
+estado/linaje NumPy nuevos bajo el intento. Sólo emite `READY_TO_EXECUTE` si pasan
+árbol limpio, Stage 1 cerrado, reservas, sandbox y freeze. READY no autoriza ejecutar.
+El contrato v1 queda conservado pero no es admisible. Después de revisión, un operador
+puede usar las rutas siguientes (no se han ejecutado durante esta implementación):
+
+```sh
+.venv-observation/bin/python -B tools/stage2_executor.py prepare --out .gaia/stage2/NUEVO_INTENTO
+.venv-observation/bin/python -B tools/stage2_executor.py run-first-session --contract .gaia/stage2/NUEVO_INTENTO/contract.json --authorize-stage2-s1
+```
+
+S1 usa el supervisor existente: dos slots de una hora, una campaña al inicio de cada
+slot y observación activa del idle hasta 7.200 s. Cada admisión reserva duraderamente
+1.800 s antes de crear campaña. El límite interno de ejecución es más estricto,
+1.740 s, dejando margen de supervisión; el guard detiene un hijo aún vivo a 1.770 s.
+El cargo real y su auditoría usan `max(supervised_s, report_wall_s)`. Un exceso de
+1.800 s es FAIL, nunca una ampliación de reserva. No hay refund, adopción, recovery ni
+retry automático tras interrupción. El ledger bloquea un segundo arranque de S1.
+
+El almacenamiento acumulado incluye intento, estado persistente, engine de linaje y
+scratch `work` del backend seleccionado, sin restar baseline ni contar roots solapados
+dos veces. Hay headroom de 64 MiB y reserva adicional de 512 MiB antes de admisión.
+Estos son gates de polling con margen, **no una cuota física absoluta**: una escritura
+puede exceder el techo entre muestras. Una violación observada detiene y falla el
+intento; no se cambian las policies ni los mecanismos de presupuesto de producción,
+ni se promete impedir físicamente todo exceso. Se conservan logs y telemetría sin truncado/rotación destructiva. Se registran baseline,
+procesos/start-time, RSS/PSS/CPU/FD, archivos/bytes por root, catálogo, hashes terminales,
+reservas/cargos, idle y VRAM. El auditor tiene perfil Stage 2, checks de bandas, pendiente
+RSS idle, gaps y cargos conservadores. La autorización arranca un proceso runtime
+dedicado, sin otros hijos gestionados concurrentes. Antes de ejecutar se registra el
+baseline de hijos directos (debe estar vacío), se activa y verifica Linux
+`PR_SET_CHILD_SUBREAPER` y se exige soporte pidfd/waitid. Cada campaña abre una época
+de ownership exclusiva. Los huérfanos, incluso `fork`/`setsid`/doble fork entre muestras,
+se adoptan en ese proceso; se registran PID/start-time, reparenting, señales y reap.
+Cleanup usa pidfds fijados a identidades verificadas, vuelve a descubrir adoptados
+durante TERM/KILL y sólo termina cuando `waitid` confirma `ECHILD`, sin supervivientes.
+No acepta booleanos de propiedad ni mata grupos desconocidos. Se restaura y verifica
+el valor previo de subreaper únicamente con la frontera drenada; si no se puede
+drenar/restaurar, falla cerrado sin siguiente campaña ni resultado observado exitoso.
+La evidencia final se sella después de verificar la restauración. SIGTERM/SIGHUP
+ordinarios permiten cleanup; no se promete recuperación ante SIGKILL del supervisor,
+fallo de kernel o procesos que el kernel no permita terminar.
+
+La reapertura verifica terminalidad antes del CLI real y compara bytes y reporte.
+No demuestra ausencia de hijos efímeros. Ese claim bloquea el PASS final, no la
+admisión segura de S1. `S1_OBSERVED` sólo describe S1 observado/auditado, nunca Stage 2
+PASS. También quedan explícitamente no ejercitados: S2 y su reconciliación de frontera,
+atribución completa de drift externo, holders de locks y vinculación completa entre
+referencias elegibles del catálogo y decisiones ejecutables. Se guardan consultas de
+catálogo y refs reales sin inventar reuse. No hay CLI de S2 ni transición automática.
+Los tests desechables no son evidencia de endurance ni autorización de lanzamiento.
 
 ## Límites inmutables
 
