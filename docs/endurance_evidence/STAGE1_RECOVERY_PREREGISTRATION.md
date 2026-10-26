@@ -61,3 +61,26 @@ of genuine gaps. Preserve the original audit/seal and append a separately
 identified re-analysis with tool commit and raw telemetry hashes. No `gaia/`
 or evaluator bytes change; source identity remains
 `9e79cda91d6770aeebb73d04406df935dba43cc066d7e1a3b76671ced58c860d`.
+
+## Operator-authorized continuation — 2026-10-26
+
+The first drill ended NOT_EXERCISED: two distinct informative rejected experiments,
+no promotion, no injected fault, native version v0000, verified ledger, cleanly
+closed unblocked lineage. Its operational audit passed. Preserve its evidence in
+`.gaia/stage1/recovery-attempt1-20261026T101918` without reclassification.
+
+After being informed of that outcome, the operator explicitly requested to
+continue. Authorize exactly one additional sequential campaign with the same
+limits and the same one-fault mechanism above. Use the existing **disposable**
+lineage `ale07ce6b7ed344fcab4ad39b4` in
+`state_endurance_stage1_recovery_attempt1` via explicit `--continue-lineage`.
+Create a new session, campaign and output directory. Keep every prior journal,
+native experiment, reference and learning record; do not start the search over,
+select a hand-crafted winner or modify any evaluation result. Freeze the new
+session on the current native pointer and evidence.
+
+Continuation is refused on a source mismatch, blocked or open lineage, live
+previous controller, non-terminal previous campaign, or non-disposable namespace.
+Record the previous lineage journal tip and experiment count before admission.
+Normal admission still remeasures the reference and applies its drift guard.
+Keep NOT_EXERCISED/FAIL as measured; no further campaign is automatically allowed.

@@ -26,6 +26,25 @@ from gaia.autonomy.supervisor import alive,controllers,tree
 from gaia.autonomy.telemetry import memory,filesystem
 
 
+def continuation_lineage(root,state,identifier):
+    """Only continue a clean, terminal disposable drill lineage; never unblock or reset it."""
+    if not Path(state).name.startswith('state_endurance_stage1_recovery_'):
+        raise ValueError('DISPOSABLE_RECOVERY_NAMESPACE_REQUIRED')
+    store=LineageStore(state,identifier)
+    with store.lock():
+        contract=store.read();view=store.state()
+        if contract['objective']!='IMPROVE_NUMPY_MLP_EXISTING_CRITERIA'or contract['surface']!='numpy_mlp':
+            raise ValueError('RECOVERY_LINEAGE_SCOPE_MISMATCH')
+        if contract['source_identity_hash']!=identities(root)['hash']:raise ValueError('RECOVERY_SOURCE_CHANGED')
+        if view['blocked']or view['open_campaigns']:raise ValueError('RECOVERY_LINEAGE_NOT_CLEANLY_CLOSED')
+        if not view['campaigns']:raise ValueError('NO_PREVIOUS_DRILL_CAMPAIGN')
+        for cid in view['campaigns']:
+            if inspect_campaign(state,cid)['recovery']!='TERMINAL_OK'or controllers(cid):
+                raise ValueError('PREVIOUS_CAMPAIGN_NOT_TERMINAL_OK')
+        return {'lineage_id':identifier,'previous_campaigns':view['campaigns'],
+                'previous_experiments':view['experiments'],'previous_journal_tip':store.events()[-1]['hash']}
+
+
 def recovery_outcome(injected,audit,duplicates,lineage_state,state_now,reference):
     """Strict reading: safe or unexercised is not the requested rollback/reference PASS."""
     if not injected:return 'NOT_EXERCISED'
@@ -76,12 +95,14 @@ def inject_during_matrix(state,sid,proc,stop,result):
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--out',required=True);ap.add_argument('--state',required=True)
+    ap.add_argument('--continue-lineage',help='Explicitly continue a terminal disposable drill lineage, preserving all evidence')
     a=ap.parse_args();state=ROOT/a.state;out=Path(a.out);run=Run(out)
-    if state.exists():raise SystemExit('Fresh disposable state required')
     if git(ROOT,'status','--porcelain'):raise SystemExit('Clean working tree required')
+    continuation=continuation_lineage(ROOT,state,a.continue_lineage)if a.continue_lineage else None
+    if not continuation and state.exists():raise SystemExit('Fresh disposable state required unless --continue-lineage is explicit')
     if memory()['below_reserve']or filesystem(ROOT)['below_reserve']:raise SystemExit('Host reserve unavailable')
-    run.record(1,'baseline','PASS',commit=git(ROOT,'rev-parse','HEAD'),identity=identities(ROOT),memory=memory(),filesystem=filesystem(ROOT))
-    lin=lineage(state)
+    run.record(1,'baseline','PASS',commit=git(ROOT,'rev-parse','HEAD'),identity=identities(ROOT),memory=memory(),filesystem=filesystem(ROOT),continuation=continuation)
+    lin=a.continue_lineage or lineage(state)
     # 50 minutes plus the existing bounded 10-minute bookkeeping grace fits the authorized hour.
     limits={'campaign_wall_s':3000,'campaign_iterations':3,'campaign_experiments':2,
             'campaign_disk_bytes':512*2**20,'maximum_campaigns':1,'maximum_wall_s':3600,
