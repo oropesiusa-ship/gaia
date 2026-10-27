@@ -1,0 +1,904 @@
+GAIA — Plan Maestro de Estabilización y Cierre de la Versión 1.1
+
+Fecha de referencia: 27 de octubre de 2026
+Estado: Plan de trabajo
+Objetivo: completar la orquestación de Stage 2, validar la recuperación y la estabilidad prolongada, y cerrar GAIA 1.1 mediante evidencia reproducible.
+Principio rector: reutilizar primero, integrar después y desarrollar únicamente lo que falte o cuya necesidad pueda demostrarse.
+
+⸻
+
+1. Resumen ejecutivo
+
+GAIA ya dispone de un closed loop de automejora computacional verificable. El proyecto no está en la fase inicial de integración de un modelo de lenguaje ni necesita entrenar un LLM desde cero.
+
+La prioridad es completar la orquestación que falta para Stage 2, demostrar la recuperación real posterior a una promoción y continuar la validación de estabilidad sin comprometer las garantías de las versiones anteriores.
+
+Estado inicial declarado
+
+Componente	Estado de referencia
+GAIA 1.0.1 — integración completa	PASS
+Promoción natural	Verificada
+Stage 0 — preflight endurance	PASS
+Stage 1 — endurance corto	PASS
+Recuperación real tras promoción de Stage 1	NOT_EXERCISED
+Stage 2 — endurance medio	BLOCKED_PREEXECUTION
+Sesiones/campañas de Stage 2	0
+Stage 3 y posteriores	No iniciados
+Última suite completa	1085 tests PASS, 9 skips
+GAIA 1.1	Abierta; no cerrada
+
+Estos estados son la línea base comunicada el 27 de octubre de 2026. Deben verificarse en el repositorio antes de tomar decisiones de ejecución.
+
+Bloqueo principal
+
+El ejecutor congelado implementa S1, pero falta la orquestación del boundary y de S2-C3/S2-C4. La base limpia y el preflight pasan, pero esto no autoriza a declarar Stage 2 listo.
+
+La evaluación debe mantener separados cuatro conceptos:
+
+1. Código implementado.
+2. Pruebas automatizadas superadas.
+3. Preflight aprobado.
+4. Campaña real ejecutada y validada.
+
+Ninguno sustituye automáticamente a los demás.
+
+⸻
+
+2. Objetivos
+
+Objetivo principal
+
+Cerrar GAIA 1.1 con un sistema de automejora que pueda ejecutar campañas de estabilidad prolongada de forma controlada, auditable, recuperable y reproducible.
+
+Objetivos específicos
+
+1. Verificar la base exacta desde la que se continuará trabajando.
+2. Preservar el closed loop y las garantías ya aprobadas.
+3. Determinar el contrato real del boundary y de S2-C3/S2-C4.
+4. Implementar únicamente la orquestación que falte.
+5. Validar las transiciones de estado, los límites y los mecanismos de parada.
+6. Ejercitar la recuperación real posterior a una promoción de Stage 1.
+7. Ejecutar Stage 2 únicamente después de superar todos sus bloqueos.
+8. Analizar los resultados de estabilidad y los fallos de larga duración.
+9. Completar Stage 3 y posteriores solo cuando existan criterios de entrada definidos.
+10. Emitir una decisión de cierre de GAIA 1.1 respaldada por evidencia.
+
+Fuera del alcance inmediato
+
+* Entrenar un LLM desde cero.
+* Cambiar el LLM ganador sin una razón medible.
+* Repetir el bake-off de modelos como sustituto de completar Stage 2.
+* Reescribir el ejecutor congelado de S1 sin demostrar que es necesario.
+* Dar autoridad de promoción al LLM.
+* Ejecutar campañas reales para comprobar si una precondición incumplida importa.
+* Declarar GAIA 1.1 cerrada solo porque la suite de tests pasa.
+
+⸻
+
+3. Arquitectura y decisiones que se preservan
+
+3.1 Closed loop de automejora
+
+Se debe preservar el flujo existente de propuesta, evaluación, promoción, registro y recuperación.
+
+Cualquier modificación deberá respetar las fronteras entre:
+
+* generación de propuestas;
+* ejecución aislada de candidatas;
+* evaluación independiente;
+* aplicación de gates;
+* decisión de promoción;
+* publicación transaccional;
+* registro durable;
+* rollback y recuperación.
+
+La implementación real del repositorio prevalece sobre cualquier descripción de este documento. Si la arquitectura existente difiere, se documentará la diferencia antes de modificarla.
+
+3.2 Separación entre el LLM y la autoridad de control
+
+El LLM cognitivo puede generar texto estructurado y aportar revisiones consultivas. No decide por sí solo qué plan se ejecuta, qué candidata se acepta ni qué versión se promociona.
+
+La autoridad del LLM permanece en NONE.
+
+Las decisiones finales deben continuar bajo los mecanismos deterministas y los controles independientes ya existentes.
+
+3.3 Motor experimental
+
+El motor experimental de GAIA trabaja sobre numpy_mlp con evaluadores deterministas.
+
+Este motor no debe confundirse con el motor de inferencia del LLM. Son componentes distintos, con objetivos, métricas y responsabilidades diferentes.
+
+3.4 Modelo y motor de inferencia seleccionados
+
+Selección persistida declarada:
+
+Campo	Valor
+LLM	SmolLM3-3B
+Formato	GGUF Q4_K_M
+Motor	KoboldCpp 1.123.1, paquete nocuda
+Aceleración observada	Vulkan
+Offload observado	37/37
+KV cache	f16
+Contexto configurado	1024 tokens
+Threads	8
+Prefix cache	Deshabilitada
+Autoridad del LLM	NONE
+Estado de selección	BEST_BALANCED_TESTED
+
+Esta selección representa el mejor equilibrio entre los stacks probados en ese host, no el mejor LLM disponible universalmente.
+
+Resultados históricos del bake-off
+
+Stack	Calidad	JSON válido	Latencia mediana	Decode
+SmolLM3 / KoboldCpp / Vulkan completo	91,67 %	100 %	2,171 s	40,26 tok/s
+SmolLM3 / Vulkan / KV q8_0	91,67 %	100 %	2,270 s	38,55 tok/s
+Gemma4-E4B QAT Q4_0 / Vulkan completo	91,67 %	100 %	2,694 s	32,13 tok/s
+SmolLM3 / KoboldCpp / CPU	91,67 %	100 %	19,560 s	4,66 tok/s
+
+La latencia se midió con el modelo cargado. No representa necesariamente la latencia de una llamada fría.
+
+Los valores de 0,54 GiB de RSS pico y 2,14 GiB de VRAM incremental pertenecen a las definiciones del benchmark utilizado y no deben interpretarse como el consumo total de memoria del sistema.
+
+CUDA no quedó verificado como aceleración efectiva. Vulkan sí.
+
+No se repetirá el bake-off salvo que exista una hipótesis concreta, una necesidad funcional o un cambio material en el entorno.
+
+⸻
+
+4. Identificadores de referencia
+
+Estos identificadores permiten cruzar registros, artefactos y resultados:
+
+* Selección: lia02f893b5c87c4b4880e8fc0
+* Stack: stack-a424bbb1c10e43df
+* Benchmark ganador: li756122ac074a7b07b10cccec
+* SHA-256 de pesos: 8334b850b7bd46238c16b0c550df2138f0889bf433809008cc17a8b05761863e
+* SHA-256 de runtime: 6b1aa62b69f825199c3296b7dd36ff6b332b894098f50db8aba0061861c14d2b
+* Commit de referencia: 03dbc286c6bbe241142f9a753856a86f1eceb093
+
+Antes de cualquier campaña, hay que comprobar que la selección persistida, los artefactos y los hashes corresponden a los valores esperados. No se debe asumir que la selección sigue siendo válida únicamente porque los identificadores están documentados aquí.
+
+⸻
+
+5. Reglas operativas no negociables
+
+1. No ejecutar Stage 2 mientras permanezca BLOCKED_PREEXECUTION.
+2. No modificar el ejecutor congelado de S1 sin una justificación documentada.
+3. No eliminar ni debilitar gates existentes para conseguir que una campaña pase.
+4. No aceptar resultados de tests simulados como prueba de recuperación real.
+5. No ejecutar campañas de certificación durante tareas rutinarias de inspección.
+6. No mezclar la implementación de cambios con la validación de esos mismos cambios.
+7. No promocionar una candidata si falla un gate obligatorio.
+8. No permitir que el LLM se autorice a sí mismo, modifique sus propios permisos o eluda las restricciones de ejecución.
+9. Mantener registros de los cambios, las decisiones, los artefactos y los resultados.
+10. Conservar un camino de rollback probado y una referencia recuperable a la última versión aprobada.
+11. Separar claramente los resultados simulados, los resultados de integración y las campañas reales.
+12. No declarar una etapa PASS si su criterio de salida no se ha demostrado.
+13. Si el repositorio no coincide con este plan, detenerse y reconciliar la discrepancia antes de ejecutar.
+14. Ante una pérdida de integridad, evidencia incompleta o estado ambiguo, detener la campaña y preservar los datos.
+15. No confundir más contexto, más velocidad o mayor número de tokens con una mejora demostrada de inteligencia.
+
+⸻
+
+6. Fase 0 — Congelación y verificación de la base
+
+Objetivo
+
+Establecer una base reproducible antes de cambiar el código.
+
+Acciones
+
+1. Confirmar el commit actual.
+2. Comprobar si el árbol de trabajo está limpio.
+3. Identificar cambios locales, archivos sin seguimiento y artefactos pendientes.
+4. Confirmar la versión de Python y las dependencias relevantes.
+5. Localizar la suite de tests y los mecanismos de ejecución.
+6. Identificar qué tests son simulados y cuáles ejecutan experimentos reales.
+7. Revisar el estado persistido de la selección del LLM.
+8. Verificar los hashes de los pesos y del runtime.
+9. Confirmar los informes y el artefacto de bloqueo de Stage 2.
+10. Preservar la evidencia histórica sin sobrescribirla.
+
+Comandos iniciales de inspección
+
+Ejecutar desde la raíz del repositorio:
+
+git status --short
+git rev-parse HEAD
+git log -1 --oneline
+git diff --stat
+git diff --check
+
+Estos comandos inspeccionan el estado del repositorio. No ejecutar campañas durante esta fase.
+
+Criterios de salida
+
+* Commit y estado de trabajo identificados.
+* Diferencias locales entendidas y preservadas.
+* Artefactos de referencia localizados.
+* Selección del LLM y hashes contrastados.
+* Tests de ejecución real identificados.
+* No hay discrepancias críticas sin resolver.
+
+Si el árbol contiene cambios no explicados, no sobrescribirlos ni limpiar el repositorio de forma automática.
+
+⸻
+
+7. Fase 1 — Auditoría del bloqueo de Stage 2
+
+Objetivo
+
+Convertir BLOCKED_PREEXECUTION en una lista precisa de condiciones pendientes, respaldadas por código y evidencia.
+
+Fuentes prioritarias
+
+1. docs/GAIA_0_8_LOCAL_INTELLIGENCE_REPORT.md
+2. docs/GAIA_1_0_1_INTEGRATION_REPORT.md
+3. .gaia/stage2/clean-ready-20261026/full-stage2-execution-blocked.json
+4. Código del ejecutor congelado de S1.
+5. Código de orquestación de Stage 2.
+6. Tests asociados a boundary, S2-C3 y S2-C4.
+7. Esquemas de estado, contratos y artefactos persistentes.
+8. Registros de las últimas ejecuciones de Stage 0 y Stage 1.
+
+Trabajo
+
+* Identificar el punto de entrada real de Stage 2.
+* Identificar el contrato del boundary.
+* Determinar qué significa el boundary en términos de estados, permisos y transiciones.
+* Localizar las implementaciones existentes de S2-C3 y S2-C4.
+* Distinguir componentes ausentes de componentes implementados pero no conectados.
+* Determinar qué parte de la orquestación ya existe.
+* Identificar dependencias, orden de ejecución y condiciones de parada.
+* Confirmar qué artefactos deben producirse para demostrar una ejecución válida.
+* Localizar posibles rutas que permitan iniciar una campaña sin superar todos los gates.
+* Documentar la diferencia entre preflight y autorización efectiva de ejecución.
+
+Entregable
+
+Un informe de auditoría con esta estructura:
+
+Campo	Descripción
+Identificador	Nombre único de la condición
+Evidencia actual	Archivo, función, test o artefacto
+Estado	PASS, FAIL, MISSING o UNKNOWN
+Riesgo	Consecuencia de no resolverla
+Cambio mínimo	Modificación requerida
+Prueba	Evidencia que demostrará la corrección
+Bloqueo	Si impide ejecutar Stage 2
+Responsable de decisión	Regla o gate que autoriza el avance
+
+Criterios de salida
+
+* Cada bloqueo tiene una causa verificable.
+* S2-C3 y S2-C4 tienen contratos explícitos.
+* El boundary tiene una definición comprobable.
+* Se sabe qué componentes reutilizar.
+* No queda ningún UNKNOWN crítico que pueda permitir una ejecución insegura.
+
+No se inicia Stage 2 al terminar esta auditoría.
+
+⸻
+
+8. Fase 2 — Especificación del contrato de orquestación
+
+Objetivo
+
+Definir cómo se conectan las piezas existentes sin reescribir el ejecutor congelado de S1.
+
+Contratos que deben quedar documentados
+
+A. Precondiciones
+
+* Integridad de la base.
+* Versión de código esperada.
+* Estado persistente compatible.
+* Dependencias disponibles.
+* Presupuesto de recursos y duración.
+* Artefactos previos válidos.
+* Ausencia de bloqueos activos.
+* Capacidad de detener y recuperar la ejecución.
+
+B. Boundary
+
+El contrato debe especificar:
+
+* Estados válidos de entrada.
+* Estados válidos de salida.
+* Transiciones permitidas.
+* Transiciones prohibidas.
+* Condiciones para entrar y salir.
+* Evidencia obligatoria.
+* Tratamiento de estados parciales.
+* Comportamiento ante pérdida de integridad.
+* Comportamiento ante reinicio o interrupción.
+
+C. S2-C3 y S2-C4
+
+Para cada componente se debe documentar:
+
+* Propósito.
+* Entradas.
+* Salidas.
+* Dependencias.
+* Límites de recursos.
+* Condiciones de éxito.
+* Condiciones de fallo.
+* Idempotencia, cuando corresponda.
+* Recuperación después de interrupciones.
+* Evidencia que se registra.
+* Relación con el boundary y con el ejecutor S1.
+
+Los nombres S2-C3 y S2-C4 se conservarán como identificadores del proyecto; sus responsabilidades concretas se extraerán del repositorio y no se inventarán.
+
+D. Máquina de estados
+
+Debe ser imposible pasar a ejecución real si una condición obligatoria no está satisfecha.
+
+La orquestación debe distinguir al menos entre:
+
+* pendiente;
+* preparado;
+* bloqueado;
+* ejecutando;
+* completado;
+* fallido;
+* interrumpido;
+* recuperando;
+* recuperado;
+* cancelado.
+
+La nomenclatura final deberá ajustarse a los estados existentes en GAIA para evitar crear un segundo sistema de estados.
+
+Criterios de salida
+
+* Contratos revisados y documentados.
+* Transiciones de estado definidas.
+* Comportamiento de fallo especificado.
+* Condiciones de recuperación explícitas.
+* Ningún cambio de arquitectura innecesario.
+
+⸻
+
+9. Fase 3 — Implementación mínima de la orquestación
+
+Objetivo
+
+Conectar el boundary y S2-C3/S2-C4 con las piezas ya existentes.
+
+Principios de implementación
+
+1. Reutilizar funciones y contratos existentes.
+2. Evitar duplicar lógica de gates, persistencia o rollback.
+3. Mantener el ejecutor S1 congelado.
+4. Mantener separados el orquestador y los ejecutores.
+5. Evitar efectos secundarios durante la preparación.
+6. Hacer explícitos los estados y las transiciones.
+7. Mantener compatibilidad con los artefactos anteriores.
+8. Registrar errores de forma que puedan diagnosticarse.
+9. Garantizar que un fallo no se interprete como éxito parcial.
+10. No añadir nuevas dependencias si no son necesarias.
+
+Secuencia de trabajo
+
+1. Crear o completar los contratos faltantes.
+2. Conectar el boundary con los mecanismos de preflight.
+3. Integrar S2-C3 y S2-C4 mediante sus interfaces verificadas.
+4. Añadir las comprobaciones de integridad necesarias.
+5. Añadir las barreras que impidan ejecutar campañas bloqueadas.
+6. Integrar la persistencia de estados y evidencias.
+7. Verificar el comportamiento ante errores y reinicios.
+8. Revisar el diff completo.
+9. Ejecutar pruebas focalizadas no destructivas.
+10. Revisar regresiones y compatibilidad.
+
+Prohibiciones
+
+* No modificar la lógica interna de S1 solo para facilitar la integración.
+* No convertir automáticamente un bloqueo en una advertencia.
+* No desactivar gates.
+* No crear un camino alternativo de promoción que eluda los controles.
+* No ejecutar campañas reales desde las pruebas unitarias.
+* No hacer que un estado preparado se interprete como autorización para ejecutar.
+
+Criterios de salida
+
+* La orquestación cumple los contratos.
+* Las pruebas focalizadas pasan.
+* El ejecutor S1 permanece intacto, salvo una excepción justificada y aprobada.
+* Los fallos se detectan y registran.
+* Stage 2 continúa bloqueado hasta superar los gates de entrada.
+
+⸻
+
+10. Fase 4 — Pruebas de regresión, seguridad y recuperación
+
+Objetivo
+
+Demostrar que los cambios no debilitan las garantías del sistema.
+
+Matriz mínima de pruebas
+
+Área	Prueba requerida
+Contratos	Entradas y salidas válidas e inválidas
+Boundary	Transiciones permitidas y prohibidas
+Gates	Cada gate bloquea cuando corresponde
+Persistencia	Estados y evidencias sobreviven a reinicios
+Idempotencia	Repetición segura de operaciones que deban ser idempotentes
+Fallos	Excepciones, procesos interrumpidos y salidas incompletas
+Integridad	Detección de artefactos alterados o inconsistentes
+Aislamiento	Las candidatas no pueden escapar de los límites establecidos
+Promoción	Ninguna candidata se promociona sin aprobación de todos los gates
+Rollback	Restauración a una versión válida y verificable
+Regresión	La suite previa conserva sus resultados
+Auditoría	Los registros permiten reconstruir la secuencia de eventos
+
+Pruebas de recuperación
+
+Las pruebas deben cubrir, cuando sean aplicables al diseño existente:
+
+* interrupción antes de la promoción;
+* interrupción durante una publicación transaccional;
+* fallo después de la promoción;
+* reinicio del proceso;
+* estado persistente parcial;
+* imposibilidad de verificar un artefacto;
+* intento de recuperar una versión inválida;
+* repetición de una operación después de una interrupción.
+
+Los escenarios simulados deben etiquetarse como tales. No constituyen evidencia de recuperación real.
+
+Criterios de salida
+
+* Pruebas focalizadas aprobadas.
+* Suite de regresión aprobada.
+* Ningún fallo crítico abierto.
+* Los mecanismos de recuperación están probados en el nivel que corresponda.
+* Los resultados y skips están documentados con su justificación.
+
+⸻
+
+11. Fase 5 — Recuperación real post-promoción de Stage 1
+
+Objetivo
+
+Resolver el estado NOT_EXERCISED mediante un ensayo controlado que demuestre la recuperación real después de una promoción de Stage 1.
+
+Preparación
+
+Antes de realizar el ensayo:
+
+1. Confirmar el procedimiento aprobado.
+2. Identificar la versión de referencia y la versión promocionada.
+3. Confirmar que existe una versión recuperable.
+4. Verificar la integridad de los artefactos.
+5. Definir la condición que desencadena la recuperación.
+6. Definir cómo se detectará el resultado.
+7. Confirmar los límites de tiempo y recursos.
+8. Establecer una condición de parada.
+9. Asegurar que los registros puedan conservarse.
+10. Confirmar que el ensayo no interfiera con una campaña activa.
+
+Ejecución
+
+El procedimiento exacto debe derivarse de los mecanismos existentes de GAIA. No se improvisará una secuencia destructiva para simular un fallo.
+
+Durante el ensayo se registrarán:
+
+* commit y versión de origen;
+* versión promocionada;
+* evento desencadenante;
+* estado previo;
+* operación de recuperación;
+* estado final;
+* integridad de los artefactos;
+* resultado de los gates posteriores;
+* tiempo de recuperación;
+* anomalías detectadas;
+* identificadores de los registros y evidencias.
+
+Criterios de PASS
+
+* La condición de recuperación se produce y se observa.
+* El mecanismo real se ejecuta.
+* La versión final corresponde a una versión válida.
+* La integridad se verifica de forma independiente.
+* El estado persistente es coherente.
+* No se pierde evidencia crítica.
+* El sistema no continúa como si la recuperación hubiera sido exitosa cuando no lo fue.
+
+Resultado alternativo
+
+Si el ensayo falla, queda inconcluso o no puede demostrar la recuperación real, el estado seguirá siendo FAIL o NOT_EXERCISED, según la causa. No se autoriza Stage 2 hasta resolver el bloqueo.
+
+⸻
+
+12. Fase 6 — Preflight final de Stage 2
+
+Objetivo
+
+Comprobar que la orquestación, los contratos, la recuperación y el entorno cumplen todas las condiciones necesarias para una campaña real.
+
+Lista de comprobación
+
+* [ ]	Commit esperado verificado.
+* [ ]	Estado del repositorio comprendido.
+* [ ]	Integridad de artefactos confirmada.
+* [ ]	Boundary implementado y probado.
+* [ ]	S2-C3 implementado y probado.
+* [ ]	S2-C4 implementado y probado.
+* [ ]	Ejecutores existentes compatibles.
+* [ ]	Ejecutores congelados preservados.
+* [ ]	Gates de entrada verificados.
+* [ ]	Recuperación real post-promoción de Stage 1 demostrada.
+* [ ]	Rollback disponible y verificable.
+* [ ]	Límites de recursos definidos.
+* [ ]	Límites de duración definidos.
+* [ ]	Condiciones de parada definidas.
+* [ ]	Registros y artefactos de salida definidos.
+* [ ]	Ausencia de campañas concurrentes incompatibles.
+* [ ]	Suite de regresión aprobada.
+* [ ]	Ningún bloqueo crítico abierto.
+* [ ]	Evidencia de preflight archivada.
+
+Regla de autorización
+
+La campaña solo podrá autorizarse cuando todos los elementos obligatorios estén aprobados por evidencia verificable.
+
+Un preflight PASS no puede anular una condición funcional pendiente ni convertir un componente ausente en uno validado.
+
+⸻
+
+13. Fase 7 — Stage 2: endurance medio
+
+Objetivo
+
+Validar la estabilidad de la orquestación y del closed loop durante una campaña de duración media, sin alterar innecesariamente el sistema.
+
+Antes de ejecutar
+
+La definición exacta de duración, carga, frecuencia de evaluación y criterios cuantitativos deberá recuperarse de la especificación existente de GAIA. Si no está definida, deberá aprobarse antes de ejecutar; no se inventarán umbrales después de observar los resultados.
+
+Registrar:
+
+* versión del código;
+* configuración;
+* modelo y motor seleccionados;
+* estado inicial;
+* recursos disponibles;
+* presupuesto de ejecución;
+* versión recuperable;
+* métricas iniciales;
+* condiciones de parada;
+* identificadores de los artefactos.
+
+Durante la campaña
+
+Observar y registrar:
+
+* fallos y excepciones;
+* transiciones de estado;
+* consumo de recursos;
+* duración de las operaciones;
+* integridad de los registros;
+* consistencia del estado persistente;
+* propuestas generadas;
+* propuestas aceptadas y rechazadas;
+* promociones;
+* rollbacks;
+* recuperación después de fallos;
+* desviaciones respecto a los límites;
+* interrupciones y su causa.
+
+La instrumentación no debe modificar silenciosamente las condiciones de la prueba.
+
+Reglas de parada
+
+La campaña debe detenerse si:
+
+* se pierde la integridad;
+* se incumple un límite obligatorio;
+* aparece un estado imposible o ambiguo;
+* se produce una promoción no autorizada;
+* la recuperación no funciona como está especificado;
+* la evidencia deja de ser fiable;
+* se agota el presupuesto;
+* se activa una condición de parada aprobada.
+
+No se debe reanudar automáticamente una campaña interrumpida sin comprobar la validez del estado persistente y la política de recuperación.
+
+Criterios de PASS
+
+* Duración y carga requeridas completadas.
+* Sin violaciones de los invariantes de seguridad.
+* Transiciones de estado coherentes.
+* Registros y artefactos completos.
+* Promociones conformes con los gates.
+* Recuperación correcta en los escenarios que correspondan.
+* Sin regresiones críticas.
+* Métricas dentro de los límites definidos antes de la ejecución.
+* Informe reproducible.
+
+Si cualquiera de los criterios obligatorios falla, Stage 2 no se declara PASS.
+
+⸻
+
+14. Fase 8 — Análisis posterior a Stage 2
+
+Objetivo
+
+Determinar qué se ha demostrado, qué queda pendiente y si existe una justificación técnica para avanzar.
+
+Análisis
+
+1. Comparar las métricas con la línea base.
+2. Identificar degradaciones progresivas.
+3. Analizar errores recurrentes.
+4. Verificar la consistencia de los registros.
+5. Revisar cada promoción y rollback.
+6. Comparar las propuestas con los resultados obtenidos.
+7. Separar mejoras de rendimiento de mejoras de calidad.
+8. Distinguir las mejoras del motor experimental de las mejoras del LLM.
+9. Identificar falsos positivos y falsos negativos de los evaluadores.
+10. Documentar las limitaciones del ensayo.
+11. Identificar pruebas adicionales necesarias.
+12. Determinar si Stage 3 puede comenzar.
+
+Entregable
+
+Un informe de Stage 2 que incluya:
+
+* resumen ejecutivo;
+* configuración exacta;
+* commit y artefactos;
+* métricas;
+* incidencias;
+* promociones;
+* rollbacks;
+* recuperación;
+* desviaciones;
+* criterios de PASS/FAIL;
+* limitaciones;
+* decisión de avance.
+
+⸻
+
+15. Fase 9 — Stage 3 y posteriores
+
+Estado actual
+
+No iniciados.
+
+No se debe asignar una duración, una carga o unos objetivos técnicos a estas etapas sin revisar su especificación.
+
+Condiciones para comenzar
+
+* Stage 2 declarado PASS.
+* Incidencias críticas cerradas.
+* Contratos de las etapas posteriores revisados.
+* Criterios de entrada y salida definidos.
+* Plan de recuperación compatible.
+* Recursos y presupuesto disponibles.
+* Evidencia anterior preservada.
+* Autorización explícita de la campaña.
+
+Procedimiento
+
+Para cada etapa posterior:
+
+1. Auditar la especificación.
+2. Definir criterios cuantitativos antes de ejecutar.
+3. Revisar los riesgos incrementales.
+4. Verificar la recuperación.
+5. Añadir pruebas focalizadas.
+6. Ejecutar el preflight.
+7. Autorizar la campaña.
+8. Recoger evidencia.
+9. Analizar resultados.
+10. Emitir una decisión formal.
+
+No se considerará que Stage 3 está aprobado por el mero hecho de que Stage 2 haya pasado.
+
+⸻
+
+16. Fase 10 — Cierre de GAIA 1.1
+
+Objetivo
+
+Emitir una decisión de cierre respaldada por pruebas, artefactos y resultados.
+
+Lista final de comprobación
+
+* [ ]	Commit final identificado.
+* [ ]	Árbol de trabajo y cambios finales documentados.
+* [ ]	Contratos de orquestación documentados.
+* [ ]	Boundary implementado y validado.
+* [ ]	S2-C3 y S2-C4 implementados y validados.
+* [ ]	Ejecutores anteriores preservados o cambios justificados.
+* [ ]	Suite de regresión aprobada.
+* [ ]	Resultados de endurance archivados.
+* [ ]	Recuperación real demostrada.
+* [ ]	Rollback verificado.
+* [ ]	Integridad de registros confirmada.
+* [ ]	Incidencias críticas cerradas.
+* [ ]	Limitaciones conocidas documentadas.
+* [ ]	Estado de las etapas posteriores claramente identificado.
+* [ ]	Informe final de GAIA 1.1 aprobado.
+
+Estados finales posibles
+
+PASS — GAIA 1.1 cerrada: todos los criterios obligatorios definidos para la versión se han demostrado.
+
+PARTIAL — integración completada, validación incompleta: el código está implementado, pero falta evidencia de una o más condiciones obligatorias.
+
+BLOCKED — cierre impedido: existen condiciones críticas pendientes, inconsistencias o fallos que impiden una conclusión fiable.
+
+FAIL — validación fallida: la evidencia demuestra que uno o más criterios obligatorios no se cumplen.
+
+No se utilizará PASS para describir únicamente una suite de tests exitosa si faltan pruebas de estabilidad real.
+
+⸻
+
+17. Gestión de cambios y evidencia
+
+Cada cambio debe tener un registro mínimo:
+
+Campo	Contenido
+Identificador	ID único del cambio
+Motivo	Bloqueo o necesidad demostrada
+Archivos	Archivos afectados
+Comportamiento anterior	Estado previo
+Comportamiento esperado	Resultado definido antes del cambio
+Tests	Pruebas añadidas o modificadas
+Resultado	PASS, FAIL o inconcluso
+Riesgos	Riesgos residuales
+Recuperación	Procedimiento aplicable
+Evidencia	Rutas, hashes e identificadores
+Decisión	Integrar, revertir o investigar
+
+Los informes deben diferenciar explícitamente:
+
+* evidencia histórica;
+* evidencia generada por tests;
+* evidencia de integración;
+* evidencia de preflight;
+* evidencia de campañas reales.
+
+Los artefactos históricos no se sobrescribirán para aparentar una ejecución nueva. Las campañas deben generar identificadores y resultados que permitan distinguirlas.
+
+⸻
+
+18. Métricas de seguimiento
+
+Se conservarán las métricas que ya utilice GAIA. Si se necesitan nuevas, se definirán antes de la campaña.
+
+Categorías de seguimiento:
+
+Estabilidad
+
+* tasa de fallos;
+* fallos por etapa;
+* interrupciones;
+* reinicios;
+* tiempo de recuperación;
+* incidencias de persistencia.
+
+Seguridad e integridad
+
+* violaciones de límites;
+* gates incumplidos;
+* promociones no conformes;
+* fallos de verificación;
+* rollbacks;
+* integridad de registros.
+
+Rendimiento
+
+* latencia;
+* duración de operaciones;
+* consumo de CPU y memoria;
+* consumo de GPU y VRAM, cuando corresponda;
+* rendimiento por unidad de trabajo.
+
+Calidad experimental
+
+* propuestas evaluadas;
+* propuestas aceptadas y rechazadas;
+* tasa de regresión;
+* mejoras confirmadas;
+* reproducibilidad de los resultados;
+* diferencias entre resultados estimados y observados.
+
+Interpretación
+
+Una mejora de velocidad no demuestra una mejora cognitiva. Una mejora del trainer numpy_mlp no demuestra una mejora de los pesos del LLM. La cantidad de propuestas tampoco demuestra que estas sean mejores.
+
+Las conclusiones deben vincularse al componente y a la métrica que realmente se han evaluado.
+
+⸻
+
+19. Riesgos y mitigaciones
+
+Riesgo	Mitigación
+Ejecutar Stage 2 con orquestación incompleta	Bloqueo obligatorio antes de la ejecución
+Modificar accidentalmente S1	Congelar el ejecutor y revisar el diff
+Confundir tests simulados con recuperación real	Etiquetar el nivel de evidencia
+Perder el estado de una campaña	Persistencia, registros y recuperación verificada
+Promoción incorrecta	Gates independientes y autoridad determinista
+Regresión en la suite	Tests focalizados y regresión completa
+Resultados no reproducibles	Configuración, commit, hashes y artefactos
+Cambios excesivos	Implementación mínima y justificada
+Confundir el LLM con el motor experimental	Separación de métricas y responsabilidades
+Declarar PASS demasiado pronto	Criterios de salida definidos antes de ejecutar
+Cambios locales sobrescritos	Inspección del árbol y preservación de cambios
+Dependencia de una configuración de hardware	Registrar host, runtime y configuración efectivos
+
+⸻
+
+20. Orden de ejecución recomendado
+
+El orden de trabajo es obligatorio salvo justificación documentada:
+
+1. Verificar la base y preservar los cambios locales.
+2. Leer los informes y el artefacto de bloqueo.
+3. Auditar el boundary, S2-C3 y S2-C4.
+4. Especificar sus contratos.
+5. Implementar la orquestación mínima.
+6. Añadir pruebas de contratos, gates y fallos.
+7. Ejecutar la suite de regresión.
+8. Revisar y demostrar la recuperación real post-promoción de Stage 1.
+9. Ejecutar el preflight final de Stage 2.
+10. Autorizar y ejecutar Stage 2.
+11. Analizar y archivar la evidencia.
+12. Evaluar los criterios de entrada de Stage 3.
+13. Completar las etapas posteriores que formen parte del alcance aprobado.
+14. Ejecutar la revisión final.
+15. Cerrar GAIA 1.1 solo con evidencia suficiente.
+
+Si una etapa falla, se detiene el avance, se conserva la evidencia y se corrige el problema antes de repetirla.
+
+⸻
+
+21. Fuentes y documentos de referencia
+
+Documentos indicados para la línea base del 27 de octubre de 2026:
+
+* docs/GAIA_0_8_LOCAL_INTELLIGENCE_REPORT.md
+* docs/GAIA_1_0_1_INTEGRATION_REPORT.md
+* .gaia/stage2/clean-ready-20261026/full-stage2-execution-blocked.json
+
+Referencia de código declarada:
+
+* Commit: 03dbc286c6bbe241142f9a753856a86f1eceb093
+
+Estos documentos constituyen el punto de partida, no una garantía de que el repositorio siga exactamente en el mismo estado. La revisión local debe confirmar los valores antes de continuar.
+
+⸻
+
+22. Primera tarea al retomar el proyecto
+
+No ejecutar todavía campañas de Stage 2.
+
+Desde la raíz del repositorio, comenzar con una inspección no destructiva:
+
+git status --short
+git rev-parse HEAD
+git log -1 --oneline
+git diff --stat
+git diff --check
+
+Después, leer los tres documentos de referencia y localizar las implementaciones reales de boundary, S2-C3 y S2-C4.
+
+El primer entregable debe ser un diagnóstico verificable del bloqueo, con referencias a los archivos, funciones, tests y condiciones faltantes.
+
+No se debe modificar código hasta saber exactamente qué falta y qué puede reutilizarse.
+
+⸻
+
+Criterio rector final
+
+Primero integridad. Después contratos. Después orquestación. Después pruebas. Después recuperación real. Después endurance. Finalmente, cierre.
+
+GAIA 1.1 no se cierra porque el sistema parezca funcionar ni porque una suite pase. Se cierra cuando el comportamiento esperado, los límites, la recuperación y la estabilidad se han demostrado con evidencia reproducible.
+
+El objetivo no es ejecutar más campañas cuanto antes. El objetivo es que cada campaña aporte evidencia válida, que cada mejora sea verificable y que ningún avance comprometa la capacidad de GAIA para detectar fallos, detenerse y recuperarse.
