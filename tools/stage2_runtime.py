@@ -287,6 +287,32 @@ class FirstSessionSupervisor(Supervisor):
         return value['payload']
 
 
+def administrative_sandbox_probe(boundary):
+    """Approved master-plan exception: contain the trusted bwrap smoke probe.
+
+    bwrap may leave an adopted zombie even after subprocess.run waited for its
+    leader. This is an explicit administrative epoch, never a campaign epoch.
+    Live leftover children or an unverified probe still fail closed; every path
+    drains owned children before the idle-child gate can admit a campaign.
+    """
+    from gaia import provenance
+    boundary.begin()
+    try:
+        boundary.record({'kind':'ADMINISTRATIVE_PROBE_BEGIN','probe':'BWRAP_CAPABILITY'})
+        if boundary.record_error is not None:raise RuntimeError('SUBREAPER_EVIDENCE_FAILED:'+boundary.record_error)
+        capability=provenance.bwrap_capability()
+        children=boundary.collect()
+        if any(row['state']!='Z'for row in children):raise RuntimeError('LIVE_ADMINISTRATIVE_PROBE_CHILDREN')
+        if not capability.get('verified'):raise ValueError('SANDBOX_UNAVAILABLE')
+        return capability
+    finally:
+        boundary.drain()
+        if not boundary.kernel_empty():raise RuntimeError('ADMINISTRATIVE_PROBE_CLEANUP_INCOMPLETE')
+        boundary.record({'kind':'ADMINISTRATIVE_PROBE_END','probe':'BWRAP_CAPABILITY',
+                         'kernel_echild':True})
+        if boundary.record_error is not None:raise RuntimeError('SUBREAPER_EVIDENCE_FAILED:'+boundary.record_error)
+
+
 def _run_first(root,contract_path,boundary):
     root=root.resolve();contract_path=ex.safe_out(root,contract_path).resolve();out=contract_path.parent
     c=ex.validate_contract(json.loads(contract_path.read_bytes()));state=Path(c['state_path'])
@@ -302,8 +328,7 @@ def _run_first(root,contract_path,boundary):
         ex.operational_scratch(c,empty=True)
         if any(i[6]!='Z'and any(token in i[5]for token in ('runtime_worker','koboldcpp','llama-server'))for i in processes().values()):
             raise ValueError('EXTERNAL_BACKEND_BUSY')
-        from gaia import provenance
-        if not provenance.bwrap_capability().get('verified'):raise ValueError('SANDBOX_UNAVAILABLE')
+        administrative_sandbox_probe(boundary)
         session=session_contract(c['lineages'],stage='stage2',limits=ex.LIMITS,frozen=c['freeze'])
         sid=session['session_id'];aggregate.start_session(sid)
         durable(out/'authorization-s1.json',{'clock':stamp(),'contract_hash':c['hash'],
