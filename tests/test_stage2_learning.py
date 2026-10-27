@@ -1,7 +1,11 @@
 """Synthetic catalogue contracts only; not real Stage 2 evidence."""
 import unittest
+import tempfile
+import json
+from pathlib import Path
 from gaia.autonomy.catalog import BINDING
-from tools.stage2_learning import assess_catalogue, surface_probe, decision_coverage
+from gaia.autonomy.lineage import engine_state_dir
+from tools.stage2_learning import assess_catalogue, surface_probe, decision_coverage, native_probe_reference
 
 
 class Stage2LearningTests(unittest.TestCase):
@@ -36,6 +40,25 @@ class Stage2LearningTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             assess_catalogue([{'record_hash': 'fixture', 'binding': {}}],
                              self.binding(), role='S2-C4')
+
+    def test_native_binding_probe_is_not_an_accepted_experiment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lineage = {'lineage_id': 'al' + '1' * 24, 'surface': 'numpy_mlp',
+                       'objective': 'fixture', 'source_identity_hash': 'fixture'}
+            native = root / engine_state_dir(lineage['lineage_id'])
+            stable = native / 'stable/v0000'
+            stable.mkdir(parents=True)
+            (native / 'stable/CURRENT').write_text('v0000')
+            (stable / 'manifest.json').write_text(json.dumps({'environment_hash': 'fixture'}))
+            (stable / 'genome.json').write_text(json.dumps({'fixture': True}))
+            probe = native_probe_reference(root, lineage)
+            self.assertEqual(probe['acceptance_claim'], 'NONE')
+            self.assertEqual(probe['reuse_claim'], 'NONE')
+            self.assertEqual(probe['binding']['reference_version'], 'v0000')
+            (native / 'stable/CURRENT').write_text('../../outside')
+            with self.assertRaisesRegex(ValueError, 'INVALID_NATIVE_CHAMPION_VERSION'):
+                native_probe_reference(root, lineage)
 
     def test_same_surface_difference_is_not_cross_surface_evidence(self):
         reference = {'record_hash': 'fixture',

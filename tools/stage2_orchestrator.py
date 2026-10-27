@@ -67,12 +67,22 @@ def binding(root, contract_path):
 def run_first(root, contract_path, recovery_state, recovery_evidence, *, authorize=False):
     if not authorize:
         raise ValueError('EXPLICIT_STAGE2_S1_AUTHORIZATION_REQUIRED')
-    binding(root, contract_path)
+    contract, _ = binding(root, contract_path)
     recovery = verify_recovery(root, recovery_state, recovery_evidence)
     if recovery['status'] != 'PASS':
         return {'status': 'BLOCKED_PREEXECUTION', 'recovery': recovery,
                 'sessions_started': 0, 'campaigns_started': 0}
-    result = ex.run_first_session(root, contract_path, authorize=True)
+    admission = ex.admission(contract, root, Path(contract['state_path']))
+    if admission['status'] != 'PASS':
+        return {'status': 'BLOCKED_PREEXECUTION', 'admission': admission,
+                'sessions_started': 0, 'campaigns_started': 0}
+    from tools.stage2_observer import sample
+    ownership = sample(root, Path(contract['state_path']), os.getpid(), gpu=True)
+    if ownership['status'] != 'PASS':
+        return {'status': 'BLOCKED_PREEXECUTION', 'ownership': ownership,
+                'sessions_started': 0, 'campaigns_started': 0}
+    from tools.stage2_observer import observed_first
+    result = observed_first(root, contract_path, contract)
     binding(root, contract_path)
     return result
 
@@ -90,6 +100,7 @@ def verified_boundary(root, contract_path, contract, roots):
     proof = json.loads((archive / 'result.json').read_bytes())
     if (proof.get('status') != 'PASS' or proof.get('contract_hash') != contract['hash']
             or proof.get('containment') != 'PASS' or not proof.get('budget_unchanged')
+            or proof.get('ownership', {}).get('status') != 'PASS'
             or len(proof.get('terminal_replays', [])) != 2):
         raise ValueError('BOUNDARY_NOT_PROVEN')
     children = [json.loads(line) for line in (archive / 'children.jsonl').read_text().splitlines()]
@@ -138,14 +149,29 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
         raise ValueError('S2_ALREADY_STARTED_OR_AMBIGUOUS_NO_AUTOMATIC_RETRY')
     roots = [out, state, *[root / engine_state_dir(lin) for lin in contract['lineages']],
              ex.operational_scratch(contract)]
+    observer_path = out.parent / (out.name + '-observer')
+    if not observer_path.is_dir():
+        raise ValueError('S1_OWNERSHIP_OBSERVER_EVIDENCE_REQUIRED')
     if not (out / 'budget/.lock').is_file():
         raise ValueError('MISSING_S1_BUDGET_LOCK')
-    aggregate = ex.StageBudget(out / 'budget', contract['hash'], roots)
+    aggregate = ex.StageBudget(out / 'budget', contract['hash'], [*roots, observer_path])
     with aggregate.exclusive():
         proof = verified_boundary(root, contract_path, contract, roots)
+        from tools.stage2_observer import audit_observer
+        previous_session = SessionStore(state, proof['inspection']['session_id'])
+        attribution = audit_observer(observer_path, contract['hash'],
+            started=previous_session.state_view()['started_clock'], stopped=previous_session.events()[-1]['clock'])
+        if attribution['status'] != 'PASS':
+            return {'status': 'BLOCKED_PREEXECUTION', 'attribution': attribution,
+                    'sessions_started': 0, 'campaigns_started': 0}
         admission = boundary_admission(contract, root, state)
         if admission['status'] != 'PASS':
             return {'status': 'BLOCKED_PREEXECUTION', 'admission': admission,
+                    'sessions_started': 0, 'campaigns_started': 0}
+        from tools.stage2_observer import sample
+        ownership = sample(root, state, os.getpid(), gpu=True)
+        if ownership['status'] != 'PASS':
+            return {'status': 'BLOCKED_PREEXECUTION', 'ownership': ownership,
                     'sessions_started': 0, 'campaigns_started': 0}
         # Mark intent before the first state change. A crash leaves an explicit
         # ambiguous attempt; restarting never silently creates a new lineage.
@@ -190,6 +216,8 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
                 original_numpy=numpy, orchestration_hashes=protocol['files'], boundary=owner)
             try:
                 supervisor.run()
+                from tools.stage2_observer import sample
+                supervisor.telemetry.append(sample(root, state, os.getpid(), gpu=True))
                 checks = {'session': audit_session(root, state, sid, stage='stage2'),
                           'reconciliation': ex.reconcile(store, roots, root=root),
                           'aggregate': audit_second_aggregate(store, aggregate, first),
@@ -207,9 +235,24 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
                     result['status'] = 'S2_OBSERVED'
             except BaseException as exc:
                 result['error'] = f'{type(exc).__name__}: {exc}'
+                if supervisor.environment_evidence:
+                    result['status'] = result['final_stage2_status'] = 'INCONCLUSIVE_ENVIRONMENT'
+                    result['environment_evidence'] = supervisor.environment_evidence
                 if not store.state_view()['stopped']:
                     supervisor.stop('STAGE2_SAFETY_STOP', error=result['error'])
         result['aggregate'] = aggregate.view()
+        if result['status'] == 'S2_OBSERVED':
+            try:
+                verify_tools(root, protocol['files'])
+                from tools.stage2_audit import audit_full
+                final = audit_full(root, out, contract, result)
+                verify_tools(root, protocol['files'])
+                result['full_stage2_audit'] = final
+                result['final_stage2_status'] = final['status']
+                result['final_pass_blockers'] = [*final['missing'], *final['failed']]
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                result['final_stage2_status'] = 'FAIL'
+                result['full_audit_error'] = str(exc)
         durable(out / 'result-s2.json', result, True)
         required = sum(p.stat().st_size for p in temporary.rglob('*') if p.is_file())
         if aggregate.storage() + required + 4096 >= 4 * 2**30:
@@ -248,8 +291,11 @@ def boundary(root, contract_path):
               'temporary_evidence': str(work), 'terminal_replays': []}
     with aggregate.exclusive():
         snapshot = aggregate.view()
+        from tools.stage2_observer import sample
+        ownership = sample(root, state, os.getpid(), gpu=True)
+        result['ownership'] = ownership
         result['inspection'] = inspect_boundary(root, contract_path)
-        if result['inspection']['status'] == 'PASS':
+        if result['inspection']['status'] == 'PASS' and ownership['status'] == 'PASS':
             def record(event):
                 with (work / 'children.jsonl').open('a') as stream:
                     stream.write(json.dumps({'clock': stamp(), **event}, sort_keys=True) + '\n')
@@ -327,6 +373,8 @@ def dispatch():
     else:
         result = boundary(ex.ROOT, args.contract)
     print(json.dumps(result, indent=2))
+    if args.command == 'run-second-session':
+        return 0 if result.get('final_stage2_status') == 'PASS' else 2
     return 0 if result['status'] in ('PASS', 'PREPARED_ONLY', 'S1_OBSERVED', 'S2_OBSERVED') else 2
 
 

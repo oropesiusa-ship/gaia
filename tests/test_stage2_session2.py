@@ -65,6 +65,7 @@ class SecondSessionTests(Fixture):
         with aggregate.exclusive(), patch.object(supervisor, 'guard'), \
                 patch.object(supervisor, 'locks_free', return_value=True), \
                 patch('tools.stage2_session2.ex.qualify_backend'), \
+                patch('tools.stage2_session2.native_probe_reference', return_value={'record_hash': 'fixture', 'binding': {'surface': 'numpy_mlp'}}), \
                 patch('tools.stage2_session2.numpy_binding', return_value=dict.fromkeys(BINDING, 'fixture') | {'surface': 'numpy_mlp'}), \
                 patch.object(Supervisor, 'create_campaign', side_effect=['third', 'fourth']):
             self.assertEqual(supervisor.create_campaign(ids[0], 1800), 'third')

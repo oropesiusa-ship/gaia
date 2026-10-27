@@ -6,7 +6,7 @@ gates. This adapter does not authorize that caller or a real campaign by itself.
 """
 from tools import stage2_executor as ex
 from tools.stage2_runtime import FirstSessionSupervisor, HEADROOM
-from tools.stage2_learning import surface_probe, numpy_binding, assess_catalogue, decision_coverage
+from tools.stage2_learning import surface_probe, numpy_binding, native_probe_reference, assess_catalogue, decision_coverage
 from gaia.autonomy.catalog import catalog, records
 from gaia.autonomy.clock import stamp
 from gaia.autonomy.lineage import LineageStore
@@ -55,6 +55,7 @@ class SecondSessionSupervisor(FirstSessionSupervisor):
         self.original_numpy = original_numpy
         self.orchestration_hashes = orchestration_hashes or {}
         self.catalogue_before = {}
+        self.attribution_sampled = None
         super().__init__(*args, **kwargs)
 
     def guard(self):
@@ -62,14 +63,26 @@ class SecondSessionSupervisor(FirstSessionSupervisor):
         from gaia.autonomy.supervisor import processes, alive
         verify_tools(self.root, self.orchestration_hashes)
         super().guard()
-        allowed = {pid for pid, row in self.owned.items() if alive(pid, row['starttime'])}
+        allowed = {pid: row['starttime'] for pid, row in self.owned.items() if alive(pid, row['starttime'])}
         foreign = {pid: info for pid, info in processes().items()
-                   if info[6] != 'Z' and pid not in allowed
+                   if info[6] != 'Z' and allowed.get(pid) != info[7]
                    and experiment_process(info[5])}
         if foreign:
             self.environment_evidence.append({'clock': stamp(),
                 'reason': 'EXTERNAL_EXPERIMENT_BUSY', 'processes': foreign})
             raise RuntimeError('EXTERNAL_EXPERIMENT_BUSY')
+        if self.attribution_sampled is None or self.now() - self.attribution_sampled >= 10:
+            import os
+            from tools.stage2_observer import sample
+            self.attribution_sampled = self.now()
+            gpu = not hasattr(self, 'attribution_gpu') or self.now() - self.attribution_gpu >= 30
+            evidence = sample(self.root, self.state, os.getpid(), gpu=gpu)
+            if gpu:
+                self.attribution_gpu = self.now()
+            self.telemetry.append(evidence)
+            if evidence['status'] != 'PASS':
+                self.environment_evidence.append(evidence)
+                raise RuntimeError('OWNERSHIP_ATTRIBUTION_INCOMPLETE_OR_FOREIGN_ACTIVITY')
 
     def next_lineage(self, view):
         ordinal = len(view['campaigns'])
@@ -96,8 +109,14 @@ class SecondSessionSupervisor(FirstSessionSupervisor):
             # Read-only qualification and a factual surface difference. Do not
             # invent an inference environment_hash using a NumPy manifest.
             ex.qualify_backend(self.root, self.contract['freeze'])
-            evidence['incompatible_probe'] = surface_probe(
-                catalogue['references'], self.lineage_contracts[0])
+            references = catalogue['references']
+            if not references:
+                # The runbook requires a factual NumPy binding difference, not
+                # an invented accepted experiment when no catalogue entry exists.
+                reference = native_probe_reference(self.root, self.lineage_contracts[1])
+                evidence['baseline_binding_probe'] = reference
+                references = [reference]
+            evidence['incompatible_probe'] = surface_probe(references, self.lineage_contracts[0])
         else:
             evidence['consumer_binding'] = numpy_binding(self.root, self.lineage_contracts[1])
             evidence['assessments'] = assess_catalogue(catalogue['references'],

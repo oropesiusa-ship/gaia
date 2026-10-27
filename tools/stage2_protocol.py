@@ -13,7 +13,8 @@ from gaia.autonomy.policy import identities
 
 FILES = (*ex.ADMIN_FILES, 'tools/stage2_boundary.py', 'tools/stage2_learning.py',
          'tools/stage2_terminal.py', 'tools/stage2_session2.py',
-         'tools/stage2_orchestrator.py', 'tools/stage2_protocol.py')
+         'tools/stage2_orchestrator.py', 'tools/stage2_protocol.py', 'tools/stage2_observer.py',
+         'tools/stage2_audit.py')
 
 
 def tool_hashes(root):
@@ -52,8 +53,59 @@ def recovery_claim_gate(seal, result, fault, current_identity):
     return failures
 
 
+def master_recovery_claim_gate(seal, result, fault, current_identity):
+    """Keep the legacy rollback claim separate from master-plan phase 5.
+
+    Phase 5 requires real recovery to a valid version, not an unnecessary
+    rollback of a promotion whose resumed verification passes. The old drill's
+    stricter rollback result is retained verbatim; no legacy gate is changed.
+    A resume claim still needs independent journals, gates, ledger and replay
+    below, and can never be inferred from this claim-only function.
+    """
+    if result.get('outcome') != 'NOT_EXERCISED_ROLLBACK':
+        return 'ROLLBACK_RESTORE', recovery_claim_gate(seal, result, fault, current_identity)
+    failures = []
+    if seal.get('outcome') != 'NOT_EXERCISED_ROLLBACK' or seal.get('status') != 'FAIL':
+        failures.append('LEGACY_ROLLBACK_CLAIM_INCONSISTENT')
+    if result.get('status') != 'FAIL' or result.get('rollback_count') != 0:
+        failures.append('LEGACY_ROLLBACK_RESULT_INCONSISTENT')
+    if seal.get('identity') != current_identity:
+        failures.append('RECOVERY_SOURCE_IDENTITY_CHANGED')
+    if not fault.get('injection', {}).get('injected'):
+        failures.append('REAL_FAULT_NOT_OBSERVED')
+    if result.get('survivors') or result.get('lineage_blocked') is not False:
+        failures.append('UNSAFE_RECOVERY_STATE')
+    if not result.get('native_ledger', {}).get('ok'):
+        failures.append('RECOVERY_NATIVE_LEDGER_UNVERIFIED')
+    reference = result.get('reference') or {}
+    if (reference.get('reason') != 'POST_PROMOTION' or reference.get('status') != 'MEASURED'
+            or reference.get('version') != result.get('native_version')):
+        failures.append('PROMOTED_REFERENCE_UNVERIFIED')
+    return 'RESUME_VERIFICATION', failures
+
+
+def resume_sequence_gate(events, campaign_id, fault_clock):
+    """One killed controller, a normal VERIFYING relaunch, then a clean exit."""
+    relevant = [e for e in events if e['kind'] in ('CHILD_EXITED', 'CAMPAIGN_RELAUNCHED')
+                and e['payload'].get('campaign_id') == campaign_id]
+    if len(relevant) != 3:
+        raise ValueError('REAL_RECOVERY_SEQUENCE_NOT_PROVEN')
+    killed, resumed, completed = relevant
+    if (killed['kind'] != 'CHILD_EXITED' or killed['payload'].get('returncode') != -9
+            or resumed['kind'] != 'CAMPAIGN_RELAUNCHED'
+            or resumed['payload'].get('reason') != 'RESUMES_AT_VERIFYING'
+            or completed['kind'] != 'CHILD_EXITED' or completed['payload'].get('returncode') != 0
+            or any(e['payload'].get('survivors') or e['payload'].get('orphans_stopped') for e in relevant)):
+        raise ValueError('REAL_RECOVERY_SEQUENCE_NOT_PROVEN')
+    clocks = [fault_clock, *[e['clock'] for e in relevant]]
+    if (len({clock['boot_id'] for clock in clocks}) != 1
+            or any(b['monotonic'] < a['monotonic'] for a, b in zip(clocks, clocks[1:]))):
+        raise ValueError('REAL_RECOVERY_CLOCK_SEQUENCE_INVALID')
+    return completed['clock']['monotonic'] - fault_clock['monotonic']
+
+
 def verify_recovery(root, state, evidence):
-    """Independent read-only audit of a real drill; never runs another drill."""
+    """Independent master-plan phase 5 audit; legacy rollback result is retained."""
     root, state, evidence = Path(root).resolve(), Path(state).absolute(), Path(evidence).absolute()
     result = {'status': 'BLOCKED_PREEXECUTION', 'failures': [], 'execution_prohibited': True}
     before = None
@@ -66,7 +118,9 @@ def verify_recovery(root, state, evidence):
         seal = json.loads((evidence / '07-seal.json').read_bytes())
         native_result = json.loads((evidence / '05-recovery_result.json').read_bytes())
         fault = json.loads((evidence / '03-planned_fault.json').read_bytes())
-        result['failures'] = recovery_claim_gate(seal, native_result, fault, identities(root))
+        mode, result['failures'] = master_recovery_claim_gate(seal, native_result, fault, identities(root))
+        result.update(recovery_mode=mode, legacy_outcome=native_result.get('outcome'),
+                      rollback_claim='PASS' if mode == 'ROLLBACK_RESTORE' else 'NOT_EXERCISED')
         if result['failures']:
             return result
         from gaia.autonomy.session import SessionStore
@@ -100,16 +154,46 @@ def verify_recovery(root, state, evidence):
         duplicates = no_duplicate_execution(state, cid)
         reference = lineage.get('reference')
         verdict = recovery_outcome(True, audit, duplicates, lineage, current, reference)
-        if verdict != 'PASS' or not ledger['ok']:
+        if (audit['status'] != 'PASS' or not duplicates['unique']
+                or duplicates['intents_reserved'] != duplicates['evaluations']
+                or lineage['blocked'] or not ledger['ok']
+                or (mode == 'ROLLBACK_RESTORE' and verdict != 'PASS')):
             raise ValueError('INDEPENDENT_RECOVERY_AUDIT_FAILED')
         evaluation = campaign.get(current['evaluation_ref'])
         restored = native.current_version()
-        if (reference['version'] != restored or restored != evaluation['before_version']
+        expected_version = evaluation['before_version' if mode == 'ROLLBACK_RESTORE' else 'after_version']
+        if (reference['version'] != restored or restored != expected_version
                 or restored != native_result['native_version']):
             raise ValueError('RESTORED_VERSION_REFERENCE_MISMATCH')
         proof = json.loads((session.root / 'verification-kill-intent.json').read_bytes())
         if proof != fault['injection']['proof'] or proof['campaign_id'] != cid:
             raise ValueError('REAL_FAULT_PROOF_MISMATCH')
+        if mode == 'RESUME_VERIFICATION':
+            elapsed = resume_sequence_gate(session.events(), cid, proof['clock'])
+            verification = campaign.get(current['verification_ref'])
+            if (evaluation['before_version'] == evaluation['after_version']
+                    or verification.get('status') != 'PASS' or not verification.get('ledger_ok')
+                    or not verification.get('persisted_improvement')
+                    or verification.get('gates', {}).get('status') != 'READY_FOR_CAMPAIGN'
+                    or verification.get('regression_matrix', {}).get('status') != 'PASS'
+                    or 'FULL' not in verification['regression_matrix'].get('interrupted_attempts_rerun', [])):
+                raise ValueError('RESUMED_POST_PROMOTION_VERIFICATION_NOT_PASS')
+            measured = [e for e in LineageStore(state, lineage_id).events()
+                        if e['kind'] == 'REFERENCE_MEASURED'
+                        and e['payload'].get('measurement_ref') == reference['measurement_ref']]
+            if (len(measured) != 1 or measured[0]['clock']['boot_id'] != proof['clock']['boot_id']
+                    or measured[0]['clock']['monotonic'] <= proof['clock']['monotonic']):
+                raise ValueError('REFERENCE_NOT_REMEASURED_AFTER_REAL_RESTART')
+            if any(current.get(k) for k in ('execution_intent', 'initialization_intent',
+                                           'research_intent', 'rollback_intent')):
+                raise ValueError('UNRECONCILED_RECOVERY_INTENT')
+            if not (native.stable / evaluation['before_version'] / 'manifest.json').is_file():
+                raise ValueError('RECOVERABLE_PREDECESSOR_MISSING')
+            replay = ex.terminal_noop(state, cid, scope, root=root)
+            if replay['status'] != 'PASS':
+                raise ValueError('RECOVERED_TERMINAL_REPLAY_FAILED')
+            result.update(recovery_time_s=elapsed, terminal_replay=replay,
+                          preserved_predecessor=evaluation['before_version'])
         result.update(status='PASS', session_id=session.identifier, campaign_id=cid,
                       lineage_id=lineage_id, restored_version=restored,
                       evidence_manifest=before, audit=audit['status'])

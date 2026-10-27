@@ -33,6 +33,16 @@ def numpy_binding(root, lineage):
     return value
 
 
+def native_probe_reference(root, lineage):
+    """A factual version binding, NOT a fabricated accepted catalogue record."""
+    binding = numpy_binding(root, lineage)
+    manifest = (Path(root) / engine_state_dir(lineage['lineage_id']) / 'stable' /
+                binding['reference_version'] / 'manifest.json')
+    return {'record_hash': ex.sha(manifest), 'binding': binding,
+            'source_manifest': str(manifest), 'kind': 'CURRENT_NATIVE_VERSION_BINDING',
+            'acceptance_claim': 'NONE', 'reuse_claim': 'NONE'}
+
+
 def surface_probe(references, lineage):
     """Prove non-reuse from a factual lineage surface without inventing hashes.
 
