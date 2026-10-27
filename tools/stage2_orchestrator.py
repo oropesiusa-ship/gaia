@@ -21,6 +21,13 @@ from pathlib import Path
 import shutil
 import tempfile
 import signal
+import sys
+
+# Support the documented ``python tools/stage2_orchestrator.py`` form as well
+# as module execution.  Python otherwise puts ``tools/`` rather than the
+# repository root on sys.path, making both ``tools`` and ``gaia`` unavailable.
+if __package__ in (None, ''):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools import stage2_executor as ex
 from tools.stage2_boundary import inspect_boundary

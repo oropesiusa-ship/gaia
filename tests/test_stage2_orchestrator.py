@@ -112,6 +112,14 @@ class OrchestratorEntrypointTests(unittest.TestCase):
         self.assertIn('inspect-boundary', result.stdout)
         self.assertIn('run-second-session', result.stdout)
 
+    def test_direct_script_cli_works_from_repository_root(self):
+        result = subprocess.run(
+            [sys.executable, '-B', 'tools/stage2_orchestrator.py', '--help'],
+            cwd=ROOT, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('inspect-boundary', result.stdout)
+        self.assertIn('run-second-session', result.stdout)
+
 
 class SecondAdmissionTests(Fixture):
     """Real stores, synthetic prior session; never launch a controller."""
