@@ -76,7 +76,9 @@ class Stage2RuntimeTests(Fixture):
             now[0]+=50;s.observe_until(start+3600)
             self.assertEqual(now[0],start+3600)
             now[0]+=50;s.observe_until(start+7200)
-        self.assertEqual(now[0]-start,7200)
+        # Compare the absolute deadline: subtracting a fractional start can
+        # introduce cancellation error even when observe_until hit it exactly.
+        self.assertEqual(now[0],start+7200)
         rows=s.telemetry.samples()
         self.assertGreater(len([r for r in rows if r['kind']=='IDLE']),700)
         self.assertTrue(all(r['kind']in ('IDLE','VRAM')for r in rows))
