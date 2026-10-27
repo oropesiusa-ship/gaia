@@ -57,6 +57,26 @@ class OrchestratorEntrypointTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'BOUNDARY_ARCHIVE_CHANGED'):
                 orchestrator.verified_boundary(root, contract, {'hash': 'fixture'}, [out])
 
+    def test_external_continuation_boundary_preserves_parent_archive(self):
+        with tempfile.TemporaryDirectory()as directory:
+            root,out,contract=self.archive(directory)
+            original=out/'boundary'
+            external=root/'.gaia/stage2/continuation/boundary'
+            external.parent.mkdir(parents=True)
+            original.rename(external)
+            # The historical failed archive is part of the immutable owned state.
+            original.mkdir();(original/'result.json').write_text('{"status":"BLOCKED_PREEXECUTION"}')
+            proof_path=external/'result.json'
+            proof=json.loads(proof_path.read_bytes())
+            proof['inspection']['owned_manifest']=orchestrator.ex.inventory([out],include_cache=True)
+            proof_path.write_text(json.dumps(proof))
+            manifest=external/'manifest.json'
+            manifest.write_text(json.dumps({p:h for p,h in orchestrator.ex.inventory([external]).items()if p!=str(manifest)}))
+            self.assertEqual(orchestrator.verified_boundary(root,contract,{'hash':'fixture'},[out],archive=external)['status'],'PASS')
+            (original/'result.json').write_text('tampered')
+            with self.assertRaisesRegex(ValueError,'STATE_CHANGED_AFTER_BOUNDARY'):
+                orchestrator.verified_boundary(root,contract,{'hash':'fixture'},[out],archive=external)
+
     def test_explicit_authorization_precedes_reading_any_contract(self):
         with patch.object(orchestrator, 'binding') as read:
             with self.assertRaisesRegex(ValueError, 'EXPLICIT_STAGE2'):

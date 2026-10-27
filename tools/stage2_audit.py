@@ -39,7 +39,8 @@ def final_decision(checks):
     """Missing evidence never means PASS; environmental gaps are distinguished."""
     required = {'session1', 'session2', 'window1', 'window2', 'aggregate',
                 'attribution1', 'attribution2', 'catalogue_probe', 'catalogue_decisions',
-                'terminal_replays', 'frozen_protocol', 'terminal_bytes', 'drift_coverage'}
+                'terminal_replays', 'frozen_protocol', 'terminal_bytes', 'drift_coverage',
+                'retained_scratch','administrative_chain'}
     missing = sorted(required - checks.keys())
     failed = sorted(name for name in required & checks.keys() if checks[name]['status'] != 'PASS')
     environment = any(checks[name]['status'] == 'INCONCLUSIVE_ENVIRONMENT' for name in failed)
@@ -48,7 +49,7 @@ def final_decision(checks):
             else 'FAIL' if failed else 'PASS', 'missing': missing, 'failed': failed}
 
 
-def audit_full(root, out, contract, second_result):
+def audit_full(root, out, contract, second_result,*,ledger_hash=None,boundary_path=None,amendment=None):
     """Re-read both sessions, global budget, attribution and decision traces."""
     root, out = Path(root), Path(out)
     state = Path(contract['state_path'])
@@ -58,14 +59,16 @@ def audit_full(root, out, contract, second_result):
     roots = [out, out.parent / (out.name + '-observer'), state,
              *[root / engine_state_dir(lin) for lin in second.read()['lineages']],
              ex.operational_scratch(contract)]
+    if amendment:roots.append(Path(amendment).parent)
     if second_result.get('temporary_evidence'):
         roots.append(Path(second_result['temporary_evidence']))
-    aggregate = ex.StageBudget(out / 'budget', contract['hash'], roots)
+    ledger_hash=ledger_hash or contract['hash']
+    aggregate = ex.StageBudget(out / 'budget', ledger_hash, roots)
     checks = {'session1': audit_session(root, state, first.identifier, stage='stage2'),
               'session2': audit_session(root, state, second.identifier, stage='stage2',stage2_surfaces=('local_inference','numpy_mlp')),
               'window1': window_coverage(first), 'window2': window_coverage(second),
               'aggregate': audit_second_aggregate(second, aggregate, first)}
-    checks['attribution1'] = audit_observer(out.parent / (out.name + '-observer'), contract['hash'],
+    checks['attribution1'] = audit_observer(out.parent / (out.name + '-observer'), ledger_hash,
         started=first.state_view()['started_clock'], stopped=first.events()[-1]['clock'])
     rows = [row for row in Telemetry(second.root / 'telemetry').samples() if row['kind'] == 'ATTRIBUTION']
     checks['attribution2'] = attribution_window(rows, second.state_view()['started_clock'], second.events()[-1]['clock'],
@@ -75,7 +78,7 @@ def audit_full(root, out, contract, second_result):
     ids = second.state_view()['campaigns']
     checks['catalogue_decisions'] = json.loads((second.root / 'evidence' /
         f'{ids[-1]}-catalogue-decisions.json').read_bytes()) if len(ids) == 2 else {'status': 'FAIL'}
-    boundary = json.loads((out / 'boundary/result.json').read_bytes())
+    boundary = json.loads(((Path(boundary_path)if boundary_path else out/'boundary')/'result.json').read_bytes())
     replays = [*boundary.get('terminal_replays', []), *second_result.get('terminal_replays', [])]
     checks['terminal_replays'] = {'status': 'PASS' if len(replays) == 4 and all(
         row.get('status') == row.get('child_creation_claim') == 'PASS' for row in replays) else 'FAIL'}
@@ -96,5 +99,14 @@ def audit_full(root, out, contract, second_result):
                 missing_drift.append({'session': name, 'note': note})
     checks['drift_coverage'] = {'status': 'INCONCLUSIVE_ENVIRONMENT' if missing_drift else 'PASS',
                               'missing': missing_drift}
+    from tools.stage2_boundary import retained_scratch
+    checks['retained_scratch']=retained_scratch(contract,state,[first.identifier,second.identifier])
+    if amendment:
+        from tools.stage2_continuation import validate
+        chain=validate(root,out/'contract.json',amendment,after=True)
+        checks['administrative_chain']={'status':'PASS','s1_commit':chain['parent']['commit'],
+            's2_commit':contract['commit'],'execution_dependencies_identical':True,'original_budget_preserved':True}
+    else:
+        checks['administrative_chain']={'status':'PASS'if first.read()['freeze']['commit']==second.read()['freeze']['commit']==contract['commit']else'FAIL'}
     return {**final_decision(checks), 'checks': checks,
             'scope': 'FULL_TWO_SESSION_STAGE2_NOT_A_SOFTWARE_TEST_CLAIM'}

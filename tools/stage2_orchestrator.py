@@ -87,11 +87,11 @@ def run_first(root, contract_path, recovery_state, recovery_evidence, *, authori
     return result
 
 
-def verified_boundary(root, contract_path, contract, roots):
+def verified_boundary(root, contract_path, contract, roots,*,archive=None):
     """Verify archived proof AND unchanged owned state before any S2 write."""
     from tools.stage2_terminal import process_trace
     out = Path(contract_path).resolve().parent
-    archive = out / 'boundary'
+    archive = Path(archive)if archive is not None else out / 'boundary'
     manifest_path = archive / 'manifest.json'
     manifest = json.loads(manifest_path.read_bytes())
     actual = ex.inventory([archive], include_cache=True)
@@ -124,7 +124,7 @@ def verified_boundary(root, contract_path, contract, roots):
     return proof
 
 
-def run_second(root, contract_path, recovery_state, recovery_evidence, *, authorize=False):
+def run_second(root, contract_path, recovery_state, recovery_evidence, *, authorize=False,amendment=None):
     """One dedicated, explicitly authorized S2; no repair or automatic retry."""
     if not authorize:
         raise ValueError('EXPLICIT_STAGE2_S2_AUTHORIZATION_REQUIRED')
@@ -139,7 +139,14 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
     from gaia.autonomy.freeze import freeze
     from gaia.autonomy.session import SessionStore, session_contract
     root, contract_path = Path(root).resolve(), Path(contract_path).resolve()
-    contract, protocol = binding(root, contract_path)
+    context=None
+    if amendment is not None:
+        from tools.stage2_continuation import validate
+        context=validate(root,contract_path,amendment)
+        contract,protocol=context['contract'],context['protocol']
+    else:contract, protocol = binding(root, contract_path)
+    ledger_hash=context['ledger_hash']if context else contract['hash']
+    boundary_path=context['boundary_path']if context else contract_path.parent/'boundary'
     recovery = verify_recovery(root, recovery_state, recovery_evidence)
     if recovery['status'] != 'PASS':
         return {'status': 'BLOCKED_PREEXECUTION', 'recovery': recovery,
@@ -154,12 +161,12 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
         raise ValueError('S1_OWNERSHIP_OBSERVER_EVIDENCE_REQUIRED')
     if not (out / 'budget/.lock').is_file():
         raise ValueError('MISSING_S1_BUDGET_LOCK')
-    aggregate = ex.StageBudget(out / 'budget', contract['hash'], [*roots, observer_path])
+    aggregate = ex.StageBudget(out / 'budget', ledger_hash, [*roots, observer_path,*([context['directory']]if context else[])])
     with aggregate.exclusive():
-        proof = verified_boundary(root, contract_path, contract, roots)
+        proof = verified_boundary(root, contract_path, contract, roots,archive=boundary_path)
         from tools.stage2_observer import audit_observer
         previous_session = SessionStore(state, proof['inspection']['session_id'])
-        attribution = audit_observer(observer_path, contract['hash'],
+        attribution = audit_observer(observer_path, ledger_hash,
             started=previous_session.state_view()['started_clock'], stopped=previous_session.events()[-1]['clock'])
         if attribution['status'] != 'PASS':
             return {'status': 'BLOCKED_PREEXECUTION', 'attribution': attribution,
@@ -177,7 +184,9 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
         # ambiguous attempt; restarting never silently creates a new lineage.
         durable(out / 'session2-start.json', {'clock': stamp(),
                 'contract_hash': contract['hash'], 'orchestration_hash': protocol['hash'],
-                'boundary_manifest_sha256': ex.sha(out / 'boundary/manifest.json')}, True)
+                'boundary_manifest_sha256': ex.sha(boundary_path/'manifest.json'),
+                'ledger_contract_hash':ledger_hash,
+                **({'administrative_amendment_sha256':ex.sha(amendment)}if amendment else{})}, True)
         numpy = contract['lineages'][0]
         inference = create_lineage(root, state, 'IMPROVE_LOCAL_INFERENCE_EXISTING_CRITERIA')
         inference_native = root / engine_state_dir(inference['lineage_id'])
@@ -204,6 +213,10 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
                   'final_pass_blockers': ['FULL_DRIFT_ATTRIBUTION_NOT_EXERCISED',
                       'CATALOGUE_REFERENCE_DECISION_COVERAGE_NOT_PROVEN',
                       'LOCK_HOLDER_ATTRIBUTION_NOT_EXERCISED']}
+        if amendment:
+            result['administrative_amendment']={'path':str(Path(amendment).resolve()),'sha256':ex.sha(amendment),
+                's1_commit':context['parent']['commit'],'s2_commit':contract['commit'],
+                'ledger_contract_hash':ledger_hash,'s1_repeated':False,'budget_reset':False}
 
         def record(event):
             with (temporary / 'children.jsonl').open('a') as stream:
@@ -247,7 +260,8 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
             try:
                 verify_tools(root, protocol['files'])
                 from tools.stage2_audit import audit_full
-                final = audit_full(root, out, contract, result)
+                final = audit_full(root, out, contract, result,ledger_hash=ledger_hash,boundary_path=boundary_path,
+                                  amendment=amendment)
                 verify_tools(root, protocol['files'])
                 result['full_stage2_audit'] = final
                 result['final_stage2_status'] = final['status']
@@ -264,24 +278,29 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
         return result
 
 
-def boundary(root, contract_path):
+def boundary(root, contract_path,*,amendment=None):
     """Dedicated CLI operation; a diagnostic failure never admits a session."""
     if __name__ != '__main__':
         raise RuntimeError('DEDICATED_ORCHESTRATOR_CLI_REQUIRED')
     root = Path(root).resolve()
     contract_path = ex.safe_out(root, Path(contract_path)).resolve()
     out = contract_path.parent
-    destination = out / 'boundary'
+    context=None
+    if amendment is not None:
+        from tools.stage2_continuation import validate
+        context=validate(root,contract_path,amendment)
+    destination = context['boundary_path']if context else out / 'boundary'
     if destination.exists():
         raise FileExistsError('BOUNDARY_ALREADY_ATTEMPTED_NO_AUTOMATIC_RETRY')
     # Do not create a budget/lock while inspecting partial or missing S1 state.
     if not (out / 'budget/.lock').is_file():
         raise ValueError('MISSING_S1_BUDGET_LOCK')
-    contract = ex.validate_contract(json.loads(contract_path.read_bytes()))
+    contract = context['contract']if context else ex.validate_contract(json.loads(contract_path.read_bytes()))
+    ledger_hash=context['ledger_hash']if context else contract['hash']
     state = Path(contract['state_path'])
     roots = [out, state, *[root / engine_state_dir(lin) for lin in contract['lineages']],
              ex.operational_scratch(contract)]
-    aggregate = ex.StageBudget(out / 'budget', contract['hash'], roots)
+    aggregate = ex.StageBudget(out / 'budget', ledger_hash, [*roots,*([context['directory']]if context else[])])
     temporary_root = Path('/tmp/opencode')
     if not temporary_root.is_dir():
         raise ValueError('APPROVED_TEMPORARY_DIRECTORY_UNAVAILABLE')
@@ -296,7 +315,8 @@ def boundary(root, contract_path):
         from tools.stage2_observer import sample
         ownership = sample(root, state, os.getpid(), gpu=True)
         result['ownership'] = ownership
-        result['inspection'] = inspect_boundary(root, contract_path)
+        result['inspection'] = inspect_boundary(root, contract_path,contract_override=contract,
+            additional=context['additional']if context else None,ledger_hash=ledger_hash)
         if result['inspection']['status'] == 'PASS' and ownership['status'] == 'PASS':
             def record(event):
                 with (work / 'children.jsonl').open('a') as stream:
@@ -341,7 +361,7 @@ def boundary(root, contract_path):
                 target.chmod(0o444)
         durable(destination / 'manifest.json', ex.inventory([destination], include_cache=True), True)
         fsync_directory(destination)
-        fsync_directory(out)
+        fsync_directory(destination.parent)
     result['evidence_path'] = str(destination)
     return result
 
@@ -353,6 +373,12 @@ def dispatch():
     prep.add_argument('--out', required=True)
     inspect = commands.add_parser('inspect-boundary')
     inspect.add_argument('--contract', required=True)
+    inspect.add_argument('--amendment')
+    continuation=commands.add_parser('prepare-continuation')
+    continuation.add_argument('--contract',required=True)
+    continuation.add_argument('--out',required=True)
+    continuation.add_argument('--regression',required=True)
+    continuation.add_argument('--authorize-administrative-amendment',action='store_true')
     first = commands.add_parser('run-first-session')
     first.add_argument('--contract', required=True)
     first.add_argument('--recovery-state', required=True)
@@ -363,21 +389,26 @@ def dispatch():
     second.add_argument('--recovery-state', required=True)
     second.add_argument('--recovery-evidence', required=True)
     second.add_argument('--authorize-stage2-s2', action='store_true')
+    second.add_argument('--amendment')
     args = parser.parse_args()
     if args.command == 'prepare':
         result = prepare(ex.ROOT, args.out)
+    elif args.command=='prepare-continuation':
+        from tools.stage2_continuation import create
+        result=create(ex.ROOT,args.contract,args.out,args.regression,
+                      authorize=args.authorize_administrative_amendment)
     elif args.command == 'run-first-session':
         result = run_first(ex.ROOT, args.contract, args.recovery_state,
                            args.recovery_evidence, authorize=args.authorize_stage2_s1)
     elif args.command == 'run-second-session':
         result = run_second(ex.ROOT, args.contract, args.recovery_state,
-                            args.recovery_evidence, authorize=args.authorize_stage2_s2)
+                             args.recovery_evidence, authorize=args.authorize_stage2_s2,amendment=args.amendment)
     else:
-        result = boundary(ex.ROOT, args.contract)
+        result = boundary(ex.ROOT, args.contract,amendment=args.amendment)
     print(json.dumps(result, indent=2))
     if args.command == 'run-second-session':
         return 0 if result.get('final_stage2_status') == 'PASS' else 2
-    return 0 if result['status'] in ('PASS', 'PREPARED_ONLY', 'S1_OBSERVED', 'S2_OBSERVED') else 2
+    return 0 if result['status'] in ('PASS', 'PREPARED_ONLY', 'AMENDMENT_PREPARED_ONLY','S1_OBSERVED', 'S2_OBSERVED') else 2
 
 
 def main():

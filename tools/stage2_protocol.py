@@ -14,7 +14,7 @@ from gaia.autonomy.policy import identities
 FILES = (*ex.ADMIN_FILES, 'tools/stage2_boundary.py', 'tools/stage2_learning.py',
          'tools/stage2_terminal.py', 'tools/stage2_session2.py',
          'tools/stage2_orchestrator.py', 'tools/stage2_protocol.py', 'tools/stage2_observer.py',
-         'tools/stage2_audit.py')
+         'tools/stage2_audit.py','tools/stage2_continuation.py')
 
 
 def tool_hashes(root):

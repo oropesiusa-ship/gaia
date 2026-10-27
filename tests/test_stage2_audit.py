@@ -6,7 +6,7 @@ from tools.stage2_audit import final_decision, attribution_window
 class FullDecisionTests(unittest.TestCase):
     names = ('session1', 'session2', 'window1', 'window2', 'aggregate', 'attribution1',
              'attribution2', 'catalogue_probe', 'catalogue_decisions', 'terminal_replays',
-             'frozen_protocol', 'terminal_bytes', 'drift_coverage')
+             'frozen_protocol', 'terminal_bytes', 'drift_coverage','retained_scratch','administrative_chain')
 
     def test_all_required_categories_must_pass(self):
         checks = {name: {'status': 'PASS'} for name in self.names}
