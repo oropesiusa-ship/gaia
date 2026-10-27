@@ -11,10 +11,11 @@ from gaia.autonomy.session import SessionStore
 from gaia.autonomy.telemetry import Telemetry
 from gaia.autonomy.store import CampaignStore
 from gaia.autonomy.lineage import engine_state_dir
+from tools.stage2_fds import capture_events
 
 
-def attribution_window(rows, started, stopped):
-    result = coverage(rows)
+def attribution_window(rows, started, stopped,captures=None):
+    result = coverage(rows,captures=captures)
     if not rows:
         return result
     clocks = [started, *[row['clock'] for row in rows]]
@@ -61,13 +62,14 @@ def audit_full(root, out, contract, second_result):
         roots.append(Path(second_result['temporary_evidence']))
     aggregate = ex.StageBudget(out / 'budget', contract['hash'], roots)
     checks = {'session1': audit_session(root, state, first.identifier, stage='stage2'),
-              'session2': audit_session(root, state, second.identifier, stage='stage2'),
+              'session2': audit_session(root, state, second.identifier, stage='stage2',stage2_surfaces=('local_inference','numpy_mlp')),
               'window1': window_coverage(first), 'window2': window_coverage(second),
               'aggregate': audit_second_aggregate(second, aggregate, first)}
     checks['attribution1'] = audit_observer(out.parent / (out.name + '-observer'), contract['hash'],
         started=first.state_view()['started_clock'], stopped=first.events()[-1]['clock'])
     rows = [row for row in Telemetry(second.root / 'telemetry').samples() if row['kind'] == 'ATTRIBUTION']
-    checks['attribution2'] = attribution_window(rows, second.state_view()['started_clock'], second.events()[-1]['clock'])
+    checks['attribution2'] = attribution_window(rows, second.state_view()['started_clock'], second.events()[-1]['clock'],
+                                               captures=capture_events(state,second))
     before = json.loads((second.root / 'evidence/S2-C3-catalogue-before.json').read_bytes())
     checks['catalogue_probe'] = before['incompatible_probe']
     ids = second.state_view()['campaigns']

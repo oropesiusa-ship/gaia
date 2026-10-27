@@ -9,6 +9,7 @@ import argparse
 import subprocess
 import sys
 from tools.stage2_children import ChildBoundary
+from tools.stage2_fds import with_owned_pidfds
 
 from tools import stage2_executor as ex
 from gaia.autonomy.clock import stamp
@@ -34,7 +35,16 @@ def charge_wall(report_wall,supervised):
 
 class EvidenceTelemetry(Telemetry):
     """Same reader/format as the existing auditor, without evidence-deleting rotation."""
+    def __init__(self,directory,fd_provider=None):
+        super().__init__(directory);self.fd_provider=fd_provider
+
     def append(self,sample):
+        if sample.get('kind')=='PROCESS'and self.fd_provider is not None:
+            measured=self.fd_provider()
+            sample={**sample,'supervisor_fds_before_heartbeat':sample.get('supervisor_fds'),
+                    'supervisor_fds':measured['fds'],'supervisor_pid':measured['pid'],
+                    'supervisor_start_time':measured['start_time'],
+                    'supervisor_fd_accounting':measured['fd_accounting']}
         self.directory.mkdir(parents=True,exist_ok=True)
         path=self.directory/'samples-000001.jsonl'
         if path.is_symlink():raise ValueError('TELEMETRY_SYMLINK')
@@ -81,13 +91,16 @@ class FirstSessionSupervisor(Supervisor):
         super().__init__(root,state,sid,sleep=sleep)
         self.stage_contract=stage_contract;self.aggregate=aggregate;self.now=now
         self.boundary=boundary
-        self.telemetry=EvidenceTelemetry(self.session.root/'telemetry')
+        self.telemetry=EvidenceTelemetry(self.session.root/'telemetry',fd_provider=self.fd_metrics)
         self.child=None;self.child_started=None;self.owned={};self.last_extra=None
-        self.roles={};self.baseline=process_metrics(os.getpid())
+        self.roles={};self.baseline=self.fd_metrics();self.last_fd_snapshot=self.baseline
         self.benchmark=None
         self.environment_evidence=[]
         durable(self.session.root/'evidence'/'baseline.json',{'clock':stamp(),'supervisor':self.baseline,
             'memory':memory(),'vram':vram(),'storage_bytes':aggregate.storage()},True)
+
+    def fd_metrics(self):
+        return with_owned_pidfds(process_metrics(os.getpid()),self.boundary)
 
     def guard(self):
         current_boot=ex.boot_id()
@@ -111,7 +124,8 @@ class FirstSessionSupervisor(Supervisor):
         baseline_rss=self.baseline.get('rss_bytes');baseline_fds=self.baseline.get('fds')
         if baseline_rss is None or baseline_fds is None:raise RuntimeError('SUPERVISOR_BASELINE_UNAVAILABLE')
         if me[3]>baseline_rss+max(64*2**20,.2*baseline_rss):raise RuntimeError('SUPERVISOR_RSS_BAND')
-        if me[4]>baseline_fds+5:raise RuntimeError('SUPERVISOR_FD_BAND')
+        self.last_fd_snapshot=self.fd_metrics()
+        if self.last_fd_snapshot['fd_accounting']['unaccounted_fds']>baseline_fds+5:raise RuntimeError('SUPERVISOR_FD_BAND')
         if self.child is not None and self.child.poll()is None:
             for row in tree(self.child.pid):self.owned[row['pid']]=row
         allowed={pid for pid,row in self.owned.items()if alive(pid,row['starttime'])}
@@ -136,7 +150,7 @@ class FirstSessionSupervisor(Supervisor):
             current=tree(self.child.pid)
             for row in current:self.owned[row['pid']]=row
         self.telemetry.append({'kind':'STAGE2_METRICS','session_id':self.session.identifier,'campaign_id':campaign_id,
-            'phase':phase,'quality':'MEASURED','supervisor':process_metrics(os.getpid()),
+            'phase':phase,'quality':'MEASURED','supervisor':self.fd_metrics(),
             'descendants':[process_metrics(r['pid'])for r in current],
             'stage_storage_bytes':self.aggregate.storage(),'stage_owners':self.aggregate.ownership(),
             'lock_files':[{'path':str(p),'bytes':p.stat().st_size,'held':'NOT_MEASURED'}
@@ -229,7 +243,7 @@ class FirstSessionSupervisor(Supervisor):
             proc=proc or self.child
             try:
                 durable(self.session.root/'evidence'/f'{campaign_id}-interrupted.json',
-                    {'clock':stamp(),'reason':str(exc),'inspection':inspect_campaign(self.state,campaign_id),
+                    {'clock':stamp(),'reason':str(exc),'supervisor':self.last_fd_snapshot,'inspection':inspect_campaign(self.state,campaign_id),
                      'processes':list(self.owned.values()),'aggregate':self.aggregate.view(),
                      'external_backend_processes':{pid:i for pid,i in processes().items()
                          if pid not in self.owned and i[6]!='Z'and any(t in i[5]for t in ('runtime_worker','koboldcpp','llama-server'))}},True)

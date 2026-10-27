@@ -76,7 +76,7 @@ class SecondSessionSupervisor(FirstSessionSupervisor):
             from tools.stage2_observer import sample
             self.attribution_sampled = self.now()
             gpu = not hasattr(self, 'attribution_gpu') or self.now() - self.attribution_gpu >= 30
-            evidence = sample(self.root, self.state, os.getpid(), gpu=gpu)
+            evidence = sample(self.root, self.state, os.getpid(), gpu=gpu,supervisor_metrics=self.fd_metrics())
             if gpu:
                 self.attribution_gpu = self.now()
             self.telemetry.append(evidence)

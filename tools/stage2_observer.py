@@ -17,6 +17,7 @@ from tools.stage2_session2 import experiment_process
 from gaia.autonomy.clock import stamp
 from gaia.autonomy.supervisor import processes, tree, proc_info, role
 from gaia.autonomy.store import durable
+from tools.stage2_fds import fd_count
 
 
 def lock_holders(paths, text, table, owned, current_info=None):
@@ -85,7 +86,7 @@ def gpu_processes():
         return {'status': 'INCONCLUSIVE_ENVIRONMENT', 'error': str(exc), 'processes': []}
 
 
-def sample(root, state, controller_pid, *, gpu=False, terminal=False):
+def sample(root, state, controller_pid, *, gpu=False, terminal=False, supervisor_metrics=None):
     table = processes()
     ancestry = tree(controller_pid)
     owned = {row['pid']: row['starttime'] for row in ancestry}
@@ -104,7 +105,7 @@ def sample(root, state, controller_pid, *, gpu=False, terminal=False):
         failures.append('OBSERVED_CONTROLLER_MISSING')
     value = {'clock': stamp(), 'kind': 'ATTRIBUTION', 'controller_pid': controller_pid,
              'terminal': terminal, 'processes': [{**row, **process_metrics(row['pid'])} for row in ancestry],
-             'observer': process_metrics(os.getpid()),
+             'observer': supervisor_metrics if supervisor_metrics is not None else process_metrics(os.getpid()),
              'locks': holders, 'foreign_experiments': foreign, 'failures': failures}
     if gpu:
         value['gpu'] = gpu_processes()
@@ -118,7 +119,7 @@ def sample(root, state, controller_pid, *, gpu=False, terminal=False):
     return value
 
 
-def coverage(rows):
+def coverage(rows,captures=None):
     failures = []
     if len(rows) < 2:
         failures.append('ATTRIBUTION_NOT_EXERCISED')
@@ -151,9 +152,15 @@ def coverage(rows):
                or row['observer'].get('fds') is None for row in observers):
             failures.append('OBSERVER_METRICS_INCOMPLETE')
         else:
+            counts=[]
+            for row in observers:
+                try:counts.append(fd_count(row['observer'],captures=captures,clock=row['clock']))
+                except (ValueError,KeyError,TypeError)as exc:
+                    failures.append('OBSERVER_FD_ACCOUNTING_INVALID:'+str(exc))
+                    counts.append(row['observer']['fds'])
             if max(row['observer']['rss_bytes'] for row in observers) - initial['rss_bytes'] > max(64*2**20, .2*initial['rss_bytes']):
                 failures.append('OBSERVER_RSS_BAND')
-            if max(row['observer']['fds'] for row in observers) - initial['fds'] > 5:
+            if max(counts) - counts[0] > 5:
                 failures.append('OBSERVER_FD_BAND')
             warm = [row for row in observers if row['clock']['monotonic'] >= observers[0]['clock']['monotonic'] + 300]
             if len(warm) > 1:

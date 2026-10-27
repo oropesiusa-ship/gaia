@@ -16,6 +16,8 @@ from gaia.autonomy.store import CampaignStore
 from gaia.autonomy.inspection import inspect_campaign
 from gaia.autonomy.telemetry import Telemetry
 from gaia.autonomy.supervisor import controllers
+from gaia.autonomy.lineage import LineageStore
+from tools.stage2_fds import fd_count,capture_events
 import audit_closed_loop
 
 # 1.0 v1 campaign defaults: a stage may only be as strict or stricter.
@@ -44,9 +46,19 @@ def gaps(rows,cadence,key=None,*,inclusive=False):
     return found
 
 
-def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL_OK',)):
+def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL_OK',),stage2_surfaces=None):
     root,state=Path(root),Path(state);session=SessionStore(state,session_id);failures=[];notes=[]
     contract=validate_session(session.read());events=session.events();view=session.state_view();limits=contract['limits']
+    second_session=False
+    if stage2_surfaces is not None:
+        if stage!='stage2'or stage2_surfaces!=('local_inference','numpy_mlp')or len(contract['lineages'])!=2:
+            failures.append('INVALID_STAGE2_SURFACE_SEQUENCE')
+        else:
+            lineages=[LineageStore(state,identifier).read()for identifier in contract['lineages']]
+            if (tuple(value['surface']for value in lineages)!=stage2_surfaces
+                    or any(value['hash']!=contract['freeze']['lineages'][value['lineage_id']]['hash']for value in lineages)):
+                failures.append('INVALID_STAGE2_SURFACE_SEQUENCE')
+            else:second_session=True
     if stage=='stage1':
         for key,ceiling in {'maximum_campaigns':5,'maximum_wall_s':5400,'maximum_compute_s':5400,
                             'maximum_storage_bytes':2*2**30,'maximum_research':0}.items():
@@ -63,7 +75,7 @@ def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL
     started=[e['payload']for e in events if e['kind']=='CAMPAIGN_STARTED']
     if len({p['campaign_id']for p in started})!=len(started):failures.append('DUPLICATE_CAMPAIGN')
     campaigns=[]
-    for p in started:
+    for ordinal,p in enumerate(started):
         cid=p['campaign_id'];row={'campaign_id':cid}
         try:row['audit']=audit_closed_loop.audit_campaign(root,state,cid)['status']
         except (ValueError,KeyError,TypeError)as exc:row['audit']='FAIL '+(str(exc)if isinstance(exc,ValueError)else type(exc).__name__+':'+str(exc))
@@ -79,7 +91,11 @@ def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL
             b=STAGES[stage]
             for k in ('maximum_iterations','maximum_experiments','maximum_wall_time','maximum_compute_budget','maximum_disk_budget','maximum_network_research'):
                 if c[k]>b[k]:failures.append(f'LOOSER_THAN_STAGE:{cid}:{k}')
-            if c['promotion_policy']['enabled']!=b['promotion']or c['surface']!=b['surface']:failures.append(f'STAGE_SCOPE:{cid}')
+            expected_surface=stage2_surfaces[ordinal]if second_session and ordinal<2 else b['surface']
+            if second_session and (ordinal>=2 or p['lineage_id']!=contract['lineages'][ordinal]
+                    or c.get('lineage_id')!=p['lineage_id']or c['mode']!=contract['mode']):
+                failures.append(f'STAGE2_CAMPAIGN_ROLE_ORDER:{cid}')
+            if c['promotion_policy']['enabled']!=b['promotion']or c['surface']!=expected_surface:failures.append(f'STAGE_SCOPE:{cid}')
         state_now=CampaignStore(state,cid).inspect()['state']
         if state_now.get('report_ref'):
             report=CampaignStore(state,cid).get(state_now['report_ref'])
@@ -94,6 +110,20 @@ def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL
                     elif charge['wall_s']!=max(values[:2])or charge['wall_s']>1800:failures.append(f'CAMPAIGN_CHARGE_MISMATCH:{cid}')
         campaigns.append(row)
     rows=Telemetry(session.root/'telemetry').samples()
+    fd_required=False;fd_captures=[]
+    if stage=='stage2':
+        baseline_file=session.root/'evidence'/'baseline.json'
+        baseline_data=json.loads(baseline_file.read_bytes())if baseline_file.exists()else{}
+        fd_required='fd_accounting'in baseline_data.get('supervisor',{})
+        if fd_required or any('supervisor_fd_accounting'in r or 'fd_accounting'in r.get('supervisor',{})for r in rows):
+            try:fd_captures=capture_events(state,session)
+            except (OSError,ValueError,TypeError):failures.append('PIDFD_CAPTURE_JOURNAL_INVALID')
+    def measured_fds(metrics,clock,idle=False):
+        if stage!='stage2':return metrics.get('fds')
+        try:return fd_count(metrics,captures=fd_captures,clock=clock,required=fd_required,idle=idle)
+        except (ValueError,KeyError,TypeError)as exc:
+            failures.append('FD_ACCOUNTING_INVALID:'+str(exc))
+            return metrics.get('fds')
     # Periodic streams are sampled while a campaign runs; the storage checks between campaigns are gates, not a stream.
     process=[r for r in rows if r['kind']=='PROCESS'];vram=[r for r in rows if r['kind']=='VRAM'];storage=[r for r in rows if r['kind']=='STORAGE'and r.get('campaign_id')]
     # VRAM is one host sensor, including scheduled idle. Partitioning by campaign
@@ -105,12 +135,20 @@ def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL
     if started and not process:failures.append('NO_PROCESS_TELEMETRY')
     bands={}
     if process:
-        rss=[r['supervisor_rss_bytes']for r in process if r.get('supervisor_rss_bytes')];fds=[r['supervisor_fds']for r in process if r.get('supervisor_fds')is not None]
+        rss=[r['supervisor_rss_bytes']for r in process if r.get('supervisor_rss_bytes')]
+        fds=[measured_fds({'fds':r.get('supervisor_fds'),'pid':r.get('supervisor_pid'),
+              'start_time':r.get('supervisor_start_time'),
+              **({'fd_accounting':r['supervisor_fd_accounting']}if 'supervisor_fd_accounting'in r else{})},r['clock'])
+              for r in process if r.get('supervisor_fds')is not None]
+        if fd_required and any(r.get('supervisor_fds')is None for r in process):failures.append('PROCESS_FD_MEASUREMENT_MISSING')
         if rss:
             allowed=max(RSS_BAND[0],RSS_BAND[1]*rss[0]);bands['supervisor_rss']={'first':rss[0],'max':max(rss),'allowed_growth':allowed}
             if max(rss)-rss[0]>allowed:failures.append('SUPERVISOR_RSS_BAND')
         if fds:
             bands['supervisor_fds']={'first':fds[0],'max':max(fds),'allowed_growth':FD_BAND}
+            if stage=='stage2'and fd_required:
+                raw=[r['supervisor_fds']for r in process if r.get('supervisor_fds')is not None]
+                bands['supervisor_fds'].update(accounting='VERIFIED_PIDFD_CUSTODY_SEPARATED',raw_first=raw[0],raw_max=max(raw))
             if max(fds)-fds[0]>FD_BAND:failures.append('SUPERVISOR_FD_BAND')
     survivors=[p for e in events if e['kind']=='CHILD_EXITED'for p in e['payload'].get('survivors')or[]]
     if survivors:failures.append('PROCESSES_SURVIVED_CLEANUP')
@@ -126,7 +164,8 @@ def audit_session(root,state,session_id,*,stage=None,expected_classes=('TERMINAL
             if len({r.get('boot_id')for r in clocks})!=1:failures.append('STAGE2_BOOT_DISCONTINUITY')
             if any(b['monotonic']-a['monotonic']>=20 for a,b in zip(clocks,clocks[1:])):failures.append('STAGE2_OBSERVATION_GAPS')
             supervisors=[r['supervisor']for r in metrics]
-            rss=[r.get('rss_bytes')for r in supervisors];fds=[r.get('fds')for r in supervisors]
+            rss=[r.get('rss_bytes')for r in supervisors]
+            fds=[measured_fds(r['supervisor'],r['clock'],idle=r['phase']in('SCHEDULED_IDLE','POST_CLEANUP'))for r in metrics]
             baseline_path=session.root/'evidence'/'baseline.json'
             baseline=json.loads(baseline_path.read_bytes())if baseline_path.exists()else{}
             baseline_supervisor=baseline.get('supervisor',{})

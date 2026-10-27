@@ -1,5 +1,6 @@
 """Disposable administrative fixtures only; never launch a measured Stage 2 session."""
 import json
+import contextlib,os
 import unittest
 from unittest.mock import patch,Mock
 
@@ -146,6 +147,21 @@ class Stage2RuntimeTests(Fixture):
             scratch=rt.Path(s.stage_contract['plan']['scratch_root'])
             scratch.rename(scratch.with_name('original-root'));scratch.mkdir()
             with self.assertRaisesRegex(ValueError,'SCRATCH_ROOT_REPLACED'):s.guard()
+
+    def test_six_unaccounted_files_still_trip_the_unchanged_live_band(self):
+        s,b,_,_=self.setup_supervisor()
+        s.stage_contract={'boot_id':ex.boot_id(),'commit':'unit','preregistration_sha256':ex.sha(ex.PREREG),
+            'plan':{**ex.scratch_plan(self.root),'administrative_hashes':{p:ex.sha(ex.ROOT/p)for p in ex.ADMIN_FILES}}}
+        with patch.object(ex,'git',return_value='unit'),patch.object(ex,'changes',return_value=[]),\
+             patch.object(rt,'memory',return_value={'available_bytes':10**10,'below_reserve':False}),\
+             patch.object(rt,'filesystem',return_value={'free_bytes':10**11,'below_reserve':False}),\
+             patch.object(rt,'processes',return_value={}):
+            s.guard()
+            with contextlib.ExitStack()as stack:
+                for _ in range(6):stack.enter_context(open(os.devnull,'rb'))
+                with self.assertRaisesRegex(RuntimeError,'SUPERVISOR_FD_BAND'):s.guard()
+                self.assertEqual(s.last_fd_snapshot['fds'],s.last_fd_snapshot['fd_accounting']['unaccounted_fds'])
+            s.guard()
 
     def test_supervisor_loop_admits_only_two_sequential_unit_campaigns(self):
         s,b,lin,now=self.setup_supervisor();start=now[0];admitted=[]

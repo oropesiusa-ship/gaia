@@ -216,9 +216,11 @@ def run_second(root, contract_path, recovery_state, recovery_evidence, *, author
                 original_numpy=numpy, orchestration_hashes=protocol['files'], boundary=owner)
             try:
                 supervisor.run()
+                durable(store.root/'evidence'/'pidfd-captures.json',
+                    [json.loads(line)for line in (temporary/'children.jsonl').read_text().splitlines()],True)
                 from tools.stage2_observer import sample
                 supervisor.telemetry.append(sample(root, state, os.getpid(), gpu=True))
-                checks = {'session': audit_session(root, state, sid, stage='stage2'),
+                checks = {'session': audit_session(root, state, sid, stage='stage2',stage2_surfaces=('local_inference','numpy_mlp')),
                           'reconciliation': ex.reconcile(store, roots, root=root),
                           'aggregate': audit_second_aggregate(store, aggregate, first),
                           'coverage': window_coverage(store)}

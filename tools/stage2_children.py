@@ -141,8 +141,11 @@ class ChildBoundary:
                 seen.add(pid);pending.append(pid);verified_start[pid]=info[7]
                 # Pin only processes whose sampled ancestry reached this boundary.
                 if pid in self.fds:os.close(self.fds.pop(pid))
+                descriptor=os.fstat(fd)
                 row={'pid':pid,'starttime':info[7],'ppid':info[0],'pgid':info[1],
-                     'sid':info[2],'state':info[6],'role':'OWNED_CHILD'}
+                     'sid':info[2],'state':info[6],'role':'OWNED_CHILD',
+                     'pidfd':fd,'pidfd_identity':[descriptor.st_dev,descriptor.st_ino],
+                     'custodian_pid':self.pid,'custodian_starttime':me[7]}
                 self.owned[pid]=row;self.fds[pid]=fd
                 self.record({'kind':'CHILD_CAPTURED',**row})
         # Do not retain pidfds for already-reaped processes across a long campaign.

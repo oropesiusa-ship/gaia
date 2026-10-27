@@ -21,7 +21,7 @@ LIMITS={'campaign_wall_s':1800,'campaign_iterations':5,'campaign_experiments':3,
  'hang_timeout_s':2700,'heartbeat_s':10,'vram_sample_s':30,'storage_sample_s':60,'minimum_campaign_s':900}
 PREREG=ROOT/'docs/endurance_evidence/STAGE2_PREREGISTRATION_AND_RUNBOOK.md'
 ADMIN_FILES=('tools/stage2_executor.py','tools/stage2_runtime.py','tools/stage2_children.py','tools/audit_endurance_session.py',
-             'tools/stage2_campaign.py','tools/stage2_scratch.py',
+              'tools/stage2_campaign.py','tools/stage2_scratch.py','tools/stage2_fds.py',
              'tools/audit_closed_loop.py','tools/stage1_coverage.py','docs/endurance_evidence/STAGE1_FINAL_REPORT.md')
 CONTRACT_KEYS={'schema','stage','status','commit','identity','freeze','limits','lineages','preregistration_sha256','baseline','plan',
   'executor_sha256','runtime','boot_id','resources','inventory','campaigns_authorized','sessions_started',
