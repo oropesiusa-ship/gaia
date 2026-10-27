@@ -26,6 +26,30 @@ from tools.audit_endurance_session import audit_session
 HEADROOM=64*2**20
 
 
+def external_backends(owned,boundary):
+    """Reconcile a single sampled census against pinned, exact identities.
+
+    A child may appear after the guard's first ownership collection. Collect
+    once more only when candidates exist; never sleep, retry a campaign, infer
+    ownership from a command/group, or forgive an unverified disappearing PID.
+    """
+    candidates={pid:info for pid,info in processes().items()if info[6]!='Z'
+                and any(token in info[5]for token in ('runtime_worker','koboldcpp','llama-server'))}
+    external={pid:info for pid,info in candidates.items()
+              if owned.get(pid,{}).get('starttime')!=info[7]or not alive(pid,info[7])}
+    if external and boundary is not None:
+        for row in boundary.collect():owned[row['pid']]=row
+        if boundary.record_error is not None:
+            raise RuntimeError('SUBREAPER_EVIDENCE_FAILED:'+boundary.record_error)
+        for pid,info in list(external.items()):
+            row=boundary.owned.get(pid,{})
+            if (pid in boundary.fds and row.get('starttime')==info[7]
+                    and row.get('pidfd')==boundary.fds[pid]
+                    and row.get('role')=='OWNED_CHILD'and alive(pid,info[7])):
+                del external[pid]
+    return external
+
+
 def charge_wall(report_wall,supervised):
     values=[supervised]if report_wall is None else[report_wall,supervised]
     if any(type(v)not in (int,float)or not math.isfinite(v)or v<0 for v in values):
@@ -128,9 +152,7 @@ class FirstSessionSupervisor(Supervisor):
         if self.last_fd_snapshot['fd_accounting']['unaccounted_fds']>baseline_fds+5:raise RuntimeError('SUPERVISOR_FD_BAND')
         if self.child is not None and self.child.poll()is None:
             for row in tree(self.child.pid):self.owned[row['pid']]=row
-        allowed={pid for pid,row in self.owned.items()if alive(pid,row['starttime'])}
-        external={pid:i for pid,i in processes().items()if pid not in allowed and i[6]!='Z'
-                  and any(token in i[5]for token in ('runtime_worker','koboldcpp','llama-server'))}
+        external=external_backends(self.owned,self.boundary)
         if external:
             self.environment_evidence.append({'clock':stamp(),'reason':'EXTERNAL_BACKEND_BUSY','processes':external})
             raise RuntimeError('EXTERNAL_BACKEND_BUSY')
