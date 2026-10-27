@@ -17,6 +17,12 @@ from gaia.autonomy.supervisor import Supervisor
 ROLES = ('S2-C3', 'S2-C4')
 
 
+def experiment_process(command):
+    """Recognize GAIA processes, not desktop services merely named 'worker'."""
+    return any(token in command for token in
+               ('autonomy-run', 'gaia.autonomy.regression', '/lab/worker.py', '/gaia/worker.py'))
+
+
 def session2_lineages(state, identifiers, original_numpy):
     """Validate order and provenance, not just caller-supplied surface labels."""
     if len(identifiers) != 2 or identifiers[1] != original_numpy:
@@ -53,13 +59,13 @@ class SecondSessionSupervisor(FirstSessionSupervisor):
 
     def guard(self):
         from tools.stage2_protocol import verify_tools
-        from gaia.autonomy.supervisor import processes, role, alive
+        from gaia.autonomy.supervisor import processes, alive
         verify_tools(self.root, self.orchestration_hashes)
         super().guard()
         allowed = {pid for pid, row in self.owned.items() if alive(pid, row['starttime'])}
         foreign = {pid: info for pid, info in processes().items()
                    if info[6] != 'Z' and pid not in allowed
-                   and role(info[5]) in ('CONTROLLER', 'MATRIX', 'WORKER')}
+                   and experiment_process(info[5])}
         if foreign:
             self.environment_evidence.append({'clock': stamp(),
                 'reason': 'EXTERNAL_EXPERIMENT_BUSY', 'processes': foreign})

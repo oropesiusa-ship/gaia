@@ -6,11 +6,19 @@ from gaia.autonomy.freeze import freeze
 from gaia.autonomy.session import SessionStore, session_contract
 from gaia.autonomy.supervisor import Supervisor
 from tools import stage2_executor as ex, stage2_runtime as rt
-from tools.stage2_session2 import SecondSessionSupervisor, session2_lineages
+from tools.stage2_session2 import SecondSessionSupervisor, session2_lineages, experiment_process
 from gaia.autonomy.catalog import BINDING
 
 
 class SecondSessionTests(Fixture):
+    def test_desktop_workers_are_not_gaia_experiments(self):
+        for command in ('gdm-session-worker [pam/gdm-password]',
+                        '/usr/libexec/gnome-session-init-worker ubuntu', 'node worker.js'):
+            self.assertFalse(experiment_process(command))
+        for command in ('python -I /lab/worker.py /work',
+                        'python -m gaia.autonomy.regression', 'python gaia.py autonomy-run campaign'):
+            self.assertTrue(experiment_process(command))
+
     def setup_second(self, promotion=False):
         numpy = self.lineage()['lineage_id']
         inference = create_lineage(self.root, self.state,
