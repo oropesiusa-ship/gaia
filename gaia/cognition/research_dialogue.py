@@ -41,6 +41,16 @@ def _metric(value):
     safe_text(value['name'],100);safe_text(value['criterion'],300);return value
 
 
+def _shape(value,depth=0):
+    if depth>=6:return {'type':'depth_limit'}
+    if isinstance(value,dict):return {'type':'object','keys':sorted(value),'fields':{key:_shape(value[key],depth+1)for key in sorted(value)}}
+    if isinstance(value,list):return {'type':'array','length':len(value),'items':[_shape(item,depth+1)for item in value[:8]]}
+    if value is None:return {'type':'null'}
+    if isinstance(value,bool):return {'type':'boolean'}
+    if isinstance(value,(int,float)):return {'type':'number'}
+    return {'type':'string'}
+
+
 def _researcher(value,aliases,issue):
     if isinstance(value,dict)and set(value)in ({'proposal'},{'proposal','refs'}):
         safe_text(value['proposal'],800);value={'cause':value['proposal'],'change':value['proposal'],'refs':value.get('refs',['e1'])}
@@ -195,7 +205,8 @@ class ResearchDialogueRunner:
                 except ValueError as exc:
                     if str(exc)in ('MODEL_OBJECT_REQUIRED','MODEL_OUTPUT_BOUND','MODEL_JSON_DEPTH_BOUND','DUPLICATE_JSON_KEY','NONFINITE_JSON'):raise
                     raise ValueError('INVALID_MODEL_JSON')from exc
-                checked=validator(value);stages.append(checked);turn['response']=checked;turn['validation']='ACCEPTED'
+                turn['rejected_response_shape']=_shape(value)
+                checked=validator(value);stages.append(checked);turn.pop('rejected_response_shape');turn['response']=checked;turn['validation']='ACCEPTED'
                 if role=='RESEARCHER':base['research']=checked
                 elif role=='CRITIC':base['critique']=checked
                 else:base['review']=checked
@@ -244,11 +255,11 @@ class DirectResearchRunner:
             turn={'role':'DIRECT_RESEARCHER','prompt':prompt,'prompt_sha256':digest(prompt),'response':None,
                   'response_sha256':digest(response.get('text','')),'raw_output_stored':False,'validation':'PENDING',
                   'max_tokens':self.max_output_tokens,'latency_s':response.get('latency_s',0.0),'hidden_reasoning_requested':False,'model_authority':'NONE'}
-            base['turns'].append(turn);research=_researcher(strict_json(response.get('text','')),aliases,issue)
+            base['turns'].append(turn);value=strict_json(response.get('text',''));turn['rejected_response_shape']=_shape(value);research=_researcher(value,aliases,issue)
             hypothesis=research['hypotheses'][0]
             review=_reviewer({'decision':'ACCEPT','change':hypothesis['intervention'],'refs':['e1'],
                               'question':'Does the direct intervention improve the frozen objective without regressions?'},aliases,research['hypotheses'])
-            turn['response']=research;turn['validation']='ACCEPTED';base.update(status='ACCEPTED',reason='DIRECT_PROPOSAL_ACCEPTED',research=research,review=review)
+            turn.pop('rejected_response_shape');turn['response']=research;turn['validation']='ACCEPTED';base.update(status='ACCEPTED',reason='DIRECT_PROPOSAL_ACCEPTED',research=research,review=review)
             usage=response.get('usage')or{};base['performance']['reported_output_tokens']=usage.get('completion_tokens',0)if type(usage.get('completion_tokens',0))is int else 0
         except TimeoutError:base['reason']='MODEL_TIMEOUT'
         except (ValueError,KeyError,TypeError)as exc:

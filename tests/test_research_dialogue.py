@@ -69,6 +69,13 @@ class DialogueTests(unittest.TestCase):
             with self.subTest(reason=reason):
                 result,_=self.execute(values);self.assertEqual(result['status'],'REJECTED');self.assertEqual(result['reason'],reason)
 
+    def test_schema_rejection_preserves_shape_without_model_values(self):
+        result,_=self.execute([{'unexpected':'secret text','items':[{'x':391}]}])
+        self.assertEqual(result['reason'],'INVALID_RESEARCHER_SCHEMA')
+        shape=result['turns'][0]['rejected_response_shape']
+        self.assertEqual(shape['type'],'object');self.assertEqual(shape['keys'],['items','unexpected'])
+        self.assertNotIn('secret',str(shape));self.assertNotIn('391',str(shape))
+
     def test_backend_timeout_and_call_budget_stop_safely(self):
         result,_=self.execute([TimeoutError('slow')]);self.assertEqual((result['status'],result['reason']),('REJECTED','MODEL_TIMEOUT'))
         result,_=self.execute(budget=DialogueBudget(max_calls=2,max_tokens=1024,max_duration_s=10))
