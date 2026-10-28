@@ -217,3 +217,46 @@ class ResearchDialogueRunner:
                     if base['backend']is not None:base['backend']['metrics']={k:metrics[k]for k in allowed if k in metrics}
             base['performance']['latency_s']=time.monotonic()-start
         return base
+
+
+class DirectResearchRunner:
+    """One model proposal with deterministic bounded review; uses the frozen comparator."""
+    def __init__(self,backend_factory,*,max_output_tokens=96,max_duration_s=180):
+        if type(max_output_tokens)is not int or not 32<=max_output_tokens<=96:raise ValueError('INVALID_DIRECT_RESEARCH_BUDGET')
+        self.backend_factory=backend_factory;self.max_output_tokens=max_output_tokens;self.max_duration_s=max_duration_s
+
+    def run(self,observed,issue):
+        base={'schema':SCHEMA,'source':observed.get('source'),'issue':issue,'evidence_mode':'DIRECT_OBJECTIVE_V1','authority':'NONE',
+              'status':'REJECTED','reason':None,'turns':[],'research':None,'critique':None,'review':None,'backend':None,
+              'performance':{'calls':0,'reserved_tokens':0,'reported_output_tokens':0,'latency_s':0.0}}
+        if not observed.get('issues')or issue is None:return {**base,'status':'STOPPED','reason':'INSUFFICIENT_FAILURE_EVIDENCE'}
+        if issue not in observed['issues']:return {**base,'reason':'ISSUE_NOT_IN_OBSERVATION'}
+        aliases=_aliases(issue);detail=(issue.get('evidence_details')or[{}])[0];backend=None;start=time.monotonic()
+        data={'task':issue['task_id'],'category':issue['category'],'expected':detail.get('expected'),'observed':detail.get('observed'),
+              'allowed_evidence_aliases':list(aliases)}
+        prompt=('Return only JSON {"proposal":"..."}. The proposal must name task '+issue['task_id']+
+                ', state one evidence-linked cause, and one concrete testable intervention. No prose, execution, tools, or authority. DATA='+canonical_json(data).decode())
+        try:
+            backend=self.backend_factory();backend.load();base['performance']['reserved_tokens']=self.max_output_tokens
+            response=backend.generate(prompt,max_tokens=self.max_output_tokens,timeout=self.max_duration_s)
+            base['performance']['calls']=1
+            if not isinstance(response,dict)or response.get('status')!='OK':raise ValueError('MODEL_INFERENCE_FAILED')
+            turn={'role':'DIRECT_RESEARCHER','prompt':prompt,'prompt_sha256':digest(prompt),'response':None,
+                  'response_sha256':digest(response.get('text','')),'raw_output_stored':False,'validation':'PENDING',
+                  'max_tokens':self.max_output_tokens,'latency_s':response.get('latency_s',0.0),'hidden_reasoning_requested':False,'model_authority':'NONE'}
+            base['turns'].append(turn);research=_researcher(strict_json(response.get('text','')),aliases,issue)
+            hypothesis=research['hypotheses'][0]
+            review=_reviewer({'decision':'ACCEPT','change':hypothesis['intervention'],'refs':['e1'],
+                              'question':'Does the direct intervention improve the frozen objective without regressions?'},aliases,research['hypotheses'])
+            turn['response']=research;turn['validation']='ACCEPTED';base.update(status='ACCEPTED',reason='DIRECT_PROPOSAL_ACCEPTED',research=research,review=review)
+            usage=response.get('usage')or{};base['performance']['reported_output_tokens']=usage.get('completion_tokens',0)if type(usage.get('completion_tokens',0))is int else 0
+        except TimeoutError:base['reason']='MODEL_TIMEOUT'
+        except (ValueError,KeyError,TypeError)as exc:
+            reason=str(exc)if isinstance(exc,ValueError)and str(exc).isupper()and len(str(exc))<100 else'INVALID_MODEL_JSON';base['reason']=reason
+            if base['turns']and base['turns'][-1]['validation']=='PENDING':base['turns'][-1]['validation']='REJECTED';base['turns'][-1]['rejection_reason']=reason
+        finally:
+            if backend is not None:
+                try:backend.unload()
+                except (OSError,ValueError,TimeoutError):base['status']='REJECTED';base['reason']='BACKEND_UNLOAD_FAILED'
+            base['performance']['latency_s']=time.monotonic()-start
+        return base

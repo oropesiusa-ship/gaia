@@ -6,7 +6,9 @@ from pathlib import Path
 import unittest
 
 from gaia.cognition.research_agenda import BenchmarkObservation
-from gaia.cognition.research_dialogue import DialogueBudget,ResearchDialogueRunner
+from gaia.cognition.research_dialogue import DialogueBudget,DirectResearchRunner,ResearchDialogueRunner
+from gaia.cognition.research_agenda import deterministic_agenda
+from gaia.cognition.research_comparison import compare_research
 
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -123,6 +125,15 @@ class DialogueTests(unittest.TestCase):
         self.assertIn('One scaffold cannot distinguish arithmetic ability',reviewer)
         self.assertIn('ACCEPT, MODIFY, DISCARD, MORE_EVIDENCE, or STOP',reviewer)
         self.assertNotIn('"decision":"MORE_EVIDENCE"',reviewer)
+
+    def test_direct_one_role_proposal_uses_same_frozen_comparator(self):
+        backend=Backend([{'proposal':'The reasoning failure may come from the Spanish multiplication operator; test a symbolic operator restatement.'}])
+        result=DirectResearchRunner(lambda:backend).run(self.observed,self.issue)
+        comparison=compare_research(self.observed,deterministic_agenda(self.observed),result,selector='RESEARCH_DIRECT_V1_ONE_ROLE')
+        self.assertEqual(result['status'],'ACCEPTED')
+        self.assertEqual(result['performance']['calls'],1)
+        self.assertGreater(comparison['dialogue']['score'],comparison['baseline']['score'])
+        self.assertEqual(comparison['dialogue']['selector'],'RESEARCH_DIRECT_V1_ONE_ROLE')
 
 
 if __name__=='__main__':unittest.main()

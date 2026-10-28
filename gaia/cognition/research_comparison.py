@@ -43,7 +43,7 @@ def _dialogue(observed,value,baseline):
     return result
 
 
-def compare_research(observed,baseline,dialogue):
+def compare_research(observed,baseline,dialogue,*,selector='RESEARCH_DIALOGUE_V1'):
     """Criteria are module constants so a result cannot redefine its evaluator."""
     base=_baseline(observed,baseline);model=_dialogue(observed,dialogue,baseline)
     base_score=sum(base.values());model_score=sum(model.values())
@@ -53,7 +53,7 @@ def compare_research(observed,baseline,dialogue):
     else:abstention='NOT_EXERCISED'
     return {'schema':SCHEMA,'criteria_version':'PRE_REGISTERED_V1','criteria_hash':CRITERIA_HASH,'source':observed['source'],
         'baseline':{'selector':'DETERMINISTIC_BASELINE_V1','checks':base,'score':base_score},
-        'dialogue':{'selector':'RESEARCH_DIALOGUE_V1','checks':model,'score':model_score,'status':dialogue.get('status'),
+        'dialogue':{'selector':selector,'checks':model,'score':model_score,'status':dialogue.get('status'),
                     'calls':dialogue.get('performance',{}).get('calls',0),'reserved_tokens':dialogue.get('performance',{}).get('reserved_tokens',0)},
         'winner':'DIALOGUE'if model_score>base_score else'BASELINE'if base_score>model_score else'TIE',
         'abstention':abstention,'authority':'NONE','evaluator_modified':False}
