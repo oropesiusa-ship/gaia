@@ -86,9 +86,36 @@ def gpu_processes():
         return {'status': 'INCONCLUSIVE_ENVIRONMENT', 'error': str(exc), 'processes': []}
 
 
+def snapshot_descendants(table, controller_pid):
+    """Resolve descendants from one coherent process snapshot.
+
+    Calling ``processes()`` and then ``tree()`` takes two censuses. Short-lived
+    bwrap/worker children can be present in the first but absent from the
+    second, producing a false foreign-process result. Build the closure from
+    the same table used for foreign detection and verify every identity again.
+    """
+    selected = {controller_pid}
+    changed = True
+    while changed:
+        changed = False
+        for pid, info in table.items():
+            if pid not in selected and info[0] in selected:
+                selected.add(pid); changed = True
+    rows = []
+    for pid in selected:
+        info = table.get(pid)
+        current = proc_info(pid)
+        if info is None or current is None or current[7] != info[7]:
+            continue
+        rows.append({'pid': pid, 'ppid': info[0], 'pgid': info[1], 'sid': info[2],
+                     'rss_bytes': info[3], 'fds': info[4], 'role': role(info[5]),
+                     'cmd': info[5][:200], 'state': info[6], 'starttime': info[7]})
+    return rows
+
+
 def sample(root, state, controller_pid, *, gpu=False, terminal=False, supervisor_metrics=None):
     table = processes()
-    ancestry = tree(controller_pid)
+    ancestry = snapshot_descendants(table, controller_pid)
     owned = {row['pid']: row['starttime'] for row in ancestry}
     paths = [Path(root) / '.gaia/locks/experiment.lock', Path(state).parent / 'budget/.lock',
              *Path(state).rglob('.lock')]

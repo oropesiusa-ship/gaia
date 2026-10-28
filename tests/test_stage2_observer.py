@@ -5,10 +5,22 @@ import tempfile
 import unittest
 import json
 from unittest.mock import patch
-from tools.stage2_observer import lock_holders, coverage, observed_first
+from tools.stage2_observer import lock_holders, coverage, observed_first, snapshot_descendants
 
 
 class AttributionTests(unittest.TestCase):
+    def test_single_snapshot_closes_late_worker_ancestry(self):
+        table = {
+            10: (1, 10, 10, 100, 3, 'stage2 runtime', 'S', 1000),
+            11: (10, 11, 11, 100, 3, 'autonomy-run campaign', 'S', 1100),
+            12: (11, 12, 12, 100, 3, '/usr/bin/bwrap worker', 'S', 1200),
+            13: (12, 12, 12, 100, 3, '/lab/worker.py', 'R', 1300),
+            99: (1, 99, 99, 100, 3, 'foreign worker', 'S', 9900),
+        }
+        with patch('tools.stage2_observer.proc_info', side_effect=lambda pid: table.get(pid)):
+            rows = snapshot_descendants(table, 10)
+        self.assertEqual({row['pid'] for row in rows}, {10, 11, 12, 13})
+
     def test_lock_owner_is_tied_to_device_inode_pid_and_start(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / '.lock'
