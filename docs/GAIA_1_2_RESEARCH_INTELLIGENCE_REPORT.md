@@ -121,3 +121,28 @@ La reapertura de V2.2 devolvió exactamente el mismo ID y hash, con un solo diá
 y una sola comparación, demostrando persistencia e idempotencia tras reinicio.
 Evidencia: `GAIA_1_2_RESEARCH_TRANSFER_V2_NEGATIVE.json`, SHA-256
 `f12fb7191ec4333d7bf6cde6456e5752dc08d442101446e4fd8178304b941f5f`.
+
+## Vía directa y continuidad real
+
+La alternativa directa pre-registrada se ejecutó en variantes sucesivas, cada
+una fijada antes de inferencia. El diagnóstico de forma sin valores reveló salidas
+`cause` e `hypothesis` parciales y permitió una reparación de dos llamadas sin
+inventar contenido.
+
+- V3.1 obtuvo 7/7 frente a 6/7, pero su intervención de «feedback system» no
+  operacionalizaba la causa de representación del operador. Se conserva como
+  falso positivo del comparador y no se promueve.
+- V4 y V5 produjeron la intervención causal correcta — comparar/reemplazar
+  `CONTROL_JSON` por `SYMBOLIC_JSON` — y pasaron la confirmación causal separada,
+  pero obtuvieron 6/7 porque el texto generado no incluyó la etiqueta de tarea
+  requerida para trazabilidad. No superaron la regla pre-registrada.
+
+Por tanto `RESEARCH_INTELLIGENCE = NOT_PROMOTED`: no existe una candidata que
+supere simultáneamente el comparador congelado y la confirmación causal.
+
+La continuidad V3 sí ejecutó una campaña real de dos problemas distintos
+(`reasoning` y `spanish`), conservó ambos rechazos y comparaciones, se detuvo por
+presupuesto y reabrió con el mismo ID/hash sin nuevas inferencias ni duplicados.
+Esto cierra el gate de continuidad H, pero no convierte los rechazos en mejora.
+Evidencia: `GAIA_1_2_RESEARCH_CONTINUITY_V3_REAL.json`, SHA-256
+`660642f992059119123f10523e5666dd79ce19b177f2685d4118c38a638c7684`.

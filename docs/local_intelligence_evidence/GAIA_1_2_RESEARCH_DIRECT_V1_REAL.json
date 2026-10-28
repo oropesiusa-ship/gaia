@@ -1,0 +1,139 @@
+{
+  "authority": "NONE",
+  "comparison": {
+    "abstention": "NOT_APPLICABLE",
+    "authority": "NONE",
+    "baseline": {
+      "checks": {
+        "authority_respected": true,
+        "evidence_relation": true,
+        "falsifiable": true,
+        "novel_intervention": false,
+        "real_references": true,
+        "useful_experiment": true,
+        "valid_structure": true
+      },
+      "score": 6,
+      "selector": "DETERMINISTIC_BASELINE_V1"
+    },
+    "criteria_hash": "6dadca435d5b09f9a1313753a54ca7955cd7a7275b600321d091879f4fe3defa",
+    "criteria_version": "PRE_REGISTERED_V1",
+    "dialogue": {
+      "calls": 1,
+      "checks": {
+        "authority_respected": true,
+        "evidence_relation": false,
+        "falsifiable": false,
+        "novel_intervention": false,
+        "real_references": false,
+        "useful_experiment": false,
+        "valid_structure": true
+      },
+      "reserved_tokens": 96,
+      "score": 2,
+      "selector": "RESEARCH_DIRECT_V1_ONE_ROLE",
+      "status": "REJECTED"
+    },
+    "evaluator_modified": false,
+    "schema": "gaia_research_comparison_v1",
+    "source": {
+      "id": "GAIA_1_2_MEMORY_QUALITY_V1.json",
+      "sha256": "571f9c261e852c592b948607c1d7740a5946e9cb42ef6b2bdab813e846e62388"
+    },
+    "winner": "BASELINE"
+  },
+  "dialogue": {
+    "authority": "NONE",
+    "backend": null,
+    "critique": null,
+    "evidence_mode": "DIRECT_OBJECTIVE_V1",
+    "issue": {
+      "category": "REASONING",
+      "evidence_details": [
+        {
+          "expected": {
+            "resultado": 391
+          },
+          "objective_pointer": "/baseline/rows/2/objective",
+          "observed": "{\"resultado\":0.7391}",
+          "prompt": "Calcula 17 por 23. Responde únicamente JSON {\"resultado\":391}.",
+          "row_pointer": "/baseline/rows/2",
+          "score_reason": "STRICT_JSON_EQUAL",
+          "workload_ref": {
+            "id": "chat_quality.OBJECTIVE_TASKS",
+            "sha256": "766f1281c361fc13dd0aeade9adb531e0bee8948aa135c5a9f7f87d92e98b5a0"
+          }
+        },
+        {
+          "expected": {
+            "resultado": 391
+          },
+          "objective_pointer": "/memory/rows/2/objective",
+          "observed": "{\"resultado\":0.7391}",
+          "prompt": "Calcula 17 por 23. Responde únicamente JSON {\"resultado\":391}.",
+          "row_pointer": "/memory/rows/2",
+          "score_reason": "STRICT_JSON_EQUAL",
+          "workload_ref": {
+            "id": "chat_quality.OBJECTIVE_TASKS",
+            "sha256": "766f1281c361fc13dd0aeade9adb531e0bee8948aa135c5a9f7f87d92e98b5a0"
+          }
+        }
+      ],
+      "evidence_refs": [
+        {
+          "pointer": "/baseline/rows/2/objective",
+          "source": {
+            "id": "GAIA_1_2_MEMORY_QUALITY_V1.json",
+            "sha256": "571f9c261e852c592b948607c1d7740a5946e9cb42ef6b2bdab813e846e62388"
+          }
+        },
+        {
+          "pointer": "/memory/rows/2/objective",
+          "source": {
+            "id": "GAIA_1_2_MEMORY_QUALITY_V1.json",
+            "sha256": "571f9c261e852c592b948607c1d7740a5946e9cb42ef6b2bdab813e846e62388"
+          }
+        }
+      ],
+      "failure_count": 2,
+      "format_failure_count": 0,
+      "task_id": "reasoning"
+    },
+    "performance": {
+      "calls": 1,
+      "latency_s": 13.369428192992928,
+      "reported_output_tokens": 0,
+      "reserved_tokens": 96
+    },
+    "reason": "INVALID_MODEL_JSON",
+    "research": null,
+    "review": null,
+    "schema": "gaia_research_dialogue_v1",
+    "source": {
+      "id": "GAIA_1_2_MEMORY_QUALITY_V1.json",
+      "sha256": "571f9c261e852c592b948607c1d7740a5946e9cb42ef6b2bdab813e846e62388"
+    },
+    "status": "REJECTED",
+    "turns": [
+      {
+        "hidden_reasoning_requested": false,
+        "latency_s": 3.5492385419929633,
+        "max_tokens": 96,
+        "model_authority": "NONE",
+        "prompt": "Return only JSON {\"proposal\":\"...\"}. The proposal must name task reasoning, state one evidence-linked cause, and one concrete testable intervention. No prose, execution, tools, or authority. DATA={\"allowed_evidence_aliases\":[\"e1\",\"e2\"],\"category\":\"REASONING\",\"expected\":{\"resultado\":391},\"observed\":\"{\\\"resultado\\\":0.7391}\",\"task\":\"reasoning\"}",
+        "prompt_sha256": "048c377a7308f39df6cc3a9063ff53395a3856bfd3f30168281d37da1d079074",
+        "raw_output_stored": false,
+        "rejection_reason": "INVALID_MODEL_JSON",
+        "response": null,
+        "response_sha256": "50350723746a293402727285cee31c5f2ea297df964febe31916975bbf001340",
+        "role": "DIRECT_RESEARCHER",
+        "validation": "REJECTED"
+      }
+    ]
+  },
+  "evaluator_modified": false,
+  "executions": 0,
+  "network_requests": 0,
+  "promotions": 0,
+  "schema": "gaia_direct_research_benchmark_v1"
+}

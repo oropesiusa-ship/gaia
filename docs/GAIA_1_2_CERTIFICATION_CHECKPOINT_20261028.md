@@ -17,8 +17,8 @@ se integró ningún adapter en la proyección interactiva.
 | D — integración | NOT_APPLICABLE | candidata rechazada; no se integra |
 | E — regresión | PASS | HEAD funcional `e0d0ae9`: 1250 PASS, 9 skips, 85 archivos |
 | F — calidad final | PASS | auditoría pre-registrada: 22/26 objetivos, 20/26 formato, cero errores |
-| G — Research Intelligence | FAIL | diálogo 2/7 frente a baseline 6/7 |
-| H — continuidad real | PARTIAL | una iteración real; multi-iteración sólo simulada |
+| G — Research Intelligence | FAIL | ninguna candidata supera a la vez score congelado y coherencia causal |
+| H — continuidad real | PASS | dos problemas reales, persistencia, presupuesto y reapertura idempotente |
 | I — certificación | NOT_CERTIFIED | gates F, G y H pendientes |
 | J — fases posteriores | NOT_AUTHORIZED | 1.3/1.4 permanecen propuestas; no se amplían capacidades |
 
@@ -26,11 +26,10 @@ se integró ningún adapter en la proyección interactiva.
 
 `NOT_CERTIFIED`.
 
-Los gates funcionales y de calidad acotada pasan, pero el gate obligatorio G
-falla objetivamente (2/7 frente a 6/7) y H no demuestra una campaña real
-multi-iteración aceptada. Las alternativas razonables con evidencia observable se
-agotaron tras tres variantes pre-registradas que fallaron en el mismo límite de
-esquema; ampliar el parser sin conservar la forma rechazada sería especulativo.
+Los gates funcionales, de calidad acotada y continuidad pasan, pero el gate
+obligatorio G falla. La mejor puntuación formal (7/7) tiene una intervención
+causalmente ajena; las intervenciones causalmente correctas empatan 6/7. No se
+combinan resultados post hoc ni se modifica el evaluador para fabricar una mejora.
 
 Regresión del último HEAD con cambios funcionales: 1250 tests PASS, 9 skips,
 0 fallos y 0 errores en 1144,348 s. Log SHA-256:
@@ -50,7 +49,7 @@ Regresión del último HEAD con cambios funcionales: 1250 tests PASS, 9 skips,
 
 El Hito F quedó cerrado por una auditoría offline pre-registrada que separa
 métricas objetivas, rendimiento, funcionales y muestras subjetivas. No atribuye
-mejora cognitiva. Research Dialogue V2/V2.1/V2.2 produjo evidencia negativa y
-permanece en 2/7; H demuestra reapertura real idempotente de una campaña rechazada,
-pero no una campaña real multi-iteración aceptada. La certificación debe permanecer
-`NOT_CERTIFIED` mientras G y H no superen sus gates.
+mejora cognitiva. Research Dialogue V2/V2.1/V2.2 produjo evidencia negativa; la
+vía directa tampoco superó conjuntamente calidad formal y causal. H demuestra una
+campaña real multi-problema y reapertura idempotente. La certificación debe
+permanecer `NOT_CERTIFIED` mientras G no supere su gate.
