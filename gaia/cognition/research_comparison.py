@@ -29,7 +29,7 @@ def _dialogue(observed,value,baseline):
     valid={(r['pointer'],r['source']['sha256'])for r in observed['valid_evidence_refs']}
     refs=selected.get('evidence_refs')or[]
     result['real_references']=bool(refs)and all((r.get('pointer'),r.get('source',{}).get('sha256'))in valid for r in refs)
-    issue=value.get('issue')or{};issue_refs={(r['pointer'],r['source']['sha256'])for r in issue.get('evidence_refs',[])}
+    issue=value.get('issue')or{};issue_refs={(r['pointer'],r['source']['sha256'])for r in issue.get('research_evidence_refs',[])+issue.get('evidence_refs',[])}
     related_text=' '.join(str(selected.get(k,''))for k in ('causal_hypothesis','intervention')).lower()
     related_terms={str(issue.get('task_id','')).lower(),str(issue.get('category','')).lower()}
     result['evidence_relation']=result['real_references']and all((r['pointer'],r['source']['sha256'])in issue_refs for r in refs)and any(t and t in related_text for t in related_terms)

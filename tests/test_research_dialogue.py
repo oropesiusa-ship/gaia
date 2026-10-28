@@ -77,5 +77,36 @@ class DialogueTests(unittest.TestCase):
         result=ResearchDialogueRunner(lambda:backend).run(empty,None)
         self.assertEqual((result['status'],result['reason']),('STOPPED','INSUFFICIENT_FAILURE_EVIDENCE'));self.assertFalse(backend.loaded)
 
+    def test_enriched_mode_exposes_frozen_expected_and_observed_values_only_when_selected(self):
+        enriched,backend=self.execute()
+        self.assertIn('391',backend.prompts[0]);self.assertIn('0.7391',backend.prompts[0]);self.assertEqual(enriched['evidence_mode'],'ENRICHED_OBJECTIVE_V1')
+        self.assertIn('concrete testable intervention',backend.prompts[0])
+        plain_backend=Backend(outputs())
+        plain=ResearchDialogueRunner(lambda:plain_backend,evidence_mode='COUNTS_V1').run(self.observed,self.issue)
+        self.assertNotIn('391',plain_backend.prompts[0]);self.assertNotIn('0.7391',plain_backend.prompts[0]);self.assertEqual(plain['evidence_mode'],'COUNTS_V1')
+
+    def test_minimal_researcher_wire_derives_policy_fields_from_verified_evidence(self):
+        values=list(outputs());values[0]={'cause':'Arithmetic reasoning is unreliable for this multiplication.','change':'Test a short multiplication scaffold.'}
+        result,_=self.execute(values)
+        hypothesis=result['research']['hypotheses'][0]
+        self.assertEqual(hypothesis['prediction'],'Expected exact output: {"resultado":391}')
+        self.assertEqual(hypothesis['evidence_refs'],[self.issue['evidence_refs'][0]])
+        self.assertIn('unverified',hypothesis['uncertainty'][0])
+
+    def test_single_proposal_wire_preserves_model_text_as_unverified_cause_and_intervention(self):
+        values=list(outputs());values[0]={'proposal':'Arithmetic reasoning may be wrong; test a multiplication scaffold.'}
+        result,_=self.execute(values);hypothesis=result['research']['hypotheses'][0]
+        self.assertEqual(hypothesis['causal_hypothesis'],values[0]['proposal']);self.assertEqual(hypothesis['intervention'],values[0]['proposal'])
+
+    def test_explicit_hypothesis_test_intervention_variant_is_normalized_without_losing_text(self):
+        values=list(outputs());values[0]={'hypothesis':'Arithmetic calculation may be wrong.','test':'Repeat the frozen multiplication.',
+            'intervention':'Use a multiplication scaffold.'}
+        result,_=self.execute(values);hypothesis=result['research']['hypotheses'][0]
+        self.assertEqual(hypothesis['causal_hypothesis'],values[0]['hypothesis']);self.assertIn(values[0]['test'],hypothesis['intervention'])
+
+    def test_critic_missing_recommendation_defaults_to_conservative_revision(self):
+        values=list(outputs());values[1]={'kind':'C','objection':'The test does not distinguish calculation from formatting.'}
+        result,_=self.execute(values);self.assertEqual(result['critique']['recommendation'],'REVISE')
+
 
 if __name__=='__main__':unittest.main()

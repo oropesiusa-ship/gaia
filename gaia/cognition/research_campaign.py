@@ -30,7 +30,8 @@ class CampaignBudget:
     def data(self):return {k:getattr(self,k)for k in ('max_iterations','max_llm_calls','max_tokens','max_duration_s','max_storage_bytes')}
 
 
-def _fingerprint(issue):return digest({'task_id':issue['task_id'],'evidence_refs':issue['evidence_refs']})
+def _fingerprint(issue):return digest({'task_id':issue['task_id'],'evidence_refs':issue['evidence_refs'],
+                                       'research_evidence_refs':issue.get('research_evidence_refs',[])})
 
 
 class ResearchCampaign:

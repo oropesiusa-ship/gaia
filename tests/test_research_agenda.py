@@ -33,6 +33,11 @@ class ResearchAgendaTests(unittest.TestCase):
                          {'source':self.source,'pointer':'/baseline/rows/0/objective'})
         self.assertTrue(any(v['task_id']=='fact_update'and v['format_failure_count']==2
                             for v in observed['issues']))
+        reasoning=issues[('reasoning',2)]
+        self.assertEqual(reasoning['evidence_details'][0]['expected'],{'resultado':391})
+        self.assertEqual(reasoning['evidence_details'][0]['observed'],'{"resultado":0.7391}')
+        self.assertEqual(reasoning['evidence_details'][0]['row_pointer'],'/baseline/rows/2')
+        self.assertEqual(observed['workload_ref']['id'],'chat_quality.OBJECTIVE_TASKS')
 
     def test_selector_is_deterministic_complete_and_non_executable(self):
         observed=BenchmarkObservation.from_document(self.document,self.source)

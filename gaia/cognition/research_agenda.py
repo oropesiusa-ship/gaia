@@ -4,6 +4,8 @@ import json
 import re
 
 from .schema import safe_text
+from .chat_quality import OBJECTIVE_TASKS
+from ..provenance import canonical_json
 
 
 SCHEMA='gaia_research_agenda_v1'
@@ -36,6 +38,13 @@ class BenchmarkObservation:
     def from_document(document,source):
         _source(source)
         if not isinstance(document,dict)or document.get('schema')!='gaia_1_2_memory_quality_evidence_v1':raise ValueError('UNSUPPORTED_BENCHMARK_EVIDENCE')
+        contracts={v['id']:v for v in OBJECTIVE_TASKS}
+        memory_contracts={
+            'within_conversation_recall':{'prompt':'¿Cuál es el código de sesión? Responde sólo con el código.','exact':'DELTA_314'},
+            'fact_update':{'prompt':'¿Cuál es mi zona preferida vigente? Responde sólo con la zona.','exact':'SUR_20'},
+            'cross_conversation_recall':{'prompt':'¿Cuál es la clave recuperable del proyecto ORION? Responde sólo con la clave.','exact':'NEBULA_77'}}
+        all_contracts={**contracts,**memory_contracts};workload_ref={'id':'chat_quality.OBJECTIVE_TASKS','sha256':hashlib.sha256(
+            canonical_json(all_contracts)).hexdigest()}
         issues={}
         refs=[]
         for section in ('baseline','memory'):
@@ -49,15 +58,21 @@ class BenchmarkObservation:
                 if not isinstance(task_id,str)or not isinstance(category,str):raise ValueError('INVALID_OBJECTIVE_IDENTITY')
                 pointer=f'/{section}/rows/{index}/objective';reference=_reference(source,pointer);refs.append(reference)
                 issue=issues.setdefault(task_id,{'task_id':task_id,'category':category,'failure_count':0,
-                    'format_failure_count':0,'evidence_refs':[]})
+                    'format_failure_count':0,'evidence_refs':[],'evidence_details':[]})
                 if issue['category']!=category:raise ValueError('INCONSISTENT_OBJECTIVE_CATEGORY')
                 failed=objective['pass']is False
                 format_failed=objective.get('format_pass')is False
                 if failed:issue['failure_count']+=1
                 if format_failed:issue['format_failure_count']+=1
-                if failed or format_failed:issue['evidence_refs'].append(reference)
+                if failed or format_failed:
+                    issue['evidence_refs'].append(reference);contract=all_contracts.get(task_id,{})
+                    expected=contract.get('expected',contract.get('exact'))
+                    observed=row.get('text');safe_text(observed,2000)
+                    issue['evidence_details'].append({'row_pointer':f'/{section}/rows/{index}','objective_pointer':pointer,
+                        'prompt':contract.get('prompt'),'expected':expected,'observed':observed,'score_reason':objective.get('reason'),
+                        'workload_ref':workload_ref})
         values=sorted((v for v in issues.values()if v['failure_count']or v['format_failure_count']),key=lambda v:v['task_id'])
-        return {'schema':OBSERVATION_SCHEMA,'source':dict(source),'issues':values,'valid_evidence_refs':refs,
+        return {'schema':OBSERVATION_SCHEMA,'source':dict(source),'workload_ref':workload_ref,'issues':values,'valid_evidence_refs':refs,
                 'interpretation':'OBJECTIVE_FIELDS_ONLY','authority':'NONE'}
 
 

@@ -11,14 +11,16 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 
 from gaia.cognition.chat_quality import OBJECTIVE_TASKS,SUBJECTIVE_TASKS,objective_score,recall_score
+from gaia.cognition.instruction_adapter import adapt,POLICIES
 from gaia.cognition.conversation import ConversationStore
 from gaia.local_intelligence.primary import PrimaryLocalIntelligenceBackend
+from gaia.provenance import digest
 
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--state-dir',type=Path,required=True)
     p.add_argument('--intelligence-state',type=Path,required=True);p.add_argument('--context',type=int,default=4096)
-    p.add_argument('--memory',choices=('enabled','disabled'),required=True);args=p.parse_args()
+    p.add_argument('--memory',choices=('enabled','disabled'),required=True);p.add_argument('--prompt-policy',choices=POLICIES,default='ORIGINAL');args=p.parse_args()
     memory=args.memory=='enabled';store=ConversationStore(args.state_dir)
     backend=PrimaryLocalIntelligenceBackend(args.intelligence_state,context=args.context);backend.load();rows=[]
     def ask(owner,prompt,identifier=None):
@@ -30,7 +32,9 @@ def main():
         return conversation,value
     try:
         for task in OBJECTIVE_TASKS:
-            _,value=ask('objective-'+task['id'],task['prompt']);rows[-1].update(task=task['id'],category=task['category'],objective=objective_score(task,rows[-1]['text']))
+            adapted=adapt(task['prompt'],args.prompt_policy)
+            _,value=ask('objective-'+task['id'],adapted['prompt']);rows[-1].update(task=task['id'],category=task['category'],
+                objective=objective_score(task,rows[-1]['text']),prompt_changes=adapted['changes'])
         conversation,_=ask('within-memory','Recuerda que el código de sesión es DELTA_314.')
         _,value=ask('within-memory','¿Cuál es el código de sesión? Responde sólo con el código.',conversation['id'])
         rows[-1].update(task='within_conversation_recall',category='MEMORY',objective=recall_score(rows[-1]['text'],'DELTA_314'))
@@ -46,6 +50,8 @@ def main():
     finally:telemetry=backend.unload()
     objective=[r for r in rows if 'objective'in r]
     result={'schema':'gaia_chat_quality_benchmark_v1','context':args.context,'memory':args.memory,
+            'prompt_policy':args.prompt_policy,
+            'prompt_policy_sha256':digest({'policy':args.prompt_policy,'prompts':[adapt(v['prompt'],args.prompt_policy)for v in OBJECTIVE_TASKS]}),
             'objective':{'passed':sum(r['objective']['pass']for r in objective),'total':len(objective),
                          'format_passed':sum(r['objective'].get('format_pass',r['objective']['pass'])for r in objective)},
             'median_latency_s':statistics.median(r['latency_s']for r in rows),'failures':sum(r['status']!='OK'for r in rows),
