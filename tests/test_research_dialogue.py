@@ -152,6 +152,7 @@ class DialogueTests(unittest.TestCase):
         self.assertEqual(result['status'],'ACCEPTED');self.assertEqual(result['performance']['calls'],2)
         self.assertEqual(result['research']['hypotheses'][0]['intervention'],'Test a symbolic multiplication restatement against the unchanged reasoning prompt.')
         self.assertGreater(comparison['dialogue']['score'],comparison['baseline']['score'])
+        self.assertIn('exact task label',backend.prompts[1])
 
     def test_direct_split_field_normalizes_only_preregistered_aliases(self):
         backend=Backend([{'hypothesis':'The reasoning failure is linked to the Spanish multiplication operator.'},

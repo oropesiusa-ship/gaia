@@ -262,6 +262,7 @@ class DirectResearchRunner:
                 repair_data={'task':issue['task_id'],'validated_cause':cause,
                              'diagnosis':(issue.get('diagnostic_details')or{}).get('diagnosis')}
                 repair_prompt=('Return only JSON {"intervention":"..."}. Give one concrete testable intervention that directly tests the validated cause and diagnosis. '
+                               'The intervention must explicitly include the exact task label from DATA for traceability. '
                                'Do not repeat the cause. No prose, execution, tools, or authority. DATA='+canonical_json(repair_data).decode())
                 repair=backend.generate(repair_prompt,max_tokens=self.max_output_tokens,timeout=self.max_duration_s)
                 base['performance']['calls']=2;base['performance']['reserved_tokens']=self.max_output_tokens*2
