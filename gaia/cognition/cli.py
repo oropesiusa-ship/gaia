@@ -7,6 +7,8 @@ from .store import CognitiveStore
 from .evidence import import_evidence
 from .orchestrator import CognitiveOrchestrator
 from .conversation import ConversationStore
+from ..local_intelligence.primary import (PrimaryLocalIntelligenceBackend,
+                                          DEFAULT_CHAT_CONTEXT,MAX_TESTED_CONTEXT)
 
 
 def load(path):
@@ -17,7 +19,7 @@ def load(path):
 
 def register(sub,root):
     for name in ('cognitive-task','cognitive-run','cognitive-tasks','cognitive-trace','cognitive-result',
-                 'cognitive-conversation','cognitive-chat-append','cognitive-chat-history'):
+                  'cognitive-conversation','cognitive-chat-append','cognitive-chat-history','chat'):
         p=sub.add_parser(name,help='Bounded local cognition with externally validated read-only tools')
         p.add_argument('--state-dir',type=Path,default=Path(root)/'state_cognition');p.add_argument('--json',action='store_true')
         if name=='cognitive-task':
@@ -30,12 +32,18 @@ def register(sub,root):
         elif name=='cognitive-chat-append':
             p.add_argument('id');p.add_argument('--role',required=True,choices=('USER','ASSISTANT'));p.add_argument('--content',required=True)
         elif name=='cognitive-chat-history':p.add_argument('id')
+        elif name=='chat':
+            p.add_argument('--intelligence-state',type=Path,default=Path(root)/'state_local_intelligence')
+            p.add_argument('--conversation');p.add_argument('--label',default='GAIA local chat')
+            p.add_argument('--context',type=int,default=DEFAULT_CHAT_CONTEXT)
+            p.add_argument('--message');p.add_argument('--max-tokens',type=int,default=96)
         elif name in ('cognitive-trace','cognitive-result'):p.add_argument('id')
         p.set_defaults(f=lambda args,cmd=name:run(root,cmd,args),cognition_command=True)
 
 
 def run(root,cmd,args):
     try:
+        if cmd=='chat':return chat(args)
         store=CognitiveStore(args.state_dir)
         if cmd=='cognitive-task':
             refs=[import_evidence(store,load(path),path.stem)for path in args.evidence]
@@ -55,3 +63,31 @@ def run(root,cmd,args):
         return 2 if cmd=='cognitive-run'and value['result']['payload']['status']=='FAILED'else 0
     except (OSError,ValueError,TypeError,KeyError):
         print('Cognition failed: INVALID_CONTRACT_EVIDENCE_OR_AUTHORITY');return 2
+
+
+def chat(args):
+    if not 256<=args.context<=MAX_TESTED_CONTEXT:raise ValueError('INVALID_CHAT_CONTEXT')
+    conversations=ConversationStore(args.state_dir)
+    conversation=(conversations._conversation(args.conversation) if args.conversation
+                  else conversations.create(args.label))
+    backend=PrimaryLocalIntelligenceBackend(args.intelligence_state,context=args.context)
+    backend.load()
+    try:
+        if args.message is not None:
+            value=conversations.respond(conversation['id'],args.message,backend,
+                                        maximum=args.context,max_tokens=args.max_tokens)
+            print(json.dumps({'conversation_id':conversation['id'],**value},indent=2,
+                             sort_keys=True,allow_nan=False))
+            return 0 if value['status']=='OK'else 2
+        print('GAIA local chat '+conversation['id']+' (context '+str(args.context)+'). /exit to stop.')
+        while True:
+            try:text=input('you> ')
+            except EOFError:break
+            if text.strip() in ('/exit','/quit'):break
+            if not text.strip():continue
+            value=conversations.respond(conversation['id'],text,backend,
+                                        maximum=args.context,max_tokens=args.max_tokens)
+            print('gaia> '+(value['assistant_turn']['payload']['content'] if value['status']=='OK'
+                            else '[generation failed; user turn preserved]'))
+        return 0
+    finally:backend.unload()

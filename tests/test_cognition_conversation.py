@@ -59,5 +59,31 @@ class ConversationTests(unittest.TestCase):
                 identifier],capture_output=True,text=True,check=True)
             self.assertEqual(json.loads(shown.stdout)[0]['payload']['content'],'persistent hello')
 
+    def test_generated_multiturn_response_is_persisted_with_exact_projection(self):
+        class Backend:
+            def count_tokens(self,text):return len(text.encode())
+            def generate(self,text,max_tokens):
+                self.prompt=text;return {'status':'OK','text':'I remember ALPHA.','input_tokens':len(text.encode())}
+        with tempfile.TemporaryDirectory()as state:
+            conversations=ConversationStore(state);conversation=conversations.create('generated fixture')
+            backend=Backend();value=conversations.respond(conversation['id'],'Remember ALPHA.',backend,
+                                                           maximum=512,max_tokens=32)
+            self.assertEqual(value['status'],'OK')
+            self.assertIn('Remember ALPHA.',backend.prompt)
+            reopened=ConversationStore(state).history(conversation['id'])
+            self.assertEqual([v['payload']['role']for v in reopened],['USER','ASSISTANT'])
+            self.assertEqual(reopened[-1]['payload']['content'],'I remember ALPHA.')
+
+    def test_generation_failure_preserves_user_and_records_failure(self):
+        class Backend:
+            def count_tokens(self,text):return len(text.encode())
+            def generate(self,text,max_tokens):return {'status':'ERROR','reason':'fixture'}
+        with tempfile.TemporaryDirectory()as state:
+            conversations=ConversationStore(state);conversation=conversations.create('failure fixture')
+            value=conversations.respond(conversation['id'],'keep this',Backend(),maximum=512,max_tokens=32)
+            self.assertEqual(value['status'],'FAILED')
+            self.assertEqual(len(conversations.history(conversation['id'])),1)
+            self.assertEqual(len(conversations.store.list('CHAT_FAILURE')),1)
+
 
 if __name__=='__main__':unittest.main()

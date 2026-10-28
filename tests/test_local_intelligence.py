@@ -8,6 +8,7 @@ import tempfile
 import subprocess
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from gaia.local_intelligence.artifacts import download,unpack_runtime,validate_spec,validate_research_manifest
@@ -21,6 +22,7 @@ from gaia.local_intelligence.qualification import runtime_eligibility,model_elig
 from gaia.local_intelligence.registry import runtime_registry
 from gaia.local_intelligence.schema import artifact,validate,ref
 from gaia.local_intelligence.selection import dimensions,select,dominates
+from gaia.local_intelligence.primary import PrimaryLocalIntelligenceBackend
 from gaia.local_intelligence.store import IntelligenceStore
 from gaia.observation.stability import summarize
 from gaia.external_research.network import normalize_url
@@ -160,6 +162,17 @@ class AcquisitionTests(unittest.TestCase):
 
 
 class IsolationTests(unittest.TestCase):
+    def test_primary_context_override_is_bounded_by_tested_and_model_limits(self):
+        base=SimpleNamespace(stack=stack(model_metadata={'smollm3.context_length':65536}),
+                             budget={'max_context':1024,'threads':8,'max_generation_tokens':96})
+        with patch('gaia.local_intelligence.primary.selected_backend',return_value=(base,{'id':'selection'})):
+            backend=PrimaryLocalIntelligenceBackend('.',context=4096)
+            self.assertEqual(backend.adapter.stack['context'],4096)
+            self.assertEqual(backend.capabilities()['max_context_tokens'],4096)
+            for context in (16385,65536):
+                with self.subTest(context=context),self.assertRaisesRegex(ValueError,'TESTED_MODEL_LIMIT'):
+                    PrimaryLocalIntelligenceBackend('.',context=context)
+
     def test_cli_registration_and_denied_inference_are_offline(self):
         root=Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory()as state:
