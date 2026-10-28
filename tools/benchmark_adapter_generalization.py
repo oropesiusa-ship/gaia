@@ -24,7 +24,8 @@ def run_arm(protocol, policy, state_dir, intelligence_state):
     try:
         for case in protocol['cases']:
             projected = adapt(case['prompt'], policy)
-            conversation = store.create('adapter generalization ' + case['id'], 'adapter-generalization-' + policy.lower())
+            owner = 'ag-' + case['id']
+            conversation = store.create('adapter generalization ' + case['id'], owner)
             started = time.perf_counter()
             result = store.respond(conversation['id'], projected['prompt'], backend,
                                    maximum=protocol['controls']['context_tokens'],

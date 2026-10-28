@@ -51,7 +51,7 @@ class AdapterGeneralizationTests(unittest.TestCase):
         candidate = dict(baseline, passed=17, format_passed=16, median_latency_s=1.05)
         self.assertEqual(decide(protocol, baseline, candidate)['decision'], 'PROMOTE')
         candidate['passed'] = 14
-        self.assertEqual(decide(protocol, baseline, candidate)['decision'], 'REJECT_V2')
+        self.assertEqual(decide(protocol, baseline, candidate)['decision'], 'REJECT_CANDIDATE')
 
 
 if __name__ == '__main__':

@@ -91,3 +91,20 @@ volver a denominarse independiente para ajustar esa variante.
 
 Diseñar una variante estrictamente dirigida y evaluarla con casos reservados
 nuevos. No se modifica el modelo seleccionado ni se conectan promociones.
+
+### Variante dirigida V3
+
+`TARGETED_EXACT_AND_OPERATOR_V3` eliminó la guarda global y conservó sólo la
+normalización de JSON español exacto y la restatación de `N por M`. Su protocolo
+nuevo se publicó antes de inferencia en `09eb0a2`.
+
+Una primera ejecución se invalidó y preservó porque el harness compartía el
+propietario de memoria entre casos. Tras corregir exclusivamente ese aislamiento,
+la repetición válida obtuvo 16/18 tanto para baseline como para V3, formato 16/18,
+cero regresiones, latencias medianas 0,933 s y 0,932 s respectivamente, y recursos
+equivalentes. La candidata no alcanzó el umbral fijo de exactitud del 90 % y no
+aportó ganancia: `REJECT_CANDIDATE`. SHA-256 del resultado válido:
+`96b6c9e136952748e478cb1a346da4d209cb360cce384b6b0a804fa1df78164f`.
+
+No existe adapter aceptado para integración; la proyección interactiva permanece
+sin adapter por defecto y la autoridad del LLM sigue siendo `NONE`.

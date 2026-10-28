@@ -58,5 +58,5 @@ def decide(protocol, baseline, candidate):
         'maximum_rss_ratio': candidate['peak_rss_sum_bytes'] <= baseline['peak_rss_sum_bytes'] * limits['maximum_rss_ratio'],
         'maximum_vram_ratio': candidate['peak_device_vram_increment_bytes'] <= baseline['peak_device_vram_increment_bytes'] * limits['maximum_vram_ratio'],
     }
-    return {'decision': 'PROMOTE' if all(checks.values()) else 'REJECT_V2', 'checks': checks,
+    return {'decision': 'PROMOTE' if all(checks.values()) else 'REJECT_CANDIDATE', 'checks': checks,
             'regressions': regressions, 'authority': 'NONE'}
