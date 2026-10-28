@@ -9,8 +9,11 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
 import time
+from types import MethodType
 
 from gaia.autonomy.inspection import inspect_campaign
 from gaia.autonomy.session import SessionStore
@@ -53,7 +56,7 @@ def qualify(root, out, amendment):
     state = Path(effective['state_path'])
     store = SessionStore(state, result['session_id'])
     view = store.state_view()
-    if (view['campaigns'] != [view['running']] or view['finished'] or view['recoveries'] != 0
+    if (view['campaigns'] != [view['running']] or view['finished'] or view['recoveries'] not in (0, 1)
             or view.get('stopped', {}).get('reason') != 'STAGE2_SAFETY_STOP'):
         raise ValueError('C3_RECOVERY_SESSION_PREFIX_INVALID')
     cid = view['running']
@@ -61,6 +64,11 @@ def qualify(root, out, amendment):
     if (campaign['recovery'] != 'RECOVERABLE' or not campaign['resumable']
             or campaign['lineage_id'] != store.read()['lineages'][0]):
         raise ValueError('C3_CAMPAIGN_NOT_UNAMBIGUOUSLY_RECOVERABLE')
+    if view['recoveries'] == 1:
+        relaunches = [e for e in store.events() if e['kind'] == 'CAMPAIGN_RELAUNCHED']
+        if (len(relaunches) != 1 or relaunches[0]['payload'].get('campaign_id') != cid
+                or relaunches[0]['payload'].get('reason') != 'EXPLICIT_C3_PREFIX_RECOVERY'):
+            raise ValueError('C3_RECOVERY_ATTEMPT_PREFIX_INVALID')
     aggregate = ex.StageBudget(out / 'budget', start['ledger_contract_hash'], [out])
     budget = aggregate.view()
     if (budget['sessions'][-1:] != [store.identifier]
@@ -141,6 +149,37 @@ def _supervisor(root, stage_contract, store, aggregate, boundary, evidence):
     sup.benchmark = None
     sup.environment_evidence = []
     sup.roles = {}
+
+    def recovery_launch(this, campaign_id):
+        """Launch with recovery-scoped receipts; never overwrite original C3 evidence."""
+        this.guard()
+        if this.boundary is None:
+            raise RuntimeError('DEDICATED_SUBREAPER_REQUIRED')
+        this.boundary.begin()
+        scratch = ex.operational_scratch(this.stage_contract)
+        binding = this.stage_contract['plan']['scratch_identity']
+        logs = evidence / 'logs'; logs.mkdir(exist_ok=True)
+        with (logs / f'{campaign_id}.out').open('ab') as out, \
+                (logs / f'{campaign_id}.err').open('ab') as err:
+            proc = subprocess.Popen([sys.executable, '-B', '-m', 'tools.stage2_campaign', 'autonomy-run',
+                '--session', this.session.identifier, '--campaign', campaign_id, '--state-dir', str(this.state),
+                '--scratch-root', str(scratch), '--scratch-device', str(binding['device']),
+                '--scratch-inode', str(binding['inode']), '--journal',
+                str(this.session.root / 'evidence/scratch-lifecycle.jsonl')], cwd=this.root,
+                stdout=out, stderr=err, stdin=subprocess.DEVNULL, start_new_session=True,
+                env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
+        this.child = proc; this.child_started = this.now(); this.boundary.attach(proc)
+        from gaia.autonomy.supervisor import proc_info
+        info = proc_info(proc.pid)
+        if info is None and proc.poll() is None:
+            proc.kill(); proc.wait(); raise RuntimeError('CHILD_IDENTITY_UNAVAILABLE')
+        if info:
+            this.owned[proc.pid] = {'pid': proc.pid, 'starttime': info[7]}
+        durable(evidence / f'{campaign_id}-launch.json', {'pid': proc.pid,
+                'starttime': info[7] if info else None, 'campaign_id': campaign_id}, True)
+        return proc
+
+    sup.launch_run = MethodType(recovery_launch, sup)
     return sup
 
 
@@ -191,9 +230,10 @@ def execute(root, contract_path, *, authorize=False):
                 if started['boot_id'] != interrupted['boot_id']:
                     raise ValueError('C3_PRIOR_WALL_BOOT_DISCONTINUITY')
                 prior_wall = max(0., interrupted['monotonic'] - started['monotonic'])
-                store.event('CAMPAIGN_RELAUNCHED', {'campaign_id': cid,
-                    'lineage_id': contract['lineage_id'], 'relaunch': 1,
-                    'reason': 'EXPLICIT_C3_PREFIX_RECOVERY', 'contract_hash': contract['hash']})
+                if store.state_view()['recoveries'] == 0:
+                    store.event('CAMPAIGN_RELAUNCHED', {'campaign_id': cid,
+                        'lineage_id': contract['lineage_id'], 'relaunch': 1,
+                        'reason': 'EXPLICIT_C3_PREFIX_RECOVERY', 'contract_hash': contract['hash']})
                 info, outcome, supervised = sup.supervise(cid, contract['lineage_id'])
                 sup.finish(cid, contract['lineage_id'], info, outcome, prior_wall + supervised)
                 result.update(status='C3_RECOVERED', prior_wall_s=prior_wall,
