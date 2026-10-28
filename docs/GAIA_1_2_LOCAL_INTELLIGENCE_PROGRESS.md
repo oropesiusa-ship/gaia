@@ -180,6 +180,15 @@ Esta regresión funcional no cambia por sí sola `GAIA_1_2 = NOT_CERTIFIED`: los
 adapters V2 y V3 fueron rechazados por sus protocolos reservados y Research
 Dialogue sigue por debajo del baseline determinista.
 
+### HEAD funcional `e0d0ae9` (28-10-2026)
+
+- 85 archivos; 1250 PASS, 9 skips, 0 fallos y 0 errores.
+- Tiempo: 1144,348 s; `ResourceWarning` tratado como error.
+- Log SHA-256:
+  `1fff191b2ec3da7d58cdb200d0cc3168a76bdba61db1a019ba132848aec8b7c4`.
+- Evidencia portable:
+  `local_intelligence_evidence/GAIA_1_2_FINAL_HEAD_REGRESSION_E0D0AE9.json`.
+
 ### Evidencia histórica
 
 - Suite completa: 1205 tests, 9 skips, PASS.

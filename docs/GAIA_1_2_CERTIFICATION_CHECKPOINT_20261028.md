@@ -15,12 +15,26 @@ se integró ningún adapter en la proyección interactiva.
 | B — pre-registro V2 | PASS | `9ab9000`, protocolo sellado antes de inferencia |
 | C — generalización V2 | FAIL | 8/18 frente a 14/18; siete regresiones |
 | D — integración | NOT_APPLICABLE | candidata rechazada; no se integra |
-| E — regresión | PASS | 1247 PASS, 9 skips, 84 archivos |
+| E — regresión | PASS | HEAD funcional `e0d0ae9`: 1250 PASS, 9 skips, 85 archivos |
 | F — calidad final | PASS | auditoría pre-registrada: 22/26 objetivos, 20/26 formato, cero errores |
 | G — Research Intelligence | FAIL | diálogo 2/7 frente a baseline 6/7 |
 | H — continuidad real | PARTIAL | una iteración real; multi-iteración sólo simulada |
 | I — certificación | NOT_CERTIFIED | gates F, G y H pendientes |
 | J — fases posteriores | NOT_AUTHORIZED | 1.3/1.4 permanecen propuestas; no se amplían capacidades |
+
+## Decisión final de esta campaña
+
+`NOT_CERTIFIED`.
+
+Los gates funcionales y de calidad acotada pasan, pero el gate obligatorio G
+falla objetivamente (2/7 frente a 6/7) y H no demuestra una campaña real
+multi-iteración aceptada. Las alternativas razonables con evidencia observable se
+agotaron tras tres variantes pre-registradas que fallaron en el mismo límite de
+esquema; ampliar el parser sin conservar la forma rechazada sería especulativo.
+
+Regresión del último HEAD con cambios funcionales: 1250 tests PASS, 9 skips,
+0 fallos y 0 errores en 1144,348 s. Log SHA-256:
+`1fff191b2ec3da7d58cdb200d0cc3168a76bdba61db1a019ba132848aec8b7c4`.
 
 ## Experimentos de adapter
 
