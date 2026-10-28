@@ -257,9 +257,9 @@ class DirectResearchRunner:
                   'response_sha256':digest(response.get('text','')),'raw_output_stored':False,'validation':'PENDING',
                   'max_tokens':self.max_output_tokens,'latency_s':response.get('latency_s',0.0),'hidden_reasoning_requested':False,'model_authority':'NONE'}
             base['turns'].append(turn);value=strict_json(response.get('text',''));turn['rejected_response_shape']=_shape(value)
-            if isinstance(value,dict)and set(value)=={'cause'}:
-                safe_text(value['cause'],500);turn.pop('rejected_response_shape');turn['response']={'cause':value['cause']};turn['validation']='ACCEPTED_PARTIAL'
-                repair_prompt=('Return only JSON {"change":"..."}. Give one concrete testable intervention for task '+issue['task_id']+
+            if isinstance(value,dict)and set(value)in ({'cause'},{'hypothesis'}):
+                cause=value.get('cause',value.get('hypothesis'));safe_text(cause,500);turn.pop('rejected_response_shape');turn['response']={'cause':cause};turn['validation']='ACCEPTED_PARTIAL'
+                repair_prompt=('Return only JSON {"intervention":"..."}. Give one concrete testable intervention for task '+issue['task_id']+
                                '. Do not repeat the cause. No prose, execution, tools, or authority.')
                 repair=backend.generate(repair_prompt,max_tokens=self.max_output_tokens,timeout=self.max_duration_s)
                 base['performance']['calls']=2;base['performance']['reserved_tokens']=self.max_output_tokens*2
@@ -268,9 +268,9 @@ class DirectResearchRunner:
                     'response_sha256':digest(repair.get('text','')),'raw_output_stored':False,'validation':'PENDING','max_tokens':self.max_output_tokens,
                     'latency_s':repair.get('latency_s',0.0),'hidden_reasoning_requested':False,'model_authority':'NONE'}
                 base['turns'].append(repair_turn);repair_value=strict_json(repair.get('text',''));repair_turn['rejected_response_shape']=_shape(repair_value)
-                if not isinstance(repair_value,dict)or set(repair_value)!={'change'}:raise ValueError('INVALID_DIRECT_CHANGE_SCHEMA')
-                safe_text(repair_value['change'],500);repair_turn.pop('rejected_response_shape');repair_turn['response']={'change':repair_value['change']};repair_turn['validation']='ACCEPTED'
-                value={'cause':value['cause'],'change':repair_value['change']}
+                if not isinstance(repair_value,dict)or set(repair_value)not in ({'change'},{'intervention'}):raise ValueError('INVALID_DIRECT_CHANGE_SCHEMA')
+                change=repair_value.get('change',repair_value.get('intervention'));safe_text(change,500);repair_turn.pop('rejected_response_shape');repair_turn['response']={'change':change};repair_turn['validation']='ACCEPTED'
+                value={'cause':cause,'change':change}
             research=_researcher(value,aliases,issue)
             hypothesis=research['hypotheses'][0]
             review=_reviewer({'decision':'ACCEPT','change':hypothesis['intervention'],'refs':['e1'],

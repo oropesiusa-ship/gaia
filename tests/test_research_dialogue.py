@@ -152,6 +152,13 @@ class DialogueTests(unittest.TestCase):
         self.assertEqual(result['research']['hypotheses'][0]['intervention'],'Test a symbolic multiplication restatement against the unchanged reasoning prompt.')
         self.assertGreater(comparison['dialogue']['score'],comparison['baseline']['score'])
 
+    def test_direct_split_field_normalizes_only_preregistered_aliases(self):
+        backend=Backend([{'hypothesis':'The reasoning failure is linked to the Spanish multiplication operator.'},
+                         {'intervention':'Test symbolic operator restatement for the reasoning task.'}])
+        result=DirectResearchRunner(lambda:backend).run(self.observed,self.issue)
+        self.assertEqual(result['status'],'ACCEPTED');self.assertEqual(result['performance']['calls'],2)
+        self.assertIn('Spanish multiplication',result['research']['hypotheses'][0]['causal_hypothesis'])
+
     def test_direct_prompt_includes_independent_diagnostic_when_present(self):
         path=ROOT/'docs/local_intelligence_evidence/GAIA_1_2_REASONING_SYMBOLIC_DIAGNOSTIC_V2.json'
         observed=augment_observation(self.observed,path.read_bytes(),path.name)
