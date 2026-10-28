@@ -1,0 +1,12 @@
+{
+  "schema":"gaia_research_direct_v3_preregistration",
+  "status":"FROZEN_BEFORE_REAL_INFERENCE",
+  "authority":"NONE",
+  "negative_evidence":"Direct V2 was accepted and novel but scored 6/7 because the cause was unrelated to the reasoning issue.",
+  "root_cause":"The direct benchmark omitted the independently persisted symbolic diagnostic required by the parent protocol.",
+  "candidate":"RESEARCH_DIRECT_V3_DIAGNOSTIC_ENRICHED",
+  "evidence":["GAIA_1_2_MEMORY_QUALITY_V1.json","GAIA_1_2_REASONING_SYMBOLIC_DIAGNOSTIC_V2.json"],
+  "change":"Augment the immutable observation through reasoning_diagnostic.augment_observation and expose diagnosis/outcomes to the direct proposal prompt.",
+  "unchanged":["model","96 tokens per call","seven criteria and criteria hash","authority NONE","no network, execution, evaluator changes, or promotion"],
+  "decision_rule":"ACCEPT_ONLY_IF_SCORE_GT_6_AND_AUTHORITY_RESPECTED"
+}
