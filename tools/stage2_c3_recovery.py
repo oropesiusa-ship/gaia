@@ -180,6 +180,9 @@ def _supervisor(root, stage_contract, store, aggregate, boundary, evidence):
         return proc
 
     sup.launch_run = MethodType(recovery_launch, sup)
+    # Supervisor.__init__ caches the bound launch callable.  Replace that cache
+    # too, otherwise recovery would still call the historical receipt path.
+    sup.launch = sup.launch_run
     return sup
 
 
