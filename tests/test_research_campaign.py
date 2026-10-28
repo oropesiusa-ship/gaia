@@ -38,11 +38,12 @@ class CampaignTests(unittest.TestCase):
             self.assertEqual(first['payload']['reason'],'ITERATION_BUDGET');self.assertTrue(first['payload']['restart_safe'])
             self.assertEqual(len(CognitiveStore(state).list('RESEARCH_DIALOGUE')),2)
 
-    def test_rejection_stops_and_is_preserved(self):
+    def test_issue_local_rejections_continue_and_are_preserved(self):
         with tempfile.TemporaryDirectory()as state:
             factory=lambda:Backend(['bad json'])
             result=ResearchCampaign(CognitiveStore(state),factory).run(self.observed)
-            self.assertEqual(result['payload']['iterations'],1);self.assertEqual(result['payload']['reason'],'DIALOGUE_REJECTED_INVALID_MODEL_JSON')
+            self.assertEqual(result['payload']['iterations'],2);self.assertEqual(result['payload']['reason'],'ITERATION_BUDGET')
+            self.assertEqual(len(CognitiveStore(state).list('RESEARCH_DIALOGUE')),2)
 
     def test_more_evidence_continues_with_next_untried_issue(self):
         with tempfile.TemporaryDirectory()as state:

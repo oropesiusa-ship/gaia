@@ -85,7 +85,9 @@ class ResearchCampaign:
                 'iteration':iteration,'dialogue_ref':ref(record),'comparison':comparison,'authority':'NONE'})
             if stored_bytes+len(canonical_json(candidate))>storage_limit:reason='STORAGE_BUDGET';break
             comp=self.store.put(candidate);stored_bytes+=len(canonical_json(candidate));comparison_refs.append(ref(comp))
-            if dialogue['status']=='REJECTED':reason='DIALOGUE_REJECTED_'+dialogue['reason'];break
+            if dialogue['status']=='REJECTED':
+                if dialogue['reason']in ('INVALID_MODEL_JSON','INVALID_RESEARCHER_SCHEMA','INVALID_CRITIC_SCHEMA','INVALID_REVIEWER_SCHEMA'):continue
+                reason='DIALOGUE_REJECTED_'+dialogue['reason'];break
             if dialogue['status']=='STOPPED':
                 if dialogue['reason']=='MORE_EVIDENCE':continue
                 reason='DIALOGUE_STOPPED_'+dialogue['reason'];break
