@@ -111,6 +111,15 @@ determinista como ganador (6/7 frente a 2/7); por tanto no se atribuye utilidad
 adicional al LLM. Véanse `GAIA_1_2_RESEARCH_INTELLIGENCE_REPORT.md` y
 `local_intelligence_evidence/GAIA_1_2_RESEARCH_DIALOGUE_REAL_V1.json`.
 
+### Diagnóstico de calidad y adaptador experimental
+
+La aritmética fallida se aisló a la representación española de multiplicación:
+el control devolvió `0.7391`, mientras `17 * 23` y `17 times 23` devolvieron
+`391`. En español, una instrucción inglesa preservó correctamente `azul` donde
+el control lo traducía a `blue`. El adaptador V2 obtuvo y replicó 8/8 objetivos y
+6/8 de formato, pero permanece `EXPERIMENTAL_NOT_PROMOTED` hasta superar casos
+independientes. Véase `GAIA_1_2_QUALITY_DIAGNOSTICS_REPORT.md`.
+
 ## Persistencia conversacional
 
 Se añadió custodia persistente y acotada en `gaia/cognition/conversation.py`:

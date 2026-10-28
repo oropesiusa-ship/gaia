@@ -1,0 +1,199 @@
+{
+  "schema": "gaia_chat_quality_benchmark_v1",
+  "context": 4096,
+  "memory": "enabled",
+  "prompt_policy": "LITERAL_AND_OPERATOR_V1",
+  "prompt_policy_sha256": "b982b30040656f027be7f77786bb51310db312ca2b2ce5ca96e2df475364d4f8",
+  "objective": {
+    "passed": 7,
+    "total": 8,
+    "format_passed": 5
+  },
+  "median_latency_s": 1.038459891002276,
+  "failures": 0,
+  "rows": [
+    {
+      "id": "objective-spanish",
+      "status": "OK",
+      "text": "{\"color\":\"blue\"}",
+      "latency_s": 1.967460519997985,
+      "input_tokens": 152,
+      "memories": 0,
+      "task": "spanish",
+      "category": "SPANISH",
+      "objective": {
+        "pass": false,
+        "reason": "STRICT_JSON_EQUAL"
+      },
+      "prompt_changes": [
+        "LITERAL_OUTPUT_GUARD"
+      ]
+    },
+    {
+      "id": "objective-instruction",
+      "status": "OK",
+      "text": "TRES-PALABRAS-AHORA",
+      "latency_s": 1.038459891002276,
+      "input_tokens": 153,
+      "memories": 0,
+      "task": "instruction",
+      "category": "INSTRUCTION",
+      "objective": {
+        "pass": true,
+        "reason": "EXACT_MATCH"
+      },
+      "prompt_changes": [
+        "LITERAL_OUTPUT_GUARD"
+      ]
+    },
+    {
+      "id": "objective-reasoning",
+      "status": "OK",
+      "text": "{\"resultado\":391}",
+      "latency_s": 0.9293964069947833,
+      "input_tokens": 168,
+      "memories": 0,
+      "task": "reasoning",
+      "category": "REASONING",
+      "objective": {
+        "pass": true,
+        "reason": "STRICT_JSON_EQUAL"
+      },
+      "prompt_changes": [
+        "LITERAL_OUTPUT_GUARD",
+        "SPANISH_MULTIPLICATION_RESTATEMENT"
+      ]
+    },
+    {
+      "id": "objective-coding",
+      "status": "OK",
+      "text": "{\"salida\":15}",
+      "latency_s": 0.9555379669909598,
+      "input_tokens": 165,
+      "memories": 0,
+      "task": "coding",
+      "category": "CODING",
+      "objective": {
+        "pass": true,
+        "reason": "STRICT_JSON_EQUAL"
+      },
+      "prompt_changes": [
+        "LITERAL_OUTPUT_GUARD"
+      ]
+    },
+    {
+      "id": "objective-hallucination",
+      "status": "OK",
+      "text": "NO_SE",
+      "latency_s": 0.8735260020039277,
+      "input_tokens": 166,
+      "memories": 0,
+      "task": "hallucination",
+      "category": "HALLUCINATION",
+      "objective": {
+        "pass": true,
+        "reason": "EXACT_MATCH"
+      },
+      "prompt_changes": [
+        "LITERAL_OUTPUT_GUARD"
+      ]
+    },
+    {
+      "id": "within-memory",
+      "status": "OK",
+      "text": "Recuerda que el c\u00f3digo de sesi\u00f3n es DELTA_314.",
+      "latency_s": 1.0956293079943862,
+      "input_tokens": 141,
+      "memories": 0
+    },
+    {
+      "id": "within-memory",
+      "status": "OK",
+      "text": "DELTA_314",
+      "latency_s": 0.9574037489946932,
+      "input_tokens": 210,
+      "memories": 0,
+      "task": "within_conversation_recall",
+      "category": "MEMORY",
+      "objective": {
+        "pass": true,
+        "format_pass": true,
+        "reason": "EXPECTED_PRESENT_OBSOLETE_ABSENT"
+      }
+    },
+    {
+      "id": "fact-update",
+      "status": "OK",
+      "text": "Mi zona preferida es NORTE_10.",
+      "latency_s": 1.0136088699946413,
+      "input_tokens": 137,
+      "memories": 0
+    },
+    {
+      "id": "fact-update",
+      "status": "OK",
+      "text": "Mi zona preferida ahora es SUR_20.",
+      "latency_s": 1.0358315490011591,
+      "input_tokens": 175,
+      "memories": 0
+    },
+    {
+      "id": "fact-update",
+      "status": "OK",
+      "text": "Mi zona preferida vigente es SUR_20.",
+      "latency_s": 1.0805825649877079,
+      "input_tokens": 223,
+      "memories": 0,
+      "task": "fact_update",
+      "category": "MEMORY",
+      "objective": {
+        "pass": true,
+        "format_pass": false,
+        "reason": "EXPECTED_PRESENT_OBSOLETE_ABSENT"
+      }
+    },
+    {
+      "id": "cross-memory",
+      "status": "OK",
+      "text": "La clave recuperable del proyecto ORION es NEBULA_77.",
+      "latency_s": 1.1582070449949242,
+      "input_tokens": 244,
+      "memories": 1,
+      "task": "cross_conversation_recall",
+      "category": "MEMORY",
+      "objective": {
+        "pass": true,
+        "format_pass": false,
+        "reason": "EXPECTED_PRESENT_OBSOLETE_ABSENT"
+      }
+    },
+    {
+      "id": "subjective-explanation",
+      "status": "OK",
+      "text": "La recursi\u00f3n es un concepto en programaci\u00f3n donde una funci\u00f3n se llama a s\u00ed misma para resolver un problema. En otras palabras, una funci\u00f3n llama a s\u00ed misma para realizar una tarea, y luego llama a s\u00ed misma nuevamente para realizar la misma tarea de nuevo, hasta que se cumpla una condici\u00f3n de terminaci\u00f3n.",
+      "latency_s": 2.0481955089926487,
+      "input_tokens": 147,
+      "memories": 0,
+      "task": "explanation",
+      "category": "SPANISH_EXPLANATION",
+      "subjective": "NOT_SCORED"
+    },
+    {
+      "id": "subjective-code_help",
+      "status": "OK",
+      "text": "Una mejora breve para la funci\u00f3n `doble(x)` podr\u00eda ser agregar una verificaci\u00f3n de tipo para asegurarse de que la entrada sea un n\u00famero. Esto evitar\u00eda errores si se pasa un tipo de dato incorrecto. Aqu\u00ed tienes una versi\u00f3n mejorada de la funci\u00f3n:\n\n```python\ndef doble(x):\n    if not isinstance(x, (int, float)):\n        raise TypeError(\"La entrada debe ser un n\u00famero (int o float).\")\n    return x +",
+      "latency_s": 2.5717461750027724,
+      "input_tokens": 148,
+      "memories": 0,
+      "task": "code_help",
+      "category": "CODE_HELP",
+      "subjective": "NOT_SCORED"
+    }
+  ],
+  "telemetry": {
+    "peak_rss_sum_bytes": 581238784,
+    "peak_device_vram_increment_bytes": 2524971008,
+    "runtime_returncode": -15
+  },
+  "subjective_policy": "OUTPUTS_RECORDED_NOT_SCORED"
+}

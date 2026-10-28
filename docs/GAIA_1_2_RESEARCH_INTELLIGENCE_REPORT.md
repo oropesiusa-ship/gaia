@@ -73,10 +73,9 @@ gates. Están resumidas en
 - 20 tests de investigación: PASS.
 - 66 tests cognitivos: PASS.
 - auditor offline: 13/13 PASS.
-- suite global en `.venv-observation`: el entorno correcto resolvió NumPy y la
-  suite avanzó mucho más allá de ese bloqueo, pero dos ejecuciones fueron
-  interrumpidas por límites externos de 240 s y 900 s sin producir resumen. No
-  se declara PASS global para este incremento.
+- suite global particionada en `.venv-observation`: 80 módulos, 1233 tests PASS,
+  9 skips, 0 fallos y 0 errores. La partición evita el timeout monolítico sin
+  omitir módulos; precede a los últimos cambios focalizados de diagnóstico.
 - procesos de inferencia supervivientes: ninguno observado tras las campañas.
 
 ## Límites demostrados
