@@ -9,6 +9,10 @@ El incremento posterior de contexto y chat está `REAL_WORLD_TESTED`: contexto
 interactivo seleccionado de 4096 tokens y conversación local persistente real.
 Véase `GAIA_1_2_CONTEXT_AND_CHAT_REPORT.md`.
 
+La memoria determinista y el contexto adaptativo están también
+`REAL_WORLD_TESTED`: 5/8 → 6/8 en evaluación objetiva 4K y selección real 8K con
+4277 tokens. Véase `GAIA_1_2_MEMORY_QUALITY_REPORT.md`.
+
 Rama: `feat/gaia-1.2-local-intelligence`, creada desde el cierre 1.1
 `3875713a4d3a5256febf438a9d3b08f1dc81979e`.
 
