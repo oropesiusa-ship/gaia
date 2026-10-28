@@ -1,0 +1,11 @@
+{
+  "schema":"gaia_research_direct_v3_1_preregistration",
+  "status":"FROZEN_BEFORE_REAL_INFERENCE",
+  "authority":"NONE",
+  "observed_shape":{"type":"object","keys":["hypothesis"],"fields":{"hypothesis":{"type":"string"}}},
+  "change":"Treat cause/hypothesis as the same validated causal field; request exactly one missing change/intervention field and normalize that alias.",
+  "accepted_partial_shapes":[["cause"],["hypothesis"]],
+  "accepted_repair_shapes":[["change"],["intervention"]],
+  "decision_rule":"ACCEPT_ONLY_IF_SCORE_GT_6_AND_AUTHORITY_RESPECTED",
+  "forbidden":["additional fields","invented content","evaluator changes","network","execution","promotion","authority escalation"]
+}
