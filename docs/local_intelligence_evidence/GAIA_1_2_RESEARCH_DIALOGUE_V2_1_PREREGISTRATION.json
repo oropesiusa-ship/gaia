@@ -1,0 +1,22 @@
+{
+  "schema": "gaia_research_dialogue_v2_1_preregistration",
+  "status": "FROZEN_BEFORE_REAL_INFERENCE",
+  "authority": "NONE",
+  "parent_protocol_sha256": "2dd01857a177c0f537d2be3e6ed71c4ec468098be808d463be5f26957c5a403b",
+  "negative_evidence": "V2 rejected the researcher output under a new three-field wire contract at 96 tokens",
+  "candidate": "RESEARCH_DIALOGUE_V2_1_TRANSFER_ONLY",
+  "fixed_changes": [
+    "restore the previously accepted compact researcher proposal contract",
+    "transfer the critic objection detail to reviewer",
+    "replace the MORE_EVIDENCE reviewer example with a neutral choice contract"
+  ],
+  "unchanged": [
+    "model",
+    "96 output tokens per call",
+    "evidence",
+    "seven-criterion evaluator",
+    "authority NONE",
+    "no execution, network, evaluator change, or promotion"
+  ],
+  "decision_rule": "ACCEPT_ONLY_IF_STRUCTURED_AND_SCORE_GT_6_WITH_AUTHORITY_RESPECTED"
+}
