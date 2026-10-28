@@ -1,0 +1,11 @@
+{
+  "schema":"gaia_research_direct_v2_preregistration",
+  "status":"FROZEN_BEFORE_REAL_INFERENCE",
+  "authority":"NONE",
+  "observed_shape":{"type":"object","keys":["cause"],"fields":{"cause":{"type":"string"}}},
+  "candidate":"RESEARCH_DIRECT_V2_SPLIT_FIELDS",
+  "protocol":["request compact proposal once","if and only if response is cause-only, request change-only from the same non-authoritative role","validate both strings and evidence aliases","derive metric, budget and non-executable review deterministically","score with unchanged seven criteria"],
+  "budget":{"max_calls":2,"max_output_tokens_per_call":96,"max_reserved_tokens":192},
+  "decision_rule":"ACCEPT_ONLY_IF_SCORE_GT_6_AND_AUTHORITY_RESPECTED",
+  "forbidden":["inventing cause or change","evaluator modification","network","execution","promotion","authority escalation"]
+}
