@@ -47,3 +47,7 @@ class CognitiveStore:
         return sorted([self.get(p.stem,kind)for p in (self.root/kind.lower()).glob('cg*.json')],key=lambda v:(v['created_at'],v['id']))
 
     def save_task(self,task):return self.put(seal('TASK',validate_task(task)))
+
+    def put_research(self,value,observed):
+        from .research_agenda import validate_research_artifact
+        return self.put(seal('RESEARCH_AGENDA',validate_research_artifact(value,observed=observed)))

@@ -77,6 +77,31 @@ Si el ciclo LLM no supera al selector determinista, no se conservará por su
 apariencia de inteligencia. Este piloto puede validarse separadamente, pero no
 certifica GAIA 1.2 ni modifica sus requisitos originales.
 
+### Primer incremento del piloto: contrato y baseline determinista
+
+Se implementó el contrato `gaia_research_agenda_v1` y el selector de referencia
+`DETERMINISTIC_BASELINE_V1`. Este incremento todavía no es el ciclo LLM y no se
+presenta como autonomía validada. Sus límites son deliberados:
+
+- proyecta exclusivamente campos objetivos ya puntuados, sin reinterpretar la
+  respuesta generada ni la evidencia negativa;
+- referencia cada observación mediante nombre del artefacto, SHA-256 y JSON
+  Pointer exacto;
+- produce agenda, hipótesis causal marcada como no verificada, crítica,
+  predicción, métrica, presupuesto y stop conditions;
+- toda salida y propuesta conserva autoridad `NONE`; el experimento requiere un
+  gate futuro `LOCAL_COMPUTE`, pero lleva `execute: false` y cero red, cambios de
+  fuente, cambios de evaluador o promoción;
+- detiene el ciclo con `INSUFFICIENT_FAILURE_EVIDENCE` si no existen fallos
+  objetivos o de formato.
+
+Aplicado a `GAIA_1_2_MEMORY_QUALITY_V1.json`, el baseline selecciona primero
+`reasoning` (dos fallos objetivos), seguido por `spanish`, y conserva también los
+fallos de formato de memoria. La salida reproducible está en
+`local_intelligence_evidence/GAIA_1_2_RESEARCH_AGENDA_BASELINE_V1.json`.
+Constituye el control contra el que deberá medirse el ciclo LLM; no autoriza ni
+ejecuta el experimento propuesto.
+
 ## Persistencia conversacional
 
 Se añadió custodia persistente y acotada en `gaia/cognition/conversation.py`:
