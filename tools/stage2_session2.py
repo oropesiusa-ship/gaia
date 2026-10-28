@@ -23,6 +23,24 @@ def experiment_process(command):
                ('autonomy-run', 'gaia.autonomy.regression', '/lab/worker.py', '/gaia/worker.py'))
 
 
+def owned_snapshot_processes(table, owned):
+    """Return owned PIDs and descendants from the same process census.
+
+    A worker can fork after ``self.owned`` was updated but before a guard.  It
+    remains owned when its ancestry leads to an identity-verified owned root;
+    using one table avoids classifying that late child as an external job.
+    """
+    selected = {pid for pid, binding in owned.items()
+                if pid in table and table[pid][7] == binding['starttime']}
+    changed = True
+    while changed:
+        changed = False
+        for pid, info in table.items():
+            if pid not in selected and info[0] in selected:
+                selected.add(pid); changed = True
+    return selected
+
+
 def session2_lineages(state, identifiers, original_numpy):
     """Validate order and provenance, not just caller-supplied surface labels."""
     if len(identifiers) != 2 or identifiers[1] != original_numpy:
@@ -60,12 +78,13 @@ class SecondSessionSupervisor(FirstSessionSupervisor):
 
     def guard(self):
         from tools.stage2_protocol import verify_tools
-        from gaia.autonomy.supervisor import processes, alive
+        from gaia.autonomy.supervisor import processes
         verify_tools(self.root, self.orchestration_hashes)
         super().guard()
-        allowed = {pid: row['starttime'] for pid, row in self.owned.items() if alive(pid, row['starttime'])}
-        foreign = {pid: info for pid, info in processes().items()
-                   if info[6] != 'Z' and allowed.get(pid) != info[7]
+        table = processes()
+        allowed = owned_snapshot_processes(table, self.owned)
+        foreign = {pid: info for pid, info in table.items()
+                   if info[6] != 'Z' and pid not in allowed
                    and experiment_process(info[5])}
         if foreign:
             self.environment_evidence.append({'clock': stamp(),

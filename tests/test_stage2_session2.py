@@ -6,11 +6,23 @@ from gaia.autonomy.freeze import freeze
 from gaia.autonomy.session import SessionStore, session_contract
 from gaia.autonomy.supervisor import Supervisor
 from tools import stage2_executor as ex, stage2_runtime as rt
-from tools.stage2_session2 import SecondSessionSupervisor, session2_lineages, experiment_process
+from tools.stage2_session2 import (SecondSessionSupervisor, session2_lineages,
+                                   experiment_process, owned_snapshot_processes)
 from gaia.autonomy.catalog import BINDING
 
 
 class SecondSessionTests(Fixture):
+    def test_late_descendants_share_owned_process_snapshot(self):
+        table = {
+            10: (1, 10, 10, 0, 0, 'controller', 'S', 100),
+            11: (10, 11, 11, 0, 0, '/usr/bin/bwrap /lab/worker.py', 'S', 110),
+            12: (11, 11, 11, 0, 0, 'python -I /lab/worker.py', 'R', 120),
+            99: (1, 99, 99, 0, 0, 'python -I /lab/worker.py', 'S', 990),
+        }
+        self.assertEqual(owned_snapshot_processes(table, {10: {'starttime': 100}}),
+                         {10, 11, 12})
+        self.assertEqual(owned_snapshot_processes(table, {10: {'starttime': 999}}), set())
+
     def test_desktop_workers_are_not_gaia_experiments(self):
         for command in ('gdm-session-worker [pam/gdm-password]',
                         '/usr/libexec/gnome-session-init-worker ubuntu', 'node worker.js'):
