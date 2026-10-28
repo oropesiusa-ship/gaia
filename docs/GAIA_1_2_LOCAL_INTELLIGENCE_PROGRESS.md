@@ -13,8 +13,69 @@ La memoria determinista y el contexto adaptativo están también
 `REAL_WORLD_TESTED`: 5/8 → 6/8 en evaluación objetiva 4K y selección real 8K con
 4277 tokens. Véase `GAIA_1_2_MEMORY_QUALITY_REPORT.md`.
 
-Rama: `feat/gaia-1.2-local-intelligence`, creada desde el cierre 1.1
-`3875713a4d3a5256febf438a9d3b08f1dc81979e`.
+Rama: `feat/gaia-1.2-local-intelligence`, alineada sobre el merge de cierre 1.1
+`563e51193a992c2f983496e3ec627249690f53ee` y publicada sin PR, merge ni tag 1.2.
+
+## Dirección de desarrollo acordada
+
+La evaluación de inteligencia es el punto de partida de la autonomía, no su
+destino final. No se descarta ningún componente actual: chat multiturno, memoria,
+contexto adaptativo y evaluaciones serán las entradas de ciclos cognitivos
+posteriores.
+
+La progresión prevista queda delimitada así:
+
+1. **GAIA 1.2 — inteligencia local medible:** evaluar, detectar fallos, mejorar
+   calidad y mantener memoria útil.
+2. **Piloto experimental 1.2.x — primer ciclo cognitivo autónomo:** observar
+   resultados, priorizar problemas, formular hipótesis, autocriticarlas y preparar
+   una agenda de experimentos.
+3. **GAIA 1.3 — investigación y experimentación autónomas:** conectar propuestas
+   validadas con herramientas autorizadas y los gates del closed loop existente.
+4. **GAIA 1.4 — automejora del modelo:** investigar configuraciones, fine-tuning o
+   modificaciones de pesos únicamente cuando la evidencia lo justifique.
+
+Esta dirección no amplía los criterios obligatorios de certificación de 1.2.
+`GAIA_1_2` permanece `NOT_CERTIFIED` hasta superar sus requisitos originales.
+
+## Piloto cognitivo 1.2.x — alcance separado
+
+El piloto se construirá como experimento independiente de promoción. Su primera
+entrada serán los benchmarks persistidos actuales, incluidos los fallos de
+español, aritmética y formato. Sin prompts humanos por ciclo, deberá:
+
+1. cargar resultados objetivos y sus referencias;
+2. identificar y priorizar un problema respaldado por evidencia;
+3. producir hipótesis estructuradas;
+4. someterlas a una crítica separada usando el mismo LLM con otro contexto;
+5. proponer un experimento reproducible, predicción, métrica y stop condition;
+6. pasar un filtro determinista de evidencia, autoridad y presupuesto;
+7. persistir hipótesis aceptadas/rechazadas, aprendizaje y siguiente pregunta;
+8. detenerse cuando la evidencia sea insuficiente.
+
+Cada propuesta incluirá problema, referencias, hipótesis causal, cambio
+experimental, predicción, verificación, presupuesto, autoridad requerida,
+incertidumbres y condiciones de parada. Sólo se persistirán conclusiones
+estructuradas; no razonamiento oculto ni cadenas de pensamiento.
+
+El piloto no puede ejecutar shell, herramientas, red, cambios de código o pesos,
+modificar evaluadores, autorizar experimentos, ampliar presupuestos ni intervenir
+en promoción. Sus salidas tienen autoridad `NONE`. Una ejecución futura deberá
+entrar exclusivamente por los gates existentes.
+
+Su utilidad se comparará con un selector determinista sencillo mediante:
+
+- hipótesis válidas y sustentadas por evidencia real;
+- precisión de referencias;
+- experimentos reproducibles;
+- respeto de autoridad, presupuesto y stop conditions;
+- capacidad de detenerse sin evidencia suficiente;
+- coste en tokens, latencia, RAM y VRAM;
+- mejora real de selección frente al baseline determinista.
+
+Si el ciclo LLM no supera al selector determinista, no se conservará por su
+apariencia de inteligencia. Este piloto puede validarse separadamente, pero no
+certifica GAIA 1.2 ni modifica sus requisitos originales.
 
 ## Persistencia conversacional
 
@@ -59,10 +120,10 @@ este host. Contexto >1024 y diálogo generado entre reinicios están ahora
 interactivo. Calidad general, RAG, memoria semántica y certificación final
 permanecen `NOT_EXERCISED`.
 
-## Regresión
+## Regresión vigente
 
-- 62 tests cognition: PASS.
-- 25 tests local intelligence: PASS.
-- Suite completa: 1198 tests, 9 skips, PASS.
-- Log: `/tmp/opencode/gaia-1.2-35eacd2-full-suite.log`.
-- SHA-256: `30f845caf0236a027b16bf409ea5f2d2e8e90c9594b8b6909bb6d6053e0c1643`.
+- Suite completa: 1205 tests, 9 skips, PASS.
+- Auditoría de memoria/calidad: 11/11 checks, PASS.
+- Log: `/tmp/opencode/gaia-1.2-memory-quality-final-full-suite.log`.
+- SHA-256: `1329a405c116d0f1e7164e2c75fa6d30243267bd4e1d3c835f63f5f3d2a0718c`.
+- Procesos supervivientes al cierre: ninguno.
