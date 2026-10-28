@@ -41,9 +41,10 @@ def disk_used(contract,current,state_path,engine_path=None):
 
 
 def budget_check(contract,current,state_path,engine_path=None,now=None):
-    validate_campaign(contract);now=time.time()if now is None else now
+    validate_campaign(contract)
     if current.get('started_at')is not None:
-        elapsed=now-current['started_at']
+        from .clock import elapsed as campaign_elapsed
+        elapsed=campaign_elapsed(current,now)
         if elapsed<0 or elapsed>=min(contract['maximum_wall_time'],contract['maximum_compute_budget']):raise BudgetExceeded('STOPPED_BUDGET')
     if current.get('iteration',0)>contract['maximum_iterations']or current.get('experiments',0)>contract['maximum_experiments']or current.get('research_calls',0)>contract['maximum_network_research']or current.get('compute_reserved_s',0)>contract['maximum_compute_budget']:raise BudgetExceeded('STOPPED_BUDGET')
     if disk_used(contract,current,state_path,engine_path)>=contract['maximum_disk_budget']:raise BudgetExceeded('STOPPED_BUDGET')

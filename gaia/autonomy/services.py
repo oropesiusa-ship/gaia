@@ -35,10 +35,14 @@ class BoundedEngine(engine.Engine):
         elif hasattr(self,'campaign_budget'):
             contract,store,state,engine_path=self.campaign_budget
             current=store.current();budget_check(contract,current,state,engine_path)
-            remaining=min(contract['maximum_wall_time'],contract['maximum_compute_budget'])-(time.time()-current['started_at'])
+            from .clock import elapsed
+            remaining=min(contract['maximum_wall_time'],contract['maximum_compute_budget'])-elapsed(current)
             cap=min(cap or self.lim['max_experiment_seconds'],contract['maximum_trial_seconds'],remaining)
             if cap<=0:raise BudgetExceeded('STOPPED_BUDGET')
-            if store.read('control')['request']!='RUN':raise InterruptedError('OPERATOR_CONTROL_AT_TRIAL_BOUNDARY')
+            # v1 interrupts at the next trial. v2 defers STOP/PAUSE to the controller, which applies them once the committed
+            # experiment is learned and verified: interrupting a trial would turn an orderly stop into a blocked lineage.
+            if contract.get('schema')!='gaia_closed_loop_campaign_v2'and store.read('control')['request']!='RUN':
+                raise InterruptedError('OPERATOR_CONTROL_AT_TRIAL_BOUNDARY')
         return super().trial(src,seed,task,cap,**kwargs)
 
 
@@ -62,7 +66,8 @@ class Services:
 
     def remaining(self,current=None):
         current=current or self.store.current()
-        return min(self.contract['maximum_wall_time'],self.contract['maximum_compute_budget'])-(time.time()-current['started_at'])
+        from .clock import elapsed
+        return min(self.contract['maximum_wall_time'],self.contract['maximum_compute_budget'])-elapsed(current)
 
     def promotion_allowed(self,eng,record,out):
         current=self.store.current();m=self.store.get(current['materialized_ref']);a=self.store.get(current['authorization_ref'])

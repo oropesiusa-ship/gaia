@@ -30,6 +30,33 @@
 > - **Host.** Con carga de escritorio interactiva, los tests G2 de v0.1 fallaron en dos suites completas. Endurance requiere un host en reposo, o registrar su carga como variable y no comparar medidas entre ventanas con cargas distintas.
 > - **Cognición.** La comparación de planes es una revisión consultiva sin influencia en la selección. Las métricas de endurance no deben contarla como decisión cognitiva.
 
+> **Estado de implementación (rama `feat/gaia-1.1-endurance`, rebasada sobre el cierre de 1.0.1 `49c7260`).**
+> Hay una primera versión de los diez Required, con tests unitarios y de integración que usan procesos hijos reales;
+> §1, §2 y §10 tienen además una prueba real de extremo a extremo desde la CLI.
+>
+> | § | Qué | Commit |
+> | --- | --- | --- |
+> | 5, 4 | inspección realmente read-only (`autonomy-status` sin lock ni escritura, `autonomy-repair-cursor` explícito) y clase de recuperación inequívoca | `2aa168d` |
+> | 3 | tiempo monotónico, boot ID, presupuestos conservadores ante saltos de reloj y desglose de tiempos por campaña | `189708f` |
+> | 8 | métricas de progreso y de parada | `9a234ec` |
+> | 1, 2 | sesión con presupuestos agregados y supervisor externo (heartbeat, cuelgues, evidencia, procesos propios, relanzamiento, adopción) | `e5ca0c2` |
+> | 10 | congelación del protocolo, re-verificada antes de cada campaña | `0e860b3` |
+> | 6, 9 | almacenamiento por propietario con gates 70/85/95 % y reserva del host; telemetría rotada y logs acotados | `93609bf` |
+> | 7 | catálogo de referencias verificadas entre linajes, con reutilización sólo por binding exacto | `ca22361` |
+> | — | dos rondas de revisión independiente | `6d8aeb4`, `6d95812` |
+>
+> Correcciones de las dos rondas de revisión:
+>
+> - **Relanzamientos:** las pausas del operador y los locks ajenos no consumen relanzamientos.
+> - **Cómputo:** se carga siempre, también en campañas sin report.
+> - **Reinicio del supervisor:** inspecciona y adopta antes de relanzar, y cuenta una sola vez.
+> - **Procesos:** limpia los que sobreviven al controlador y comprueba pid más start time al matar; no trata a los zombis como vivos.
+> - **Congelación:** un commit sólo de documentación no cuenta como cambio de protocolo, y los movimientos del puntero deben ser de la propia sesión.
+> - **Catálogo:** aplica las reversiones del ledger y del puntero.
+> - **Telemetría:** tolera una línea a medio escribir.
+>
+> La suite completa sobre `6d95812` da 992 tests, OK, 9 skips y 0 fallos. Falta Stage 0, que no se ejecuta hasta que 1.0.1 esté mergeada.
+
 GAIA v1.0 está cerrada y congelada; GAIA 1.0.1 integra el ciclo completo sobre ella.
 
 **Base estable**

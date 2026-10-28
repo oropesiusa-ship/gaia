@@ -85,6 +85,23 @@ class CampaignStore:
             previous=v['hash'];result.append(v)
         return result
 
+    def inspect(self):
+        """Pure read of the committed journal: the derived cursor is compared, never repaired."""
+        events=self.events()
+        if not events:raise ValueError('EMPTY_JOURNAL')
+        state=events[-1]['state'];path=self.root/'current.json'
+        if not path.exists():cursor='MISSING'
+        else:
+            try:cursor='CONSISTENT'if self.read('current')==state else'STALE'
+            except ValueError:cursor='UNREADABLE'
+        return {'events':events,'state':state,'cursor':cursor}
+
+    def repair_cursor(self):
+        """Explicit repair of the derived cursor, only under the campaign lock (raises if the campaign is running)."""
+        with self.lock():
+            before=self.inspect()['cursor'];self.current()
+            return {'cursor_before':before,'cursor_after':self.inspect()['cursor']}
+
     def current(self):
         events=self.events()
         if not events:raise ValueError('EMPTY_JOURNAL')
@@ -100,7 +117,8 @@ class CampaignStore:
         if phase not in STATES or(not old and phase!='CREATED')or(old and not resumed and phase!=old and phase not in NEXT.get(old,set())and phase not in TERMINAL|{'PAUSED'}):raise ValueError('INVALID_STATE_TRANSITION')
         if old in TERMINAL:raise ValueError('CAMPAIGN_ALREADY_TERMINAL')
         state={**prior,**(updates or {}),'phase':phase}
-        value={'sequence':len(events)+1,'previous_hash':events[-1]['hash']if events else None,'timestamp':time.time(),'state':state}
+        from .clock import stamp
+        clock=stamp();value={'sequence':len(events)+1,'previous_hash':events[-1]['hash']if events else None,'timestamp':clock['wall'],'clock':clock,'state':state}
         value['hash']=digest(value)
         durable(self.root/'events'/f"{value['sequence']:06d}.json",value,True);durable(self.root/'current.json',state);return state
 

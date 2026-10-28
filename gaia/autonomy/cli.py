@@ -15,7 +15,7 @@ def register(sub,root):
         else:p.add_argument('lineage_id')
         if name=='autonomy-lineage-unblock':p.add_argument('--reason',required=True)
         p.set_defaults(f=lambda args,cmd=name:run_lineage(root,cmd,args),autonomy_command=True)
-    for name in ('autonomy-create','autonomy-run','autonomy-status','autonomy-trace','autonomy-pause','autonomy-resume','autonomy-stop'):
+    for name in ('autonomy-create','autonomy-run','autonomy-status','autonomy-trace','autonomy-pause','autonomy-resume','autonomy-stop','autonomy-repair-cursor'):
         p=sub.add_parser(name,help='Bounded closed-loop numpy_mlp campaign')
         p.add_argument('--state-dir',type=Path,default=Path(root)/'state_autonomy');p.add_argument('--json',action='store_true')
         if name=='autonomy-create':
@@ -30,6 +30,49 @@ def register(sub,root):
         else:p.add_argument('campaign_id')
         if name=='autonomy-run':p.add_argument('--authorize-campaign',action='store_true')
         p.set_defaults(f=lambda args,cmd=name:run(root,cmd,args),autonomy_command=True)
+    register_sessions(sub,root);register_catalog(sub,root)
+
+
+def register_sessions(sub,root):
+    for name in ('endurance-session-create','endurance-session-run','endurance-session-status','endurance-session-stop'):
+        p=sub.add_parser(name,help='1.1 endurance session: sequential supervised campaigns under aggregate budgets')
+        p.add_argument('--state-dir',type=Path,default=Path(root)/'state_autonomy')
+        if name=='endurance-session-create':
+            p.add_argument('--lineage',action='append',required=True);p.add_argument('--stage',required=True)
+            p.add_argument('--mode',choices=('DRY_RUN','SHADOW','CONTROLLED_AUTONOMOUS'),default='CONTROLLED_AUTONOMOUS');p.add_argument('--allow-promotion',action='store_true')
+            p.add_argument('--limit',action='append',default=[],metavar='NAME=INT',help='aggregate limit override, e.g. maximum_campaigns=6')
+        else:p.add_argument('session_id')
+        p.set_defaults(f=lambda args,cmd=name:run_session(root,cmd,args),autonomy_command=True)
+
+
+def register_catalog(sub,root):
+    p=sub.add_parser('endurance-catalog',help='1.1 read-only catalog of verified references across lineages')
+    p.add_argument('--state-dir',type=Path,default=Path(root)/'state_autonomy');p.add_argument('--lineage',action='append')
+    def show(args):
+        from .catalog import catalog
+        try:print(json.dumps(catalog(args.state_dir,args.lineage,root),indent=2,sort_keys=True));return 0
+        except (OSError,ValueError,KeyError):print('Autonomy blocked: INVALID_CATALOG_STATE');return 2
+    p.set_defaults(f=show,autonomy_command=True)
+
+
+def run_session(root,cmd,args):
+    from .session import SessionStore,session_contract
+    from . import supervisor
+    try:
+        if cmd=='endurance-session-create':
+            limits={k:int(v)for k,v in(x.split('=',1)for x in args.limit)}
+            from .freeze import freeze
+            contract=session_contract(args.lineage,stage=args.stage,mode=args.mode,promotion=args.allow_promotion,limits=limits,
+                                      frozen=freeze(root,args.state_dir,args.lineage))
+            value=SessionStore(args.state_dir,contract['session_id']).create(contract,root)
+        elif cmd=='endurance-session-run':value=supervisor.Supervisor(root,args.state_dir,args.session_id).run()
+        elif cmd=='endurance-session-status':value=supervisor.status(args.state_dir,args.session_id)
+        else:
+            store=SessionStore(args.state_dir,args.session_id);store.read()
+            from .store import durable
+            durable(store.root/'control.json',{'request':'STOP'});value={'request':'STOP','session_id':args.session_id,'scope':'CURRENT_CAMPAIGN_STOPS_AT_SAFE_BOUNDARY'}
+        print(json.dumps(value,indent=2,sort_keys=True,allow_nan=False,default=str));return 0
+    except (OSError,ValueError,RuntimeError,KeyError,TypeError):print('Autonomy blocked: INVALID_SESSION_AUTHORITY_OR_STATE');return 2
 
 
 def run(root,cmd,args):
@@ -46,8 +89,10 @@ def run(root,cmd,args):
                 from .controller import ClosedLoop
                 value=ClosedLoop(root,args.state_dir,args.campaign_id).run(authorized=args.authorize_campaign)
             elif cmd=='autonomy-status':
-                with store.lock():
-                    value=store.current();value={**value,'recovery':'COMPLETED'if value['phase']in ('COMPLETED','STOPPED','FAILED')else'NEEDS_RECOVERY'if value.get('execution_intent')or value.get('rollback_intent')or value.get('research_intent')or value.get('initialization_intent')else'SAFE_TO_RESUME'}
+                # Pure inspection: safe while the campaign runs; never locks, writes or repairs.
+                from .inspection import inspect_campaign
+                value=inspect_campaign(args.state_dir,args.campaign_id)
+            elif cmd=='autonomy-repair-cursor':value={**store.repair_cursor(),'campaign_id':args.campaign_id,'scope':'DERIVED_CURSOR_ONLY_UNDER_CAMPAIGN_LOCK'}
             elif cmd=='autonomy-trace':value={'contract':store.read('contract'),'events':store.events()}
             else:
                 request={'autonomy-pause':'PAUSE','autonomy-resume':'RUN','autonomy-stop':'STOP'}[cmd];store.control(request);value={'request':request,'campaign_id':args.campaign_id,'scope':'APPLIED_AT_SAFE_BOUNDARY'}

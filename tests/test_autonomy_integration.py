@@ -215,6 +215,7 @@ class IntegratedLoopTests(Fixture):
         state=LineageStore(self.state,lin['lineage_id']).state();self.assertFalse(state['blocked']);self.assertEqual(state['experiments'],1)
     def test_deadline_during_learning_finishes_bookkeeping_under_grace(self):
         from gaia.autonomy.policy import BudgetExceeded
+        real_time=time.time
         clock=self.future()
         class Late(FakeV2):
             calls=0
@@ -227,7 +228,9 @@ class IntegratedLoopTests(Fixture):
         lin=self.lineage();loop=self.loop(lin['lineage_id'],factory=Late)
         try:r=self.go(loop)
         finally:
-            for c in clock:c.stop()
+            # Both patches target the shared time module; unwind in LIFO order.
+            for c in reversed(clock):c.stop()
+        self.assertIs(time.time,real_time)
         self.assertEqual(Late.calls,2);self.assertEqual(len(self.records(loop)),1);self.assertEqual(r['stopping_reason'],'STOPPED_BUDGET')
         self.assertFalse(LineageStore(self.state,lin['lineage_id']).state()['blocked'])
     def test_pause_in_flight_is_deferred_until_bookkeeping_completes(self):
