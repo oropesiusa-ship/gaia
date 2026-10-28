@@ -10,6 +10,7 @@ from gaia.cognition.research_dialogue import DialogueBudget,DirectResearchRunner
 from gaia.cognition.research_agenda import deterministic_agenda
 from gaia.cognition.research_comparison import compare_research
 from gaia.cognition.reasoning_diagnostic import augment_observation
+from gaia.cognition.research_confirmation import causal_consistency
 
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -166,6 +167,11 @@ class DialogueTests(unittest.TestCase):
         result=DirectResearchRunner(lambda:backend).run(observed,issue)
         self.assertEqual(result['status'],'ACCEPTED')
         self.assertIn('LANGUAGE_OR_OPERATOR_REPRESENTATION_SUPPORTED',backend.prompts[0])
+
+    def test_causal_confirmation_rejects_generic_feedback_but_accepts_operator_test(self):
+        issue={'diagnostic_details':{'diagnosis':'LANGUAGE_OR_OPERATOR_REPRESENTATION_SUPPORTED'}}
+        self.assertFalse(causal_consistency(issue,{'intervention':'Add generic reasoning feedback.'})['pass'])
+        self.assertTrue(causal_consistency(issue,{'intervention':'Compare symbolic multiplication operator wording.'})['pass'])
 
 
 if __name__=='__main__':unittest.main()

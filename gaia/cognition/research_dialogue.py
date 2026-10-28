@@ -259,8 +259,10 @@ class DirectResearchRunner:
             base['turns'].append(turn);value=strict_json(response.get('text',''));turn['rejected_response_shape']=_shape(value)
             if isinstance(value,dict)and set(value)in ({'cause'},{'hypothesis'}):
                 cause=value.get('cause',value.get('hypothesis'));safe_text(cause,500);turn.pop('rejected_response_shape');turn['response']={'cause':cause};turn['validation']='ACCEPTED_PARTIAL'
-                repair_prompt=('Return only JSON {"intervention":"..."}. Give one concrete testable intervention for task '+issue['task_id']+
-                               '. Do not repeat the cause. No prose, execution, tools, or authority.')
+                repair_data={'task':issue['task_id'],'validated_cause':cause,
+                             'diagnosis':(issue.get('diagnostic_details')or{}).get('diagnosis')}
+                repair_prompt=('Return only JSON {"intervention":"..."}. Give one concrete testable intervention that directly tests the validated cause and diagnosis. '
+                               'Do not repeat the cause. No prose, execution, tools, or authority. DATA='+canonical_json(repair_data).decode())
                 repair=backend.generate(repair_prompt,max_tokens=self.max_output_tokens,timeout=self.max_duration_s)
                 base['performance']['calls']=2;base['performance']['reserved_tokens']=self.max_output_tokens*2
                 if not isinstance(repair,dict)or repair.get('status')!='OK':raise ValueError('MODEL_INFERENCE_FAILED')
