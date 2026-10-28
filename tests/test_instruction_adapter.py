@@ -19,4 +19,12 @@ class InstructionAdapterTests(unittest.TestCase):
         self.assertIn('{"color":"azul"}',value['prompt']);self.assertTrue(value['prompt'].startswith('Return exactly this JSON'))
         self.assertIn('EXACT_JSON_WRAPPER_NORMALIZED',value['changes'])
 
+    def test_v3_has_no_global_guard_and_only_targets_supported_patterns(self):
+        untouched='Escribe exactamente: CASO_NUEVO'
+        self.assertEqual(adapt(untouched,'TARGETED_EXACT_AND_OPERATOR_V3'),{'prompt':untouched,'changes':[]})
+        multiplied=adapt('Calcula 19 por 4.','TARGETED_EXACT_AND_OPERATOR_V3')
+        self.assertIn('19 * 4',multiplied['prompt'])
+        literal=adapt('Responde únicamente con el JSON {"tono":"verde"}.','TARGETED_EXACT_AND_OPERATOR_V3')
+        self.assertTrue(literal['prompt'].startswith('Return exactly this JSON'))
+
 if __name__=='__main__':unittest.main()

@@ -8,19 +8,22 @@ from gaia.cognition.instruction_adapter import adapt
 
 
 PROTOCOL = Path('docs/local_intelligence_evidence/GAIA_1_2_ADAPTER_GENERALIZATION_PREREGISTRATION_V1.json')
+V3_PROTOCOL = Path('docs/local_intelligence_evidence/GAIA_1_2_ADAPTER_V3_GENERALIZATION_PREREGISTRATION_V1.json')
 
 
 class AdapterGeneralizationTests(unittest.TestCase):
     def test_preregistered_protocol_is_self_consistent_and_covers_required_risks(self):
-        value = load_protocol(PROTOCOL)
-        self.assertEqual(value['schema'], 'gaia_adapter_generalization_preregistration_v1')
-        self.assertGreaterEqual(len(value['cases']), 18)
-        covered = {tag for case in value['cases'] for tag in case['tags']}
-        self.assertTrue({
-            'SPANISH_MULTIPLICATION', 'OPERATOR_VARIATION', 'WORKING_MULTIPLICATION',
-            'LITERAL_JSON', 'EXACT_FORMAT', 'TRANSLATION', 'CASING', 'NEGATION',
-            'QUOTED_CONTENT', 'ADVERSARIAL', 'NO_INTERVENTION',
-        }.issubset(covered))
+        for path in (PROTOCOL, V3_PROTOCOL):
+            with self.subTest(path=path):
+                value = load_protocol(path)
+                self.assertEqual(value['schema'], 'gaia_adapter_generalization_preregistration_v1')
+                self.assertGreaterEqual(len(value['cases']), 18)
+                covered = {tag for case in value['cases'] for tag in case['tags']}
+                self.assertTrue({
+                    'SPANISH_MULTIPLICATION', 'OPERATOR_VARIATION', 'WORKING_MULTIPLICATION',
+                    'LITERAL_JSON', 'EXACT_FORMAT', 'TRANSLATION', 'CASING', 'NEGATION',
+                    'QUOTED_CONTENT', 'ADVERSARIAL', 'NO_INTERVENTION',
+                }.issubset(covered))
 
     def test_scoring_is_independent_and_adapter_cannot_mutate_expectations(self):
         value = load_protocol(PROTOCOL)
