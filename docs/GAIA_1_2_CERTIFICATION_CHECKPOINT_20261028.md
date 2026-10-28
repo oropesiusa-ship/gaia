@@ -35,6 +35,12 @@ Regresión del último HEAD con cambios funcionales: 1250 tests PASS, 9 skips,
 0 fallos y 0 errores en 1144,348 s. Log SHA-256:
 `1fff191b2ec3da7d58cdb200d0cc3168a76bdba61db1a019ba132848aec8b7c4`.
 
+Regresión definitiva posterior a continuidad y vía directa, commit `b2af752`:
+1257 tests PASS, 9 skips, 0 fallos y 0 errores en 1134,007 s. Log SHA-256:
+`82b5f8e08ccc78df0269f8c062230c3d92685fae30d50874cc87bdef21324fbc`.
+Evidencia portable:
+`local_intelligence_evidence/GAIA_1_2_FINAL_HEAD_REGRESSION_B2AF752.json`.
+
 ## Experimentos de adapter
 
 - V2: rechazado por exactitud, formato, regresiones y latencia. Todas las

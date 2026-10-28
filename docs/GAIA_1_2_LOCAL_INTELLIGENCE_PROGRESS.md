@@ -191,6 +191,15 @@ Dialogue sigue por debajo del baseline determinista.
 
 ### Evidencia histórica
 
+### HEAD funcional `b2af752` (29-10-2026)
+
+- 85 archivos; 1257 PASS, 9 skips, 0 fallos y 0 errores.
+- Tiempo: 1134,007 s; `ResourceWarning` tratado como error.
+- Log SHA-256:
+  `82b5f8e08ccc78df0269f8c062230c3d92685fae30d50874cc87bdef21324fbc`.
+- Incluye continuidad real multi-problema, diagnóstico de forma sin valores,
+  rutas directas y confirmación causal independiente.
+
 - Suite completa: 1205 tests, 9 skips, PASS.
 - Auditoría de memoria/calidad: 11/11 checks, PASS.
 - Log: `/tmp/opencode/gaia-1.2-memory-quality-final-full-suite.log`.
