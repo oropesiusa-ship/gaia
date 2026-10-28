@@ -86,7 +86,9 @@ class ResearchCampaign:
             if stored_bytes+len(canonical_json(candidate))>storage_limit:reason='STORAGE_BUDGET';break
             comp=self.store.put(candidate);stored_bytes+=len(canonical_json(candidate));comparison_refs.append(ref(comp))
             if dialogue['status']=='REJECTED':reason='DIALOGUE_REJECTED_'+dialogue['reason'];break
-            if dialogue['status']=='STOPPED':reason='DIALOGUE_STOPPED_'+dialogue['reason'];break
+            if dialogue['status']=='STOPPED':
+                if dialogue['reason']=='MORE_EVIDENCE':continue
+                reason='DIALOGUE_STOPPED_'+dialogue['reason'];break
         if reason is None:
             reason='ITERATION_BUDGET'if len(dialogue_refs)>=self.budget.max_iterations else'NO_NEW_EVIDENCE_OR_UNTRIED_ISSUE'
         payload={'schema':SCHEMA,'campaign_id':campaign_id,'owner_id':self.owner_id,'source':observed['source'],'status':'STOPPED','reason':reason,

@@ -17,6 +17,15 @@ class Factory:
     def __call__(self):self.created+=1;return Backend(outputs())
 
 
+class MoreEvidenceThenAcceptFactory:
+    def __init__(self):self.created=0
+    def __call__(self):
+        values=list(outputs())
+        if self.created==0:
+            values[2]={'decision':'MORE_EVIDENCE'}
+        self.created+=1;return Backend(values)
+
+
 class CampaignTests(unittest.TestCase):
     def setUp(self):self.observed=BenchmarkObservation.from_bytes(RAW,'GAIA_1_2_MEMORY_QUALITY_V1.json')
 
@@ -34,6 +43,16 @@ class CampaignTests(unittest.TestCase):
             factory=lambda:Backend(['bad json'])
             result=ResearchCampaign(CognitiveStore(state),factory).run(self.observed)
             self.assertEqual(result['payload']['iterations'],1);self.assertEqual(result['payload']['reason'],'DIALOGUE_REJECTED_INVALID_MODEL_JSON')
+
+    def test_more_evidence_continues_with_next_untried_issue(self):
+        with tempfile.TemporaryDirectory()as state:
+            factory=MoreEvidenceThenAcceptFactory();result=ResearchCampaign(CognitiveStore(state),factory).run(self.observed)
+            self.assertEqual(result['payload']['iterations'],2)
+            self.assertEqual(factory.created,2)
+            self.assertEqual(result['payload']['reason'],'ITERATION_BUDGET')
+            records=CognitiveStore(state).list('RESEARCH_DIALOGUE')
+            self.assertEqual(records[0]['payload']['dialogue']['reason'],'MORE_EVIDENCE')
+            self.assertNotEqual(records[0]['payload']['issue_fingerprint'],records[1]['payload']['issue_fingerprint'])
 
     def test_no_evidence_stops_without_backend(self):
         with tempfile.TemporaryDirectory()as state:
