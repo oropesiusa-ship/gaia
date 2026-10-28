@@ -98,6 +98,12 @@ class DialogueTests(unittest.TestCase):
         result,_=self.execute(values);hypothesis=result['research']['hypotheses'][0]
         self.assertEqual(hypothesis['causal_hypothesis'],values[0]['proposal']);self.assertEqual(hypothesis['intervention'],values[0]['proposal'])
 
+    def test_compact_proposal_may_carry_only_valid_evidence_aliases(self):
+        values=list(outputs());values[0]={'proposal':'Test a symbolic multiplication restatement.','refs':['e1']}
+        result,_=self.execute(values);self.assertEqual(result['status'],'ACCEPTED')
+        values[0]={'proposal':'Test a symbolic multiplication restatement.','refs':['invented']}
+        result,_=self.execute(values);self.assertEqual(result['reason'],'INVENTED_EVIDENCE_REFERENCE')
+
     def test_explicit_hypothesis_test_intervention_variant_is_normalized_without_losing_text(self):
         values=list(outputs());values[0]={'hypothesis':'Arithmetic calculation may be wrong.','test':'Repeat the frozen multiplication.',
             'intervention':'Use a multiplication scaffold.'}

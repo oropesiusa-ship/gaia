@@ -42,8 +42,8 @@ def _metric(value):
 
 
 def _researcher(value,aliases,issue):
-    if isinstance(value,dict)and set(value)=={'proposal'}:
-        safe_text(value['proposal'],800);value={'cause':value['proposal'],'change':value['proposal']}
+    if isinstance(value,dict)and set(value)in ({'proposal'},{'proposal','refs'}):
+        safe_text(value['proposal'],800);value={'cause':value['proposal'],'change':value['proposal'],'refs':value.get('refs',['e1'])}
     if isinstance(value,dict)and set(value)=={'hypothesis','test','intervention'}:
         for text in value.values():safe_text(text,500)
         value={'cause':value['hypothesis'],'change':value['intervention']+' Test: '+value['test']}
