@@ -70,7 +70,7 @@ gates. Están resumidas en
 
 ## Validación
 
-- 20 tests de investigación: PASS.
+- 25 tests de investigación: PASS.
 - 66 tests cognitivos: PASS.
 - auditor offline: 13/13 PASS.
 - suite global particionada en `.venv-observation`: 80 módulos, 1233 tests PASS,
