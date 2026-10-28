@@ -6,6 +6,7 @@ reservation and campaign are reused; no session, campaign or compute authority
 is added and the historical result remains immutable.
 """
 import json
+import copy
 import os
 from pathlib import Path
 import shutil
@@ -194,8 +195,13 @@ def execute(root, contract_path, *, authorize=False):
     contract = validate(root, contract_path)
     out = Path(contract['source_out'])
     amendment = json.loads(Path(contract['amendment']).read_bytes())
-    stage_contract = dict(amendment['contract'])
+    stage_contract = copy.deepcopy(amendment['contract'])
     stage_contract['commit'] = contract['commit']
+    # The recovery contract prospectively freezes the reviewed administrative
+    # fixes at its own commit. Experimental/protected source identity is still
+    # the original immutable value and no limits are changed.
+    stage_contract['plan']['administrative_hashes'] = {
+        p: ex.sha(root / p) for p in ex.ADMIN_FILES}
     stage_contract['hash'] = ex.digest({k: v for k, v in stage_contract.items() if k != 'hash'})
     state = Path(stage_contract['state_path'])
     store = SessionStore(state, contract['session_id'])
@@ -226,6 +232,9 @@ def execute(root, contract_path, *, authorize=False):
                 cid = contract['campaign_id']; sup.roles[cid] = 'S2-C3'
                 before = store.root / 'evidence/S2-C3-catalogue-before.json'
                 sup.catalogue_before[cid] = json.loads(before.read_bytes())
+                # Fail before a controller launch if the prospective freeze or
+                # current environment no longer qualifies.
+                sup.guard()
                 # The old attempt spent real wall time before its guard stopped it.
                 started = next(e['clock'] for e in store.events()
                                if e['kind'] == 'CAMPAIGN_STARTED' and e['payload']['campaign_id'] == cid)
