@@ -206,11 +206,24 @@ def coverage(rows,captures=None):
 
 def audit_observer(directory, contract_hash, *, started, stopped):
     """Replay external observation rather than trust its saved PASS label."""
-    directory = Path(directory)
+    directory = Path(directory).resolve()
     manifest_path = directory / 'manifest.json'
     expected = json.loads(manifest_path.read_bytes())
     actual = ex.inventory([directory], include_cache=True)
-    if {p: h for p, h in actual.items() if p != str(manifest_path)} != expected:
+    def canonical(items):
+        result = {}
+        for name, value in items.items():
+            path = Path(name)
+            path = path.resolve() if path.is_absolute() else (ex.ROOT / path).resolve()
+            if not path.is_relative_to(directory):
+                raise ValueError('OBSERVER_MANIFEST_PATH_OUTSIDE_ARCHIVE')
+            relative = str(path.relative_to(directory))
+            if relative in result:
+                raise ValueError('OBSERVER_MANIFEST_DUPLICATE_PATH')
+            result[relative] = value
+        return result
+    actual = {p: h for p, h in actual.items() if Path(p).resolve() != manifest_path}
+    if canonical(actual) != canonical(expected):
         raise ValueError('OBSERVER_MANIFEST_CHANGED')
     report = json.loads((directory / 'result.json').read_bytes())
     if report.get('contract_hash') != contract_hash or report.get('returncode') != 0 or report.get('error'):

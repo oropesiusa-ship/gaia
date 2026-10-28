@@ -5,7 +5,8 @@ import tempfile
 import unittest
 import json
 from unittest.mock import patch
-from tools.stage2_observer import lock_holders, coverage, observed_first, snapshot_descendants
+from tools.stage2_observer import (lock_holders, coverage, observed_first,
+                                   snapshot_descendants, audit_observer)
 
 
 class AttributionTests(unittest.TestCase):
@@ -87,6 +88,21 @@ class AttributionTests(unittest.TestCase):
             archive = root / 'attempt-observer'
             self.assertTrue((archive / 'manifest.json').is_file())
             self.assertEqual(json.loads((archive / 'result.json').read_text())['status'], 'PASS')
+
+    def test_audit_accepts_same_seal_through_absolute_directory(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+            archive = Path(directory) / 'observer'; archive.mkdir()
+            rows = self.rows()
+            (archive / 'samples.jsonl').write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
+            (archive / 'result.json').write_text(json.dumps({
+                'contract_hash': 'fixture', 'returncode': 0, 'error': None}))
+            relative = archive.relative_to(Path.cwd())
+            from tools import stage2_executor as ex
+            manifest = ex.inventory([relative], include_cache=True)
+            (archive / 'manifest.json').write_text(json.dumps(manifest))
+            result = audit_observer(archive.resolve(), 'fixture',
+                started=rows[0]['clock'], stopped=rows[-1]['clock'])
+            self.assertEqual(result['status'], 'PASS')
 
     def test_observer_checks_its_own_memory_and_fd_growth(self):
         for key, value in (('rss_bytes', 128 * 2**20), ('fds', 100)):
