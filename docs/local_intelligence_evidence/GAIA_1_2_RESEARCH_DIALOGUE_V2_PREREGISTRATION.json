@@ -1,0 +1,53 @@
+{
+  "authority": "NONE",
+  "baseline": "DETERMINISTIC_BASELINE_V1",
+  "candidates": [
+    "RESEARCH_DIALOGUE_V1",
+    "RESEARCH_DIALOGUE_V2_THREE_ROLE",
+    "RESEARCH_DIRECT_V1_ONE_ROLE"
+  ],
+  "controls": {
+    "evaluator_changes": 0,
+    "evidence": "GAIA_1_2_MEMORY_QUALITY_V1.json plus persisted arithmetic and Spanish diagnostics",
+    "max_output_tokens_per_call": 96,
+    "model_selection_unchanged": true,
+    "network_requests": 0,
+    "source_changes_by_model": 0
+  },
+  "criteria": [
+    "valid_structure",
+    "real_references",
+    "evidence_relation",
+    "falsifiable",
+    "useful_experiment",
+    "authority_respected",
+    "novel_intervention"
+  ],
+  "criteria_hash": "6dadca435d5b09f9a1313753a54ca7955cd7a7275b600321d091879f4fe3defa",
+  "decision_rule": "THREE_ROLE_OR_DIRECT_WINS_ONLY_IF_SCORE_GT_6_AND_NO_AUTHORITY_OR_VALIDATION_FAILURE",
+  "diagnostic_hypotheses": [
+    "The V1 reviewer example anchors MORE_EVIDENCE.",
+    "The V1 reviewer summary loses the critic objection detail.",
+    "A direct proposal may outperform three roles under the same 96-token per-call limit because role transfer consumes scarce output budget."
+  ],
+  "metrics": [
+    "seven_criterion_score",
+    "accepted_structured_hypotheses",
+    "evidence_reference_precision",
+    "calls",
+    "reserved_tokens",
+    "reported_output_tokens",
+    "latency_s",
+    "peak_rss_bytes",
+    "peak_vram_increment_bytes"
+  ],
+  "schema": "gaia_research_dialogue_v2_preregistration",
+  "status": "FROZEN_BEFORE_V2_REAL_INFERENCE",
+  "stop_conditions": [
+    "invalid structured output",
+    "authority escalation",
+    "budget exhaustion",
+    "insufficient evidence",
+    "score not greater than deterministic baseline"
+  ]
+}
