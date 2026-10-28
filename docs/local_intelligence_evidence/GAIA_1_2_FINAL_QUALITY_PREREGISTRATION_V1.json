@@ -1,0 +1,24 @@
+{
+  "schema":"gaia_1_2_final_quality_preregistration_v1",
+  "status":"FROZEN_BEFORE_FINAL_AUDIT",
+  "authority":"NONE",
+  "production_policy":"ORIGINAL",
+  "sources":{
+    "memory_quality":"GAIA_1_2_MEMORY_QUALITY_V1.json",
+    "independent_quality":"GAIA_1_2_ADAPTER_V3_GENERALIZATION_EVALUATION_V1.json",
+    "context_chat":"GAIA_1_2_CONTEXT_CHAT_V1.json",
+    "regression":"GAIA_1_2_FINAL_REGRESSION_CA473EA.json"
+  },
+  "objective_domains":["SPANISH","INSTRUCTION","REASONING","ARITHMETIC","CODING","MEMORY","FACT_UPDATE","CONTRADICTION","HALLUCINATION","FORMAT"],
+  "functional_domains":["LONG_CONTEXT","ISOLATION","PERSISTENCE","RESTART","CONCURRENCY","FAILURE_CONDITIONS"],
+  "thresholds":{
+    "minimum_combined_objective_rate":0.80,
+    "minimum_combined_format_rate":0.70,
+    "maximum_inference_errors":0,
+    "global_regression_failures":0,
+    "global_regression_errors":0,
+    "required_real_contexts":[4096,8192,16384]
+  },
+  "interpretation":"Passing certifies the bounded GAIA 1.2 quality gate only; it does not demonstrate a cognitive improvement over prior model behavior.",
+  "subjective_outputs":"REPORTED_SEPARATELY_NOT_SCORED"
+}
