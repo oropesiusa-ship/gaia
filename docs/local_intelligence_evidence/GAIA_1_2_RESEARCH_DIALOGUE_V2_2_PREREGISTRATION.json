@@ -1,0 +1,10 @@
+{
+  "schema":"gaia_research_dialogue_v2_2_preregistration",
+  "status":"FROZEN_BEFORE_REAL_INFERENCE",
+  "authority":"NONE",
+  "negative_runs":["V2_INVALID_RESEARCHER_SCHEMA","V2_1_INVALID_RESEARCHER_SCHEMA"],
+  "hypothesis":"The model may return the requested proposal plus a valid evidence alias; the V1 exact-key compact normalizer rejects that harmless metadata.",
+  "change":"Accept only {proposal} or {proposal,refs}; validate refs through the unchanged alias allowlist and derive all authority, metric, budget and uncertainty fields deterministically.",
+  "forbidden_changes":["evaluator","authority","token budget","model","network","execution","promotion"],
+  "decision_rule":"ACCEPT_ONLY_IF_STRUCTURED_AND_SEVEN_CRITERION_SCORE_GT_6"
+}
