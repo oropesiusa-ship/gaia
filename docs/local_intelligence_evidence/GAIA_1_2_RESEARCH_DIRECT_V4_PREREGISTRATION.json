@@ -1,0 +1,13 @@
+{
+  "schema":"gaia_research_direct_v4_preregistration",
+  "status":"FROZEN_BEFORE_REAL_INFERENCE",
+  "authority":"NONE",
+  "parent_result":"GAIA_1_2_RESEARCH_DIRECT_V3_1_REAL.json",
+  "formal_parent_score":"7/7 versus baseline 6/7",
+  "negative_finding":"The repaired intervention proposed a generic reasoning feedback system and did not operationalize the accepted operator-representation cause.",
+  "root_cause":"The repair prompt omitted the validated cause and independent diagnosis.",
+  "change":"Pass the validated cause and diagnosis as non-authoritative data to the change-only repair prompt.",
+  "causal_consistency_rule":"For LANGUAGE_OR_OPERATOR_REPRESENTATION_SUPPORTED, intervention must explicitly test operator, symbolic, language, multiplication, times, por, or representation wording.",
+  "decision_rule":"ACCEPT_ONLY_IF_FROZEN_SCORE_GT_6_AND_CAUSAL_CONSISTENCY_AND_AUTHORITY_RESPECTED",
+  "forbidden":["evaluator modification","invented cause","network","execution","promotion","authority escalation"]
+}
