@@ -102,6 +102,15 @@ fallos de formato de memoria. La salida reproducible está en
 Constituye el control contra el que deberá medirse el ciclo LLM; no autoriza ni
 ejecuta el experimento propuesto.
 
+### Research Dialogue V1
+
+El primer ciclo real de Investigador, Crítico y Revisor está
+`REAL_WORLD_TESTED`. Completó tres llamadas autónomas, conservó autoridad `NONE`
+y se detuvo en `MORE_EVIDENCE`. El comparador pre-registrado mantuvo al baseline
+determinista como ganador (6/7 frente a 2/7); por tanto no se atribuye utilidad
+adicional al LLM. Véanse `GAIA_1_2_RESEARCH_INTELLIGENCE_REPORT.md` y
+`local_intelligence_evidence/GAIA_1_2_RESEARCH_DIALOGUE_REAL_V1.json`.
+
 ## Persistencia conversacional
 
 Se añadió custodia persistente y acotada en `gaia/cognition/conversation.py`:
