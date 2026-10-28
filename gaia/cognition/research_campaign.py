@@ -35,12 +35,14 @@ def _fingerprint(issue):return digest({'task_id':issue['task_id'],'evidence_refs
 
 
 class ResearchCampaign:
-    def __init__(self,store,backend_factory,*,budget=None,owner_id='local'):
+    def __init__(self,store,backend_factory,*,budget=None,owner_id='local',evidence_mode='ENRICHED_OBJECTIVE_V1'):
         self.store=store;self.backend_factory=backend_factory;self.budget=(budget or CampaignBudget()).validate()
         if not isinstance(owner_id,str)or not re.fullmatch(r'[A-Za-z0-9_.-]{1,80}',owner_id):raise ValueError('INVALID_CAMPAIGN_OWNER')
+        if evidence_mode not in ('ENRICHED_OBJECTIVE_V1','ENRICHED_TRANSFER_V2'):raise ValueError('INVALID_RESEARCH_EVIDENCE_MODE')
         self.owner_id=owner_id
+        self.evidence_mode=evidence_mode
 
-    def _id(self,observed):return 'rc'+digest({'schema':SCHEMA,'source':observed['source'],'owner_id':self.owner_id,'budget':self.budget.data()})[:24]
+    def _id(self,observed):return 'rc'+digest({'schema':SCHEMA,'source':observed['source'],'owner_id':self.owner_id,'budget':self.budget.data(),'evidence_mode':self.evidence_mode})[:24]
 
     def run(self,observed):
         campaign_id=self._id(observed);finals=[v for v in self.store.list('RESEARCH_CAMPAIGN')if v['payload'].get('campaign_id')==campaign_id]
@@ -71,7 +73,7 @@ class ResearchCampaign:
             if remaining_tokens<288:reason='TOKEN_BUDGET';break
             issue=candidates[0];fingerprint=_fingerprint(issue)
             dialogue_budget=DialogueBudget(max_calls=3,max_tokens=min(1536,remaining_tokens),max_duration_s=min(180,self.budget.max_duration_s))
-            dialogue=ResearchDialogueRunner(self.backend_factory,budget=dialogue_budget).run(observed,issue)
+            dialogue=ResearchDialogueRunner(self.backend_factory,budget=dialogue_budget,evidence_mode=self.evidence_mode).run(observed,issue)
             payload={'schema':SCHEMA,'campaign_id':campaign_id,'owner_id':self.owner_id,'iteration':iteration,'issue_fingerprint':fingerprint,
                      'dialogue':dialogue,'authority':'NONE','hidden_reasoning_stored':False}
             candidate=seal('RESEARCH_DIALOGUE',payload);size=len(canonical_json(candidate))

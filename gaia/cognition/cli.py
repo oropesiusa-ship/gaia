@@ -48,6 +48,7 @@ def register(sub,root):
             p.add_argument('--owner',default='local');p.add_argument('--max-iterations',type=int,default=2)
             p.add_argument('--max-llm-calls',type=int,default=6);p.add_argument('--max-tokens',type=int,default=3072)
             p.add_argument('--max-duration',type=int,default=480);p.add_argument('--authorize-inference',action='store_true')
+            p.add_argument('--evidence-mode',choices=('ENRICHED_OBJECTIVE_V1','ENRICHED_TRANSFER_V2'),default='ENRICHED_OBJECTIVE_V1')
         elif name in ('cognitive-trace','cognitive-result'):p.add_argument('id')
         p.set_defaults(f=lambda args,cmd=name:run(root,cmd,args),cognition_command=True)
 
@@ -61,7 +62,7 @@ def run(root,cmd,args):
             observed=BenchmarkObservation.from_bytes(args.evidence.read_bytes(),args.evidence.name)
             budget=CampaignBudget(max_iterations=args.max_iterations,max_llm_calls=args.max_llm_calls,max_tokens=args.max_tokens,max_duration_s=args.max_duration)
             factory=lambda:PrimaryLocalIntelligenceBackend(args.intelligence_state,context=DEFAULT_CHAT_CONTEXT)
-            value=ResearchCampaign(CognitiveStore(args.state_dir),factory,budget=budget,owner_id=args.owner).run(observed)
+            value=ResearchCampaign(CognitiveStore(args.state_dir),factory,budget=budget,owner_id=args.owner,evidence_mode=args.evidence_mode).run(observed)
             print(json.dumps(value,indent=2,sort_keys=True,allow_nan=False));return 0
         store=CognitiveStore(args.state_dir)
         if cmd=='cognitive-task':

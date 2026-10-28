@@ -129,6 +129,7 @@ def _prompt(role,payload):
         d=payload['data'];summary=f"Task {d['task']} failed {d['objective_failures']} times. Proposed change: {d['proposed_change']} Critic: {d['critique']['recommendation']}."
         if d.get('objective_detail'):summary+=f" Expected {d['objective_detail']['expected']}; observed {d['objective_detail']['observed']}."
         if d.get('diagnostic'):summary+=f" Independent diagnostic: {d['diagnostic']['diagnosis']}."
+        if d.get('transfer_v2'):summary+=f" Critic objection: {d['critique']['objection']}"
         return policy+'\n'+summary+'\nChoose ACCEPT, MODIFY, DISCARD, MORE_EVIDENCE, or STOP. OUTPUT='+canonical_json(payload['wire_contract']).decode()
     if role=='RESEARCHER':policy+=' Cause must explain the observed failure. Change must be a concrete testable intervention; never answer that no intervention was made.'
     return policy+'\nDATA='+canonical_json(payload['data']).decode()+'\nJSON_SCHEMA='+canonical_json(payload['wire_contract']).decode()+'\nOUTPUT_JSON_NOW:'
@@ -137,7 +138,7 @@ def _prompt(role,payload):
 class ResearchDialogueRunner:
     def __init__(self,backend_factory,*,budget=None,evidence_mode='ENRICHED_OBJECTIVE_V1'):
         self.backend_factory=backend_factory;self.budget=(budget or DialogueBudget()).validate()
-        if evidence_mode not in ('COUNTS_V1','ENRICHED_OBJECTIVE_V1'):raise ValueError('INVALID_RESEARCH_EVIDENCE_MODE')
+        if evidence_mode not in ('COUNTS_V1','ENRICHED_OBJECTIVE_V1','ENRICHED_TRANSFER_V2'):raise ValueError('INVALID_RESEARCH_EVIDENCE_MODE')
         self.evidence_mode=evidence_mode
 
     def run(self,observed,issue):
@@ -166,21 +167,23 @@ class ResearchDialogueRunner:
                 if tokens<32:raise ValueError('TOKEN_BUDGET')
                 payload={'data':{'task':issue['task_id'],'category':issue['category'],'objective_failures':issue['failure_count'],
                     'format_failures':issue['format_failure_count'],'allowed_evidence_aliases':list(aliases)}}
-                if self.evidence_mode=='ENRICHED_OBJECTIVE_V1'and issue.get('evidence_details'):
+                if self.evidence_mode in ('ENRICHED_OBJECTIVE_V1','ENRICHED_TRANSFER_V2')and issue.get('evidence_details'):
                     detail=issue['evidence_details'][0]
                     fields=('prompt','expected','observed','score_reason')if role=='RESEARCHER'else('expected','observed')
                     payload['data']['objective_detail']={k:detail[k]for k in fields}
-                if self.evidence_mode=='ENRICHED_OBJECTIVE_V1'and issue.get('diagnostic_details'):
+                if self.evidence_mode in ('ENRICHED_OBJECTIVE_V1','ENRICHED_TRANSFER_V2')and issue.get('diagnostic_details'):
                     diagnostic=issue['diagnostic_details'];payload['data']['diagnostic']=({'diagnosis':diagnostic['diagnosis'],'outcomes':diagnostic['outcomes']}
                         if role=='RESEARCHER'else{'diagnosis':diagnostic['diagnosis']})
-                payload['wire_contract']=({'proposal':'short causal hypothesis and concrete test'}if role=='RESEARCHER'else
+                payload['wire_contract']=({'cause':'short evidence-linked cause','change':'one concrete testable intervention','refs':['e1']}if role=='RESEARCHER'and self.evidence_mode=='ENRICHED_TRANSFER_V2'else
+                    {'proposal':'short causal hypothesis and concrete test'}if role=='RESEARCHER'else
                     {'kind':'C','objection':'short concrete objection','refs':['e1'],'recommendation':'REVISE'}if role=='CRITIC'else
-                    {'decision':'MORE_EVIDENCE'})
+                    {'decision':'choose one allowed decision','change':'revised concrete intervention if needed','refs':['e1'],'question':'remaining uncertainty'}if self.evidence_mode=='ENRICHED_TRANSFER_V2'else{'decision':'MORE_EVIDENCE'})
                 if role!='RESEARCHER':
                     h=stages[0]['hypotheses'][0];payload['data']['hypothesis']={'cause':h['causal_hypothesis'],'change':h['intervention']}
                 if role=='REVIEWER':
                     payload['data'].pop('hypothesis');payload['data']['proposed_change']=h['intervention']
                     payload['data']['critique']={'recommendation':stages[1]['recommendation'],'objection':stages[1]['objections'][0]['detail']}
+                    if self.evidence_mode=='ENRICHED_TRANSFER_V2':payload['data']['transfer_v2']=True
                 prompt=_prompt(role,payload);base['performance']['reserved_tokens']+=tokens;t=time.monotonic()
                 response=backend.generate(prompt,max_tokens=tokens,timeout=max(.01,deadline-time.monotonic()))
                 latency=time.monotonic()-t;base['performance']['calls']+=1

@@ -108,5 +108,14 @@ class DialogueTests(unittest.TestCase):
         values=list(outputs());values[1]={'kind':'C','objection':'The test does not distinguish calculation from formatting.'}
         result,_=self.execute(values);self.assertEqual(result['critique']['recommendation'],'REVISE')
 
+    def test_v2_transfers_critic_detail_without_anchoring_reviewer_decision(self):
+        backend=Backend(outputs())
+        result=ResearchDialogueRunner(lambda:backend,evidence_mode='ENRICHED_TRANSFER_V2').run(self.observed,self.issue)
+        self.assertEqual(result['status'],'ACCEPTED')
+        reviewer=backend.prompts[2]
+        self.assertIn('One scaffold cannot distinguish arithmetic ability',reviewer)
+        self.assertIn('ACCEPT, MODIFY, DISCARD, MORE_EVIDENCE, or STOP',reviewer)
+        self.assertNotIn('"decision":"MORE_EVIDENCE"',reviewer)
+
 
 if __name__=='__main__':unittest.main()
