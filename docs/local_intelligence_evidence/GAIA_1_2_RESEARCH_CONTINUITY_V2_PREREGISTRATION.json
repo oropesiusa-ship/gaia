@@ -1,0 +1,10 @@
+{
+  "schema":"gaia_research_continuity_v2_preregistration",
+  "status":"FROZEN_BEFORE_REAL_CAMPAIGN",
+  "authority":"NONE",
+  "hypothesis":"MORE_EVIDENCE is local to the current issue and must not suppress other untried issues with sufficient persisted evidence.",
+  "change":"Persist the rejected comparison, mark the issue processed, and continue to the next untried issue for MORE_EVIDENCE; retain immediate stop for STOP, rejection, or exhausted budgets.",
+  "controls":{"max_iterations":2,"max_llm_calls":6,"max_tokens":3072,"max_duration_s":480,"evaluator_changes":0,"network_requests":0,"promotions":0},
+  "success":["two real issues attempted when the first returns MORE_EVIDENCE","rejected proposal remains rejected","no duplicate issue after reopen","campaign stops at budget or lack of untried evidence"],
+  "failure":["authority escalation","duplicate issue","discarded negative comparison","budget overrun","execution or promotion"]
+}
