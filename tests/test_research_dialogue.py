@@ -9,6 +9,7 @@ from gaia.cognition.research_agenda import BenchmarkObservation
 from gaia.cognition.research_dialogue import DialogueBudget,DirectResearchRunner,ResearchDialogueRunner
 from gaia.cognition.research_agenda import deterministic_agenda
 from gaia.cognition.research_comparison import compare_research
+from gaia.cognition.reasoning_diagnostic import augment_observation
 
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -150,6 +151,14 @@ class DialogueTests(unittest.TestCase):
         self.assertEqual(result['status'],'ACCEPTED');self.assertEqual(result['performance']['calls'],2)
         self.assertEqual(result['research']['hypotheses'][0]['intervention'],'Test a symbolic multiplication restatement against the unchanged reasoning prompt.')
         self.assertGreater(comparison['dialogue']['score'],comparison['baseline']['score'])
+
+    def test_direct_prompt_includes_independent_diagnostic_when_present(self):
+        path=ROOT/'docs/local_intelligence_evidence/GAIA_1_2_REASONING_SYMBOLIC_DIAGNOSTIC_V2.json'
+        observed=augment_observation(self.observed,path.read_bytes(),path.name)
+        issue=next(v for v in observed['issues']if v['task_id']=='reasoning');backend=Backend([outputs()[0]])
+        result=DirectResearchRunner(lambda:backend).run(observed,issue)
+        self.assertEqual(result['status'],'ACCEPTED')
+        self.assertIn('LANGUAGE_OR_OPERATOR_REPRESENTATION_SUPPORTED',backend.prompts[0])
 
 
 if __name__=='__main__':unittest.main()

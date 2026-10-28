@@ -246,6 +246,8 @@ class DirectResearchRunner:
         data={'task':issue['task_id'],'category':issue['category'],'objective_failures':issue['failure_count'],
               'format_failures':issue['format_failure_count'],'allowed_evidence_aliases':list(aliases),
               'objective_detail':{'expected':detail.get('expected'),'observed':detail.get('observed')}}
+        if issue.get('diagnostic_details'):
+            data['diagnostic']={'diagnosis':issue['diagnostic_details']['diagnosis'],'outcomes':issue['diagnostic_details']['outcomes']}
         prompt=_prompt('RESEARCHER',{'data':data,'wire_contract':{'proposal':'short causal hypothesis and concrete test'}})
         try:
             backend=self.backend_factory();backend.load();base['performance']['reserved_tokens']=self.max_output_tokens
