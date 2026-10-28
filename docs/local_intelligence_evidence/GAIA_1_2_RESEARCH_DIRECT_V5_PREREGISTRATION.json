@@ -1,0 +1,10 @@
+{
+  "schema":"gaia_research_direct_v5_preregistration",
+  "status":"FROZEN_BEFORE_REAL_INFERENCE",
+  "authority":"NONE",
+  "parent_result":"GAIA_1_2_RESEARCH_DIRECT_V4_REAL.json",
+  "parent_result_summary":"Causally consistent concrete intervention; frozen score 6/7 because task traceability term was absent.",
+  "change":"Require the change-only model response to explicitly identify the immutable task_id supplied in DATA while directly testing the validated cause and diagnosis.",
+  "decision_rule":"ACCEPT_ONLY_IF_FROZEN_SCORE_7_AND_CAUSAL_CONSISTENCY_AND_AUTHORITY_RESPECTED",
+  "forbidden":["system insertion of task term","evaluator modification","invented intervention","network","execution","promotion","authority escalation"]
+}
