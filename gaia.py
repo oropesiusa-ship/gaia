@@ -222,7 +222,7 @@ def main():
         from gaia.autonomy.cli import register as register_autonomy
         register_autonomy(sub, ROOT)
     if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "cognitive-task", "cognitive-run", "cognitive-tasks", "cognitive-trace", "cognitive-result",
-                                            "cognitive-conversation", "cognitive-chat-append", "cognitive-chat-history", "chat"):
+                                             "cognitive-conversation", "cognitive-chat-append", "cognitive-chat-history", "chat", "research-campaign"):
         from gaia.cognition.cli import register as register_cognition
         register_cognition(sub, ROOT)
     if not sys.argv[1:] or sys.argv[1] in ("-h", "--help", "intelligence-observe", "intelligence-research", "intelligence-catalog", "intelligence-qualify", "intelligence-download", "intelligence-install", "intelligence-benchmark", "intelligence-select", "intelligence-generate", "intelligence-results", "intelligence-show"):

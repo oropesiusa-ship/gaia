@@ -8,6 +8,8 @@ from .evidence import import_evidence
 from .orchestrator import CognitiveOrchestrator
 from .conversation import ConversationStore
 from .context_policy import select_context
+from .research_agenda import BenchmarkObservation
+from .research_campaign import CampaignBudget,ResearchCampaign
 from ..local_intelligence.primary import (PrimaryLocalIntelligenceBackend,
                                           DEFAULT_CHAT_CONTEXT,MAX_TESTED_CONTEXT)
 
@@ -20,7 +22,7 @@ def load(path):
 
 def register(sub,root):
     for name in ('cognitive-task','cognitive-run','cognitive-tasks','cognitive-trace','cognitive-result',
-                  'cognitive-conversation','cognitive-chat-append','cognitive-chat-history','chat'):
+                   'cognitive-conversation','cognitive-chat-append','cognitive-chat-history','chat','research-campaign'):
         p=sub.add_parser(name,help='Bounded local cognition with externally validated read-only tools')
         p.add_argument('--state-dir',type=Path,default=Path(root)/'state_cognition');p.add_argument('--json',action='store_true')
         if name=='cognitive-task':
@@ -41,6 +43,11 @@ def register(sub,root):
             p.add_argument('--no-memory',action='store_true');p.add_argument('--inspect-context',action='store_true')
             p.add_argument('--list-sessions',action='store_true')
             p.add_argument('--message');p.add_argument('--max-tokens',type=int,default=96)
+        elif name=='research-campaign':
+            p.add_argument('--evidence',required=True,type=Path);p.add_argument('--intelligence-state',type=Path,default=Path(root)/'state_local_intelligence')
+            p.add_argument('--owner',default='local');p.add_argument('--max-iterations',type=int,default=2)
+            p.add_argument('--max-llm-calls',type=int,default=6);p.add_argument('--max-tokens',type=int,default=3072)
+            p.add_argument('--max-duration',type=int,default=480);p.add_argument('--authorize-inference',action='store_true')
         elif name in ('cognitive-trace','cognitive-result'):p.add_argument('id')
         p.set_defaults(f=lambda args,cmd=name:run(root,cmd,args),cognition_command=True)
 
@@ -48,6 +55,14 @@ def register(sub,root):
 def run(root,cmd,args):
     try:
         if cmd=='chat':return chat(args)
+        if cmd=='research-campaign':
+            if not args.authorize_inference:raise ValueError('EXPLICIT_LOCAL_INFERENCE_AUTHORIZATION_REQUIRED')
+            if args.evidence.is_symlink()or args.evidence.stat().st_size>4*2**20:raise ValueError('INVALID_COGNITIVE_INPUT')
+            observed=BenchmarkObservation.from_bytes(args.evidence.read_bytes(),args.evidence.name)
+            budget=CampaignBudget(max_iterations=args.max_iterations,max_llm_calls=args.max_llm_calls,max_tokens=args.max_tokens,max_duration_s=args.max_duration)
+            factory=lambda:PrimaryLocalIntelligenceBackend(args.intelligence_state,context=DEFAULT_CHAT_CONTEXT)
+            value=ResearchCampaign(CognitiveStore(args.state_dir),factory,budget=budget,owner_id=args.owner).run(observed)
+            print(json.dumps(value,indent=2,sort_keys=True,allow_nan=False));return 0
         store=CognitiveStore(args.state_dir)
         if cmd=='cognitive-task':
             refs=[import_evidence(store,load(path),path.stem)for path in args.evidence]
