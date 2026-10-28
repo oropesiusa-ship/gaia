@@ -6,6 +6,7 @@ from .schema import task,validate_task
 from .store import CognitiveStore
 from .evidence import import_evidence
 from .orchestrator import CognitiveOrchestrator
+from .conversation import ConversationStore
 
 
 def load(path):
@@ -15,7 +16,8 @@ def load(path):
 
 
 def register(sub,root):
-    for name in ('cognitive-task','cognitive-run','cognitive-tasks','cognitive-trace','cognitive-result'):
+    for name in ('cognitive-task','cognitive-run','cognitive-tasks','cognitive-trace','cognitive-result',
+                 'cognitive-conversation','cognitive-chat-append','cognitive-chat-history'):
         p=sub.add_parser(name,help='Bounded local cognition with externally validated read-only tools')
         p.add_argument('--state-dir',type=Path,default=Path(root)/'state_cognition');p.add_argument('--json',action='store_true')
         if name=='cognitive-task':
@@ -24,6 +26,10 @@ def register(sub,root):
         elif name=='cognitive-run':
             p.add_argument('--task',required=True,type=Path);p.add_argument('--intelligence-state',type=Path,default=Path(root)/'state_local_intelligence')
             p.add_argument('--authorize-inference',action='store_true')
+        elif name=='cognitive-conversation':p.add_argument('--label',required=True)
+        elif name=='cognitive-chat-append':
+            p.add_argument('id');p.add_argument('--role',required=True,choices=('USER','ASSISTANT'));p.add_argument('--content',required=True)
+        elif name=='cognitive-chat-history':p.add_argument('id')
         elif name in ('cognitive-trace','cognitive-result'):p.add_argument('id')
         p.set_defaults(f=lambda args,cmd=name:run(root,cmd,args),cognition_command=True)
 
@@ -40,6 +46,9 @@ def run(root,cmd,args):
         elif cmd=='cognitive-run':
             if not args.authorize_inference:raise ValueError('EXPLICIT_LOCAL_INFERENCE_AUTHORIZATION_REQUIRED')
             value=CognitiveOrchestrator(args.state_dir,configuration=config.load(root),intelligence_state=args.intelligence_state).run(validate_task(load(args.task)))
+        elif cmd=='cognitive-conversation':value=ConversationStore(args.state_dir).create(args.label)
+        elif cmd=='cognitive-chat-append':value=ConversationStore(args.state_dir).append(args.id,args.role,args.content)
+        elif cmd=='cognitive-chat-history':value=ConversationStore(args.state_dir).history(args.id)
         elif cmd=='cognitive-tasks':value=store.list('TASK')
         else:value=store.get(args.id,'TRACE'if cmd=='cognitive-trace'else'RESULT')
         print(json.dumps(value,indent=2,sort_keys=True,allow_nan=False))

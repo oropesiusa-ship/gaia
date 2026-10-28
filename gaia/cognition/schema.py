@@ -6,7 +6,8 @@ from ..provenance import canonical_json,digest
 TYPES=('EXPLAIN','SUMMARIZE','SYNTHESIZE','COMPARE','ANALYZE','PLAN','ANSWER_FROM_EVIDENCE')
 AUTHORITIES=('READ_ONLY','NETWORK_READ','LOCAL_COMPUTE','SIDE_EFFECT','PRIVILEGED')
 FORBIDDEN=('shell','filesystem','credentials','publication','rollback','mutation','installation','source_edit','evaluator_change','permission_change')
-KINDS=('TASK','EVIDENCE','CONTEXT','PROPOSAL','VALIDATION','TOOL_RESULT','MODEL_TURN','PLAN','RESULT','TRACE')
+KINDS=('TASK','EVIDENCE','CONTEXT','PROPOSAL','VALIDATION','TOOL_RESULT','MODEL_TURN','PLAN','RESULT','TRACE',
+       'CONVERSATION','CHAT_TURN')
 SCHEMA='gaia_cognition_artifact_v1'
 
 
