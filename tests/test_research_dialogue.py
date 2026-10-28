@@ -113,6 +113,7 @@ class DialogueTests(unittest.TestCase):
         result=ResearchDialogueRunner(lambda:backend,evidence_mode='ENRICHED_TRANSFER_V2').run(self.observed,self.issue)
         self.assertEqual(result['status'],'ACCEPTED')
         reviewer=backend.prompts[2]
+        self.assertIn('"proposal"',backend.prompts[0])
         self.assertIn('One scaffold cannot distinguish arithmetic ability',reviewer)
         self.assertIn('ACCEPT, MODIFY, DISCARD, MORE_EVIDENCE, or STOP',reviewer)
         self.assertNotIn('"decision":"MORE_EVIDENCE"',reviewer)

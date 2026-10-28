@@ -174,8 +174,7 @@ class ResearchDialogueRunner:
                 if self.evidence_mode in ('ENRICHED_OBJECTIVE_V1','ENRICHED_TRANSFER_V2')and issue.get('diagnostic_details'):
                     diagnostic=issue['diagnostic_details'];payload['data']['diagnostic']=({'diagnosis':diagnostic['diagnosis'],'outcomes':diagnostic['outcomes']}
                         if role=='RESEARCHER'else{'diagnosis':diagnostic['diagnosis']})
-                payload['wire_contract']=({'cause':'short evidence-linked cause','change':'one concrete testable intervention','refs':['e1']}if role=='RESEARCHER'and self.evidence_mode=='ENRICHED_TRANSFER_V2'else
-                    {'proposal':'short causal hypothesis and concrete test'}if role=='RESEARCHER'else
+                payload['wire_contract']=({'proposal':'short evidence-linked cause and concrete test'}if role=='RESEARCHER'else
                     {'kind':'C','objection':'short concrete objection','refs':['e1'],'recommendation':'REVISE'}if role=='CRITIC'else
                     {'decision':'choose one allowed decision','change':'revised concrete intervention if needed','refs':['e1'],'question':'remaining uncertainty'}if self.evidence_mode=='ENRICHED_TRANSFER_V2'else{'decision':'MORE_EVIDENCE'})
                 if role!='RESEARCHER':
