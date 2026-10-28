@@ -165,6 +165,23 @@ permanecen `NOT_EXERCISED`.
 
 ## Regresión vigente
 
+### HEAD `ca473ea` (28-10-2026)
+
+- 84 archivos enumerados; hash de la lista
+  `9f25c2b883d92db90e60e44384101c24357c9b543c90ba520eb72c911a9bb5f3`.
+- Suite focalizada cognitiva: 101 PASS en 3,467 s.
+- Suite global: 1247 PASS, 9 skips, 0 fallos, 0 errores en 1131,315 s.
+- Log global: SHA-256
+  `e86d2fbab66972a1760c1cbb615860b1869bf965c5aaa9c3fb7740db0e43b939`.
+- Evidencia portable:
+  `local_intelligence_evidence/GAIA_1_2_FINAL_REGRESSION_CA473EA.json`.
+
+Esta regresión funcional no cambia por sí sola `GAIA_1_2 = NOT_CERTIFIED`: los
+adapters V2 y V3 fueron rechazados por sus protocolos reservados y Research
+Dialogue sigue por debajo del baseline determinista.
+
+### Evidencia histórica
+
 - Suite completa: 1205 tests, 9 skips, PASS.
 - Auditoría de memoria/calidad: 11/11 checks, PASS.
 - Log: `/tmp/opencode/gaia-1.2-memory-quality-final-full-suite.log`.
