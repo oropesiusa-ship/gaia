@@ -64,9 +64,30 @@ precedió a los últimos módulos acotados de diagnóstico/adaptador; éstos tie
 sus pruebas focalizadas PASS, por lo que no se usa esta evidencia para certificar
 el commit final.
 
+## Generalización independiente V1
+
+El conjunto reservado se congeló y publicó en el commit `9ab9000` antes de la
+primera inferencia. Contiene 18 casos nuevos y un scorer independiente, enlazados
+por el hash interno
+`cd7b327e9bd8041dfd1fdeddec20cbd7707ad04d19056f4f58cb400d7fd5f160`.
+
+| Brazo | Exactitud | Formato | Latencia mediana | Errores |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline con memoria | 14/18 | 14/18 | 1,602 s | 0 |
+| Adapter V2 | 8/18 | 8/18 | 1,928 s | 0 |
+
+Decisión pre-registrada: `REJECT_V2`. V2 introdujo siete regresiones, no alcanzó
+los umbrales de exactitud o formato y excedió el límite de latencia. La guarda
+literal añadida globalmente favoreció eco del prompt, envoltorios procedentes de
+memoria y JSON inválido en tareas donde no existía el patrón español objetivo.
+El artefacto conserva todas las respuestas originales y telemetría; SHA-256 de
+archivo: `e4203b85cc594a66d7bde90cf4fda250babeacb6420b2821f9a5d413448b42a6`.
+
+V2 no se integra ni se promueve. Una variante posterior deberá eliminar la
+intervención global y usar un protocolo reservado nuevo; este conjunto no podrá
+volver a denominarse independiente para ajustar esa variante.
+
 ## Siguiente gate
 
-Antes de integrar V2 como política interactiva se requieren casos independientes
-pre-registrados de multiplicación española, copia literal y JSON exacto. Si no
-generaliza sin regresiones, se rechaza. No se modifica el modelo seleccionado ni
-se conectan promociones mientras ese gate permanezca abierto.
+Diseñar una variante estrictamente dirigida y evaluarla con casos reservados
+nuevos. No se modifica el modelo seleccionado ni se conectan promociones.
