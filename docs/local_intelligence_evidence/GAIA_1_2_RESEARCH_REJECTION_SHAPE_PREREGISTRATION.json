@@ -1,0 +1,9 @@
+{
+  "schema":"gaia_research_rejection_shape_preregistration_v1",
+  "status":"FROZEN_BEFORE_REAL_DIAGNOSTIC",
+  "authority":"NONE",
+  "purpose":"Diagnose repeated INVALID_RESEARCHER_SCHEMA without retaining model text or values.",
+  "capture":"JSON container shape only: sorted object keys, scalar type names, list lengths and nested shapes.",
+  "forbidden":["string values","numeric values","free text","hidden reasoning","evaluator changes","authority changes","execution","network","promotion"],
+  "decision_rule":"A subsequent schema variant is allowed only when the captured shape identifies a bounded already-semantic representation; otherwise stop this line."
+}
