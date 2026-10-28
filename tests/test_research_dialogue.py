@@ -142,5 +142,14 @@ class DialogueTests(unittest.TestCase):
         self.assertGreater(comparison['dialogue']['score'],comparison['baseline']['score'])
         self.assertEqual(comparison['dialogue']['selector'],'RESEARCH_DIRECT_V1_ONE_ROLE')
 
+    def test_direct_split_field_repair_never_invents_missing_change(self):
+        backend=Backend([{'cause':'The reasoning failure may come from the Spanish operator.'},
+                         {'change':'Test a symbolic multiplication restatement against the unchanged reasoning prompt.'}])
+        result=DirectResearchRunner(lambda:backend).run(self.observed,self.issue)
+        comparison=compare_research(self.observed,deterministic_agenda(self.observed),result,selector='RESEARCH_DIRECT_V2_SPLIT_FIELDS')
+        self.assertEqual(result['status'],'ACCEPTED');self.assertEqual(result['performance']['calls'],2)
+        self.assertEqual(result['research']['hypotheses'][0]['intervention'],'Test a symbolic multiplication restatement against the unchanged reasoning prompt.')
+        self.assertGreater(comparison['dialogue']['score'],comparison['baseline']['score'])
+
 
 if __name__=='__main__':unittest.main()

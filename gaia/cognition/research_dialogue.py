@@ -243,23 +243,39 @@ class DirectResearchRunner:
         if not observed.get('issues')or issue is None:return {**base,'status':'STOPPED','reason':'INSUFFICIENT_FAILURE_EVIDENCE'}
         if issue not in observed['issues']:return {**base,'reason':'ISSUE_NOT_IN_OBSERVATION'}
         aliases=_aliases(issue);detail=(issue.get('evidence_details')or[{}])[0];backend=None;start=time.monotonic()
-        data={'task':issue['task_id'],'category':issue['category'],'expected':detail.get('expected'),'observed':detail.get('observed'),
-              'allowed_evidence_aliases':list(aliases)}
-        prompt=('Return only JSON {"proposal":"..."}. The proposal must name task '+issue['task_id']+
-                ', state one evidence-linked cause, and one concrete testable intervention. No prose, execution, tools, or authority. DATA='+canonical_json(data).decode())
+        data={'task':issue['task_id'],'category':issue['category'],'objective_failures':issue['failure_count'],
+              'format_failures':issue['format_failure_count'],'allowed_evidence_aliases':list(aliases),
+              'objective_detail':{'expected':detail.get('expected'),'observed':detail.get('observed')}}
+        prompt=_prompt('RESEARCHER',{'data':data,'wire_contract':{'proposal':'short causal hypothesis and concrete test'}})
         try:
             backend=self.backend_factory();backend.load();base['performance']['reserved_tokens']=self.max_output_tokens
-            response=backend.generate(prompt,max_tokens=self.max_output_tokens,timeout=self.max_duration_s)
-            base['performance']['calls']=1
+            response=backend.generate(prompt,max_tokens=self.max_output_tokens,timeout=self.max_duration_s);base['performance']['calls']=1
             if not isinstance(response,dict)or response.get('status')!='OK':raise ValueError('MODEL_INFERENCE_FAILED')
             turn={'role':'DIRECT_RESEARCHER','prompt':prompt,'prompt_sha256':digest(prompt),'response':None,
                   'response_sha256':digest(response.get('text','')),'raw_output_stored':False,'validation':'PENDING',
                   'max_tokens':self.max_output_tokens,'latency_s':response.get('latency_s',0.0),'hidden_reasoning_requested':False,'model_authority':'NONE'}
-            base['turns'].append(turn);value=strict_json(response.get('text',''));turn['rejected_response_shape']=_shape(value);research=_researcher(value,aliases,issue)
+            base['turns'].append(turn);value=strict_json(response.get('text',''));turn['rejected_response_shape']=_shape(value)
+            if isinstance(value,dict)and set(value)=={'cause'}:
+                safe_text(value['cause'],500);turn.pop('rejected_response_shape');turn['response']={'cause':value['cause']};turn['validation']='ACCEPTED_PARTIAL'
+                repair_prompt=('Return only JSON {"change":"..."}. Give one concrete testable intervention for task '+issue['task_id']+
+                               '. Do not repeat the cause. No prose, execution, tools, or authority.')
+                repair=backend.generate(repair_prompt,max_tokens=self.max_output_tokens,timeout=self.max_duration_s)
+                base['performance']['calls']=2;base['performance']['reserved_tokens']=self.max_output_tokens*2
+                if not isinstance(repair,dict)or repair.get('status')!='OK':raise ValueError('MODEL_INFERENCE_FAILED')
+                repair_turn={'role':'DIRECT_RESEARCHER_REPAIR','prompt':repair_prompt,'prompt_sha256':digest(repair_prompt),'response':None,
+                    'response_sha256':digest(repair.get('text','')),'raw_output_stored':False,'validation':'PENDING','max_tokens':self.max_output_tokens,
+                    'latency_s':repair.get('latency_s',0.0),'hidden_reasoning_requested':False,'model_authority':'NONE'}
+                base['turns'].append(repair_turn);repair_value=strict_json(repair.get('text',''));repair_turn['rejected_response_shape']=_shape(repair_value)
+                if not isinstance(repair_value,dict)or set(repair_value)!={'change'}:raise ValueError('INVALID_DIRECT_CHANGE_SCHEMA')
+                safe_text(repair_value['change'],500);repair_turn.pop('rejected_response_shape');repair_turn['response']={'change':repair_value['change']};repair_turn['validation']='ACCEPTED'
+                value={'cause':value['cause'],'change':repair_value['change']}
+            research=_researcher(value,aliases,issue)
             hypothesis=research['hypotheses'][0]
             review=_reviewer({'decision':'ACCEPT','change':hypothesis['intervention'],'refs':['e1'],
                               'question':'Does the direct intervention improve the frozen objective without regressions?'},aliases,research['hypotheses'])
-            turn.pop('rejected_response_shape');turn['response']=research;turn['validation']='ACCEPTED';base.update(status='ACCEPTED',reason='DIRECT_PROPOSAL_ACCEPTED',research=research,review=review)
+            turn.pop('rejected_response_shape',None)
+            if turn['validation']=='PENDING':turn['response']=research;turn['validation']='ACCEPTED'
+            base.update(status='ACCEPTED',reason='DIRECT_PROPOSAL_ACCEPTED',research=research,review=review)
             usage=response.get('usage')or{};base['performance']['reported_output_tokens']=usage.get('completion_tokens',0)if type(usage.get('completion_tokens',0))is int else 0
         except TimeoutError:base['reason']='MODEL_TIMEOUT'
         except (ValueError,KeyError,TypeError)as exc:
