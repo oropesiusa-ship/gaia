@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 from gaia.cognition.conversation import ConversationStore,project_history
+from gaia.cognition.memory import retrieve
+from gaia.cognition.context_policy import select_context
 from gaia.cognition.schema import seal
 
 
@@ -58,6 +60,9 @@ class ConversationTests(unittest.TestCase):
             shown=subprocess.run([python,'-B',str(root/'gaia.py'),'cognitive-chat-history','--state-dir',state,
                 identifier],capture_output=True,text=True,check=True)
             self.assertEqual(json.loads(shown.stdout)[0]['payload']['content'],'persistent hello')
+            listed=subprocess.run([python,'-B',str(root/'gaia.py'),'chat','--state-dir',state,'--list-sessions'],
+                                  capture_output=True,text=True,check=True)
+            self.assertEqual(json.loads(listed.stdout)[0]['id'],identifier)
 
     def test_generated_multiturn_response_is_persisted_with_exact_projection(self):
         class Backend:
@@ -84,6 +89,25 @@ class ConversationTests(unittest.TestCase):
             self.assertEqual(value['status'],'FAILED')
             self.assertEqual(len(conversations.history(conversation['id'])),1)
             self.assertEqual(len(conversations.store.list('CHAT_FAILURE')),1)
+
+    def test_memory_is_deterministic_bounded_and_owner_isolated(self):
+        with tempfile.TemporaryDirectory()as state:
+            conversations=ConversationStore(state)
+            source=conversations.create('source','alice');conversations.append(source['id'],'USER','Mi proyecto usa el código NEBULA_77.')
+            foreign=conversations.create('foreign','bob');conversations.append(foreign['id'],'USER','Mi proyecto usa el código SECRET_99.')
+            target=conversations.create('target','alice')
+            found=retrieve(conversations.store,target,'¿Cuál es el código de mi proyecto?',limit=2)
+            self.assertEqual([v['content']for v in found],['Mi proyecto usa el código NEBULA_77.'])
+            self.assertTrue(all(v['authority']=='NONE'for v in found))
+
+    def test_adaptive_context_requires_pressure_and_latency_headroom(self):
+        turn=lambda text:seal('CHAT_TURN',{'role':'USER','content':text})
+        self.assertEqual(select_context([turn('x'*7000)],latency_budget_s=15)['context'],4096)
+        self.assertEqual(select_context([turn('x'*7000)],latency_budget_s=30)['context'],8192)
+        self.assertEqual(select_context([],latency_budget_s=30,pending_characters=7000)['context'],8192)
+        self.assertEqual(select_context([turn('x'*13000)],latency_budget_s=65)['context'],16384)
+        with self.assertRaisesRegex(ValueError,'LATENCY'):
+            select_context([],mode='8192',latency_budget_s=15)
 
 
 if __name__=='__main__':unittest.main()
