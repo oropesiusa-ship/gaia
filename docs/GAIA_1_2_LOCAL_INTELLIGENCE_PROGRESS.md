@@ -5,6 +5,10 @@
 Primer incremento sobre la base 1.1 certificada: `INTEGRATION_TESTED`.
 No constituye todavía certificación final de GAIA 1.2.
 
+El incremento posterior de contexto y chat está `REAL_WORLD_TESTED`: contexto
+interactivo seleccionado de 4096 tokens y conversación local persistente real.
+Véase `GAIA_1_2_CONTEXT_AND_CHAT_REPORT.md`.
+
 Rama: `feat/gaia-1.2-local-intelligence`, creada desde el cierre 1.1
 `3875713a4d3a5256febf438a9d3b08f1dc81979e`.
 
@@ -46,8 +50,10 @@ el requerimiento reciente. Evidencia compacta:
 
 Clasificación honesta: almacenamiento conversacional `UNIT_TESTED` e
 `INTEGRATION_TESTED`; proyección y recall de tres casos `REAL_WORLD_TESTED` en
-este host. Calidad general de memoria, contexto largo >1024, diálogo autónomo
-multi-sesión y certificación 1.2 permanecen `NOT_EXERCISED`.
+este host. Contexto >1024 y diálogo generado entre reinicios están ahora
+`REAL_WORLD_TESTED`: 16K es el máximo funcional observado y 4K el óptimo
+interactivo. Calidad general, RAG, memoria semántica y certificación final
+permanecen `NOT_EXERCISED`.
 
 ## Regresión
 
