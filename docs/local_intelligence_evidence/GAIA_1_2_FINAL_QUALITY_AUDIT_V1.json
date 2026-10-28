@@ -1,0 +1,66 @@
+{
+  "authority": "NONE",
+  "checks": {
+    "format_rate": true,
+    "functional_coverage": true,
+    "global_regression": true,
+    "inference_errors": true,
+    "objective_rate": true,
+    "required_real_contexts": true,
+    "restart": true
+  },
+  "claims": {
+    "bounded_quality_gate": "PASS",
+    "cognitive_improvement": "NOT_CLAIMED"
+  },
+  "functional": {
+    "global_tests": 1247,
+    "restart_between_turns": true,
+    "skips": 9,
+    "test_files": 84
+  },
+  "objective": {
+    "errors": 0,
+    "format_passed": 20,
+    "format_rate": 0.7692307692307693,
+    "passed": 22,
+    "rate": 0.8461538461538461,
+    "total": 26
+  },
+  "performance": {
+    "independent_median_latency_s": 0.932952799499617,
+    "maximum_functional_context": 16384,
+    "memory_median_latency_s": 1.044044087990187
+  },
+  "preregistration": {
+    "schema": "gaia_1_2_final_quality_preregistration_v1",
+    "status": "FROZEN_BEFORE_FINAL_AUDIT"
+  },
+  "schema": "gaia_1_2_final_quality_audit_v1",
+  "status": "PASS",
+  "subjective": {
+    "policy": "REPORTED_SEPARATELY_NOT_SCORED",
+    "samples": [
+      {
+        "category": "SPANISH_EXPLANATION",
+        "input_tokens": 147,
+        "latency_s": 2.086695485006203,
+        "memories": 0,
+        "objective": null,
+        "subjective": "NOT_SCORED",
+        "task": "explanation",
+        "text": "La recursión es un concepto en programación donde una función se llama a sí misma para resolver un problema. En otras palabras, una función llama a sí misma para realizar una tarea, y luego llama a sí misma nuevamente para realizar la misma tarea de nuevo, hasta que se cumpla una condición de terminación."
+      },
+      {
+        "category": "CODE_HELP",
+        "input_tokens": 148,
+        "latency_s": 2.6522300179931335,
+        "memories": 0,
+        "objective": null,
+        "subjective": "NOT_SCORED",
+        "task": "code_help",
+        "text": "Una mejora breve para la función `doble(x)` podría ser agregar una verificación de tipo para asegurarse de que la entrada sea un número. Esto evitaría errores si se pasa un tipo de dato incorrecto. Aquí tienes una versión mejorada de la función:\n\n```python\ndef doble(x):\n    if not isinstance(x, (int, float)):\n        raise TypeError(\"La entrada debe ser un número (int o float).\")\n    return x +"
+      }
+    ]
+  }
+}

@@ -105,3 +105,19 @@ Artefactos portables:
    permitir que `MORE_EVIDENCE` continúe otra iteración real.
 3. Ejecutar la suite completa en una ventana con timeout suficiente y registrar
    su resumen final.
+
+## Transferencia V2 — resultado negativo
+
+Se pre-registraron y ejecutaron tres variantes acotadas con 96 tokens por llamada.
+La primera transfirió la objeción completa al Revisor y eliminó el ejemplo que
+anclaba `MORE_EVIDENCE`; V2.1 restauró el contrato compacto del Investigador;
+V2.2 permitió únicamente un alias de evidencia validado junto a la propuesta.
+
+Las tres campañas reales se detuvieron tras una llamada con
+`INVALID_RESEARCHER_SCHEMA` y puntuaron 2/7 frente a 6/7. No hubo red, ejecución,
+cambios de evaluador ni promociones. Al no conservarse texto rechazado, no existe
+evidencia para ampliar más el parser sin adivinar; esa línea queda rechazada.
+La reapertura de V2.2 devolvió exactamente el mismo ID y hash, con un solo diálogo
+y una sola comparación, demostrando persistencia e idempotencia tras reinicio.
+Evidencia: `GAIA_1_2_RESEARCH_TRANSFER_V2_NEGATIVE.json`, SHA-256
+`f12fb7191ec4333d7bf6cde6456e5752dc08d442101446e4fd8178304b941f5f`.

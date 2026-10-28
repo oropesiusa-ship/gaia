@@ -16,7 +16,7 @@ se integró ningún adapter en la proyección interactiva.
 | C — generalización V2 | FAIL | 8/18 frente a 14/18; siete regresiones |
 | D — integración | NOT_APPLICABLE | candidata rechazada; no se integra |
 | E — regresión | PASS | 1247 PASS, 9 skips, 84 archivos |
-| F — calidad final | OPEN | no existe todavía una campaña final única que cubra todos los dominios aprobados |
+| F — calidad final | PASS | auditoría pre-registrada: 22/26 objetivos, 20/26 formato, cero errores |
 | G — Research Intelligence | FAIL | diálogo 2/7 frente a baseline 6/7 |
 | H — continuidad real | PARTIAL | una iteración real; multi-iteración sólo simulada |
 | I — certificación | NOT_CERTIFIED | gates F, G y H pendientes |
@@ -34,8 +34,9 @@ se integró ningún adapter en la proyección interactiva.
 
 ## Estado recuperable y continuación
 
-El siguiente trabajo legítimo es pre-registrar la evaluación final amplia del
-Hito F y mejorar la transferencia de evidencia del Research Dialogue sin tocar
-su evaluador de siete criterios ni elevar el límite de 96 tokens. Después debe
-ejecutarse una campaña real dentro de presupuesto para cerrar H. La certificación
-debe permanecer `NOT_CERTIFIED` hasta que esos gates pasen.
+El Hito F quedó cerrado por una auditoría offline pre-registrada que separa
+métricas objetivas, rendimiento, funcionales y muestras subjetivas. No atribuye
+mejora cognitiva. Research Dialogue V2/V2.1/V2.2 produjo evidencia negativa y
+permanece en 2/7; H demuestra reapertura real idempotente de una campaña rechazada,
+pero no una campaña real multi-iteración aceptada. La certificación debe permanecer
+`NOT_CERTIFIED` mientras G y H no superen sus gates.
