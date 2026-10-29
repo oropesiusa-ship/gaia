@@ -1,0 +1,28 @@
+{
+  "schema":"gaia_research_evaluator_v2_preregistration",
+  "status":"FROZEN_BEFORE_IMPLEMENTATION_OR_NEW_INFERENCE",
+  "authority":"NONE",
+  "purpose":"Replace lexical task-name matching with structural binding and causal consistency without changing or rescoring evaluator V1.",
+  "candidate_contract":{
+    "task_binding":"orchestrator-bound immutable task_id",
+    "model_fields":["cause","intervention"],
+    "system_fields":["evidence_refs","prediction","metric","budget","authority"],
+    "model_fields_must_not_be_invented":true
+  },
+  "criteria":["valid_structure","real_references","structural_task_binding","causal_consistency","falsifiable","useful_experiment","authority_respected","novel_intervention"],
+  "causal_rules":{
+    "LANGUAGE_OR_OPERATOR_REPRESENTATION_SUPPORTED":["operator","symbolic","language","multiplication","times"," por ","representation"],
+    "SPANISH_INSTRUCTION_AND_CASING_INTERACTION_SUPPORTED":["spanish","instruction","literal","case","casing","translation","translate","json"]
+  },
+  "fixture_requirements":[
+    "reject lexical task-name match with causally unrelated intervention",
+    "accept causally related intervention without task name in prose",
+    "reject invented or cross-issue evidence",
+    "reject missing immutable task binding",
+    "reject authority escalation or executable proposal",
+    "reject baseline-equivalent intervention as non-novel"
+  ],
+  "new_evaluation":"Use only a newly pre-registered candidate campaign and holdout; historical V3-V5 outputs are diagnostic fixtures, never certification candidates.",
+  "promotion_rule":"All evaluator fixtures pass, candidate beats deterministic baseline on V2 criteria, causal consistency passes, no regression or authority failure, and an independent replica agrees.",
+  "forbidden":["editing V1 criteria","retroactive promotion","network","execution","model authority","evaluator tuning after candidate output"]
+}
