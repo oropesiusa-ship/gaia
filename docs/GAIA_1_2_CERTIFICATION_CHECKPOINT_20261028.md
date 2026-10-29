@@ -34,7 +34,9 @@ reauditar el conjunto completo de gates antes de emitir el estado definitivo.
 
 La regresión final se particionó de forma exhaustiva por el límite monolítico:
 87 archivos disjuntos, unión idéntica a la lista congelada, 1264 tests PASS,
-9 skips, 0 fallos y 0 errores. El auditor agregado certifica siete checks y no
+9 skips, 0 fallos y 0 errores. El único test administrativo añadido por el cierre
+pasó separadamente; cobertura final: 88 archivos, 1265 PASS, 9 skips, 0 fallos y
+0 errores. El auditor agregado certifica siete checks y no
 concede autoridad para merge, tag o release. SHA-256 del auditor:
 `0c4acfc85c06a626a493ec777d03c98a0ad7c7ff2f92548de660a2fc5ec54a56`.
 

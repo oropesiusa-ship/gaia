@@ -1,0 +1,38 @@
+{
+  "added": [
+    {
+      "errors": 0,
+      "failures": 0,
+      "file": "tests/test_gaia_1_2_certification_audit.py",
+      "log_sha256": "d7ef9f750c2e38be7d68a70b5a02ce605ad26b56de5a45ffe1e2f2162703a4b4",
+      "skips": 0,
+      "tests": 1
+    }
+  ],
+  "aggregate": {
+    "errors": 0,
+    "failures": 0,
+    "skips": 9,
+    "tests": 1265
+  },
+  "authority": "NONE",
+  "base": {
+    "artifact": "GAIA_1_2_FINAL_REGRESSION_DA118A3.json",
+    "base_list_sha256": "2cecec1c4382e59f56a2db5e724de5b0f21f3c85e986407acd0fc933f9dff04e",
+    "errors": 0,
+    "failures": 0,
+    "files": 87,
+    "skips": 9,
+    "tests": 1264
+  },
+  "coverage": {
+    "base_equals_current_minus_added": true,
+    "disjoint": true,
+    "exhaustive": true
+  },
+  "current_test_file_count": 88,
+  "current_test_list_sha256": "1dd2968df3d68061124c76794ea48369349a0af48e729a1d0f70f7771c48d6aa",
+  "evaluated_commit": "e91e07c",
+  "schema": "gaia_1_2_final_regression_addendum_v1",
+  "status": "PASS"
+}

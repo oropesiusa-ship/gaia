@@ -196,7 +196,7 @@ Dialogue sigue por debajo del baseline determinista.
 
 - Research Direct V7: 8/8 en dos réplicas españolas reservadas.
 - Auditor Research V2: PASS; réplica semántica y cero efectos.
-- Regresión particionada exhaustiva: 87 archivos, 1264 PASS, 9 skips.
+- Regresión particionada exhaustiva y addendum: 88 archivos, 1265 PASS, 9 skips.
 - Auditor de certificación: `CERTIFIED`, 7/7 checks PASS.
 - No se promovieron adapters V2/V3; la política interactiva permanece ORIGINAL.
 - Autoridad del LLM: `NONE`; merge/tag/release no autorizados.
