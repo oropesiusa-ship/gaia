@@ -37,6 +37,18 @@ def evaluate_candidate(issue,candidate,baseline):
     return _result(checks)
 
 
+def candidate_from_dialogue(issue,dialogue):
+    hypotheses=((dialogue.get('research')or{}).get('hypotheses')or[])
+    review=dialogue.get('review')or{}
+    if dialogue.get('status')!='ACCEPTED'or not hypotheses or not isinstance(review.get('experiment'),dict):
+        return None
+    hypothesis=hypotheses[0];experiment=review['experiment']
+    return {'schema':'gaia_research_candidate_v2','task_id':issue['task_id'],'cause':hypothesis['causal_hypothesis'],
+            'intervention':hypothesis['intervention'],'evidence_refs':hypothesis['evidence_refs'],'prediction':hypothesis['prediction'],
+            'metric':hypothesis['metric'],'experiment':{'protocol':experiment['protocol'],'execute':experiment['execute'],
+                'promotion_allowed':experiment['promotion_allowed']},'authority':'NONE'}
+
+
 def _result(checks):
     return {'schema':SCHEMA,'criteria':CRITERIA,'criteria_hash':CRITERIA_HASH,'checks':checks,'score':sum(checks.values()),
             'status':'PASS'if all(checks.values())else'FAIL','authority':'NONE','evaluator_modified_v1':False}

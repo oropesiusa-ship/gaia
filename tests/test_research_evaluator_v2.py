@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from gaia.cognition.research_evaluator_v2 import evaluate_candidate
+from gaia.cognition.research_evaluator_v2 import candidate_from_dialogue,evaluate_candidate
 
 
 def fixture(intervention='Compare symbolic multiplication operator wording.',cause='The language representation changes arithmetic behavior.'):
@@ -38,6 +38,13 @@ class ResearchEvaluatorV2Tests(unittest.TestCase):
                 self.assertFalse(evaluate_candidate(issue,altered,baseline)['checks'][check])
         executable=copy.deepcopy(candidate);executable['experiment']['execute']=True
         self.assertFalse(evaluate_candidate(issue,executable,baseline)['checks']['authority_respected'])
+
+    def test_dialogue_conversion_copies_model_semantics_and_binds_system_fields(self):
+        issue,candidate,_=fixture();hypothesis={'causal_hypothesis':candidate['cause'],'intervention':candidate['intervention'],
+            'evidence_refs':candidate['evidence_refs'],'prediction':candidate['prediction'],'metric':candidate['metric']}
+        dialogue={'status':'ACCEPTED','research':{'hypotheses':[hypothesis]},'review':{'experiment':candidate['experiment']}}
+        self.assertEqual(candidate_from_dialogue(issue,dialogue),candidate)
+        self.assertIsNone(candidate_from_dialogue(issue,{'status':'REJECTED'}))
 
 
 if __name__=='__main__':unittest.main()
