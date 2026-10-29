@@ -15,12 +15,13 @@ from gaia.local_intelligence.primary import PrimaryLocalIntelligenceBackend
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--evidence',type=Path,required=True);parser.add_argument('--diagnostic',type=Path,required=True)
-    parser.add_argument('--intelligence-state',type=Path,required=True);parser.add_argument('--output',type=Path,required=True);args=parser.parse_args()
+    parser.add_argument('--intelligence-state',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--split-fields',action='store_true');args=parser.parse_args()
     observed=BenchmarkObservation.from_bytes(args.evidence.read_bytes(),args.evidence.name)
     observed=augment_observation(observed,args.diagnostic.read_bytes(),args.diagnostic.name)
     issue=next(value for value in observed['issues']if value['task_id']=='spanish')
     factory=lambda:PrimaryLocalIntelligenceBackend(args.intelligence_state,context=4096)
-    dialogue=DirectResearchRunner(factory).run(observed,issue);candidate=candidate_from_dialogue(issue,dialogue)
+    dialogue=DirectResearchRunner(factory,split_fields=args.split_fields).run(observed,issue);candidate=candidate_from_dialogue(issue,dialogue)
     baseline_agenda=deterministic_agenda(observed);baseline_intervention=next(value['proposed_change']for value in baseline_agenda['hypotheses']if value['problem'].startswith('spanish '))
     evaluation=evaluate_candidate(issue,candidate,{'intervention':baseline_intervention})
     value={'schema':'gaia_research_v2_holdout_run','authority':'NONE','criteria_hash':CRITERIA_HASH,'source':observed['source'],

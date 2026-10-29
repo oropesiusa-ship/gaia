@@ -161,6 +161,13 @@ class DialogueTests(unittest.TestCase):
         self.assertEqual(result['status'],'ACCEPTED');self.assertEqual(result['performance']['calls'],2)
         self.assertIn('Spanish multiplication',result['research']['hypotheses'][0]['causal_hypothesis'])
 
+    def test_direct_minimal_split_requests_hypothesis_from_first_call(self):
+        backend=Backend([{'hypothesis':'The Spanish instruction may translate the literal value.'},
+                         {'intervention':'For the spanish task, compare a literal JSON instruction without translation.'}])
+        result=DirectResearchRunner(lambda:backend,split_fields=True).run(self.observed,self.issue)
+        self.assertEqual(result['status'],'ACCEPTED');self.assertEqual(result['performance']['calls'],2)
+        self.assertIn('"hypothesis"',backend.prompts[0]);self.assertNotIn('allowed_evidence_aliases',backend.prompts[0])
+
     def test_direct_prompt_includes_independent_diagnostic_when_present(self):
         path=ROOT/'docs/local_intelligence_evidence/GAIA_1_2_REASONING_SYMBOLIC_DIAGNOSTIC_V2.json'
         observed=augment_observation(self.observed,path.read_bytes(),path.name)

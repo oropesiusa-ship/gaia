@@ -232,9 +232,10 @@ class ResearchDialogueRunner:
 
 class DirectResearchRunner:
     """One model proposal with deterministic bounded review; uses the frozen comparator."""
-    def __init__(self,backend_factory,*,max_output_tokens=96,max_duration_s=180):
+    def __init__(self,backend_factory,*,max_output_tokens=96,max_duration_s=180,split_fields=False):
         if type(max_output_tokens)is not int or not 32<=max_output_tokens<=96:raise ValueError('INVALID_DIRECT_RESEARCH_BUDGET')
-        self.backend_factory=backend_factory;self.max_output_tokens=max_output_tokens;self.max_duration_s=max_duration_s
+        if type(split_fields)is not bool:raise ValueError('INVALID_DIRECT_RESEARCH_MODE')
+        self.backend_factory=backend_factory;self.max_output_tokens=max_output_tokens;self.max_duration_s=max_duration_s;self.split_fields=split_fields
 
     def run(self,observed,issue):
         base={'schema':SCHEMA,'source':observed.get('source'),'issue':issue,'evidence_mode':'DIRECT_OBJECTIVE_V1','authority':'NONE',
@@ -248,7 +249,12 @@ class DirectResearchRunner:
               'objective_detail':{'expected':detail.get('expected'),'observed':detail.get('observed')}}
         if issue.get('diagnostic_details'):
             data['diagnostic']={'diagnosis':issue['diagnostic_details']['diagnosis'],'outcomes':issue['diagnostic_details']['outcomes']}
-        prompt=_prompt('RESEARCHER',{'data':data,'wire_contract':{'proposal':'short causal hypothesis and concrete test'}})
+        if self.split_fields:
+            compact={'task':issue['task_id'],'expected':detail.get('expected'),'observed':detail.get('observed'),
+                     'diagnosis':(issue.get('diagnostic_details')or{}).get('diagnosis')}
+            prompt=('Return only JSON {"hypothesis":"..."}. State one short evidence-linked causal hypothesis for the exact task. '
+                    'No intervention, prose, execution, tools, or authority. DATA='+canonical_json(compact).decode())
+        else:prompt=_prompt('RESEARCHER',{'data':data,'wire_contract':{'proposal':'short causal hypothesis and concrete test'}})
         try:
             backend=self.backend_factory();backend.load();base['performance']['reserved_tokens']=self.max_output_tokens
             response=backend.generate(prompt,max_tokens=self.max_output_tokens,timeout=self.max_duration_s);base['performance']['calls']=1
