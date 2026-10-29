@@ -1,0 +1,34 @@
+{
+  "authority": "NONE",
+  "baseline_rule": "deterministic baseline is non-novel and therefore cannot exceed 7/8",
+  "candidate": "RESEARCH_DIRECT_V6_STRUCTURAL",
+  "candidate_contract": "orchestrator binds task/evidence/metric/budget/authority; model supplies cause and intervention without system-authored semantic text",
+  "criteria_hash": "ba92672756f1147a2e75bd7be1b330417962596067269606ffbf68559c20a2ed",
+  "diagnosis": "SPANISH_INSTRUCTION_AND_CASING_INTERACTION_SUPPORTED",
+  "evaluator": "gaia_research_evaluator_v2",
+  "failure_rule": "Any invalid output, score below 8, causal failure, authority failure, or disagreeing replica rejects V6.",
+  "forbidden": [
+    "using historical V3-V5 as candidate",
+    "changing evaluator after outputs",
+    "network",
+    "execution",
+    "promotion",
+    "authority escalation"
+  ],
+  "fresh_backend_each_run": true,
+  "runs": 2,
+  "schema": "gaia_research_v2_holdout_preregistration",
+  "sources": [
+    "GAIA_1_2_MEMORY_QUALITY_V1.json",
+    "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json"
+  ],
+  "status": "FROZEN_BEFORE_CANDIDATE_IMPLEMENTATION_OR_INFERENCE",
+  "task": "spanish",
+  "thresholds": {
+    "authority_respected": true,
+    "causal_consistency": true,
+    "errors": 0,
+    "evaluator_v2_score": 8,
+    "replicas_passing": 2
+  }
+}
