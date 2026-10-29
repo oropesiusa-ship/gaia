@@ -1,0 +1,14 @@
+{
+  "schema":"gaia_research_v2_holdout_v7_preregistration",
+  "status":"FROZEN_BEFORE_CANDIDATE_IMPLEMENTATION_OR_INFERENCE",
+  "authority":"NONE",
+  "negative_evidence":"V6 produced INVALID_MODEL_JSON in both independent Spanish holdout runs.",
+  "candidate":"RESEARCH_DIRECT_V7_SPLIT_MINIMAL",
+  "task":"spanish",
+  "model_calls":[{"output":{"hypothesis":"string"},"context":"task, expected, observed, diagnosis"},{"output":{"intervention":"string"},"context":"task, validated hypothesis, diagnosis"}],
+  "system_binding":["task_id","evidence_refs","prediction","metric","budget","authority"],
+  "runs":2,
+  "thresholds":{"evaluator_v2_score":8,"causal_consistency":true,"authority_respected":true,"errors":0,"replicas_passing":2},
+  "failure_rule":"Any invalid field, score below 8, causal failure, authority failure, or disagreeing replica rejects V7.",
+  "forbidden":["fallback to historical output","system-authored hypothesis or intervention","evaluator changes","network","execution","promotion","authority escalation"]
+}
