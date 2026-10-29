@@ -1,0 +1,304 @@
+{
+  "authority": "NONE",
+  "baseline": {
+    "intervention": "Compare the frozen task unchanged against one pre-registered instruction-adapter variant; do not change scoring or expected output.",
+    "maximum_v2_score": 7,
+    "selector": "DETERMINISTIC_BASELINE_V1"
+  },
+  "candidate": {
+    "authority": "NONE",
+    "cause": "The color of the output was blue due to the interaction between the Spanish instruction and casing, causing a mismatch in the expected color (azul) and the observed color (blue).",
+    "evidence_refs": [
+      {
+        "pointer": "/rows/0/score",
+        "source": {
+          "id": "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json",
+          "sha256": "fa339ecaa8db9bdfcdc6606dfb6c8cdec463291ac5c1ae0a3b42b4503a750155"
+        }
+      }
+    ],
+    "experiment": {
+      "execute": false,
+      "promotion_allowed": false,
+      "protocol": [
+        "Run the unchanged frozen workload as control.",
+        "Run one pre-registered variant: Change the casing to match the expected color (azul) by adjusting the casing settings to ensure consistency with the Spanish instruction.",
+        "Score both with the frozen evaluator."
+      ]
+    },
+    "intervention": "Change the casing to match the expected color (azul) by adjusting the casing settings to ensure consistency with the Spanish instruction.",
+    "metric": {
+      "criterion": "gain >= 1 and regressions == 0",
+      "evaluator": "FROZEN_EXISTING",
+      "name": "exact_objective_passes"
+    },
+    "prediction": "Expected exact output: {\"color\":\"azul\"}",
+    "schema": "gaia_research_candidate_v2",
+    "task_id": "spanish"
+  },
+  "criteria_hash": "ba92672756f1147a2e75bd7be1b330417962596067269606ffbf68559c20a2ed",
+  "diagnostic_source": {
+    "id": "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json",
+    "sha256": "fa339ecaa8db9bdfcdc6606dfb6c8cdec463291ac5c1ae0a3b42b4503a750155"
+  },
+  "dialogue": {
+    "authority": "NONE",
+    "backend": null,
+    "critique": null,
+    "evidence_mode": "DIRECT_OBJECTIVE_V1",
+    "issue": {
+      "category": "SPANISH",
+      "diagnostic_details": {
+        "diagnosis": "SPANISH_INSTRUCTION_AND_CASING_INTERACTION_SUPPORTED",
+        "outcomes": [
+          {
+            "observed": "{\"color\":\"blue\"}",
+            "pass": false,
+            "variant_id": "CONTROL_JSON"
+          },
+          {
+            "observed": "Azul",
+            "pass": false,
+            "variant_id": "TOKEN_ONLY"
+          },
+          {
+            "observed": "{\"color\":\"azul\"}",
+            "pass": true,
+            "variant_id": "ENGLISH_JSON"
+          }
+        ],
+        "source": {
+          "id": "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json",
+          "sha256": "fa339ecaa8db9bdfcdc6606dfb6c8cdec463291ac5c1ae0a3b42b4503a750155"
+        }
+      },
+      "evidence_details": [
+        {
+          "expected": {
+            "color": "azul"
+          },
+          "objective_pointer": "/baseline/rows/0/objective",
+          "observed": "{\"color\":\"blue\"}",
+          "prompt": "Responde únicamente con el JSON {\"color\":\"azul\"}.",
+          "row_pointer": "/baseline/rows/0",
+          "score_reason": "STRICT_JSON_EQUAL",
+          "workload_ref": {
+            "id": "chat_quality.OBJECTIVE_TASKS",
+            "sha256": "766f1281c361fc13dd0aeade9adb531e0bee8948aa135c5a9f7f87d92e98b5a0"
+          }
+        },
+        {
+          "expected": {
+            "color": "azul"
+          },
+          "objective_pointer": "/memory/rows/0/objective",
+          "observed": "{\"color\":\"blue\"}",
+          "prompt": "Responde únicamente con el JSON {\"color\":\"azul\"}.",
+          "row_pointer": "/memory/rows/0",
+          "score_reason": "STRICT_JSON_EQUAL",
+          "workload_ref": {
+            "id": "chat_quality.OBJECTIVE_TASKS",
+            "sha256": "766f1281c361fc13dd0aeade9adb531e0bee8948aa135c5a9f7f87d92e98b5a0"
+          }
+        }
+      ],
+      "evidence_refs": [
+        {
+          "pointer": "/baseline/rows/0/objective",
+          "source": {
+            "id": "GAIA_1_2_MEMORY_QUALITY_V1.json",
+            "sha256": "571f9c261e852c592b948607c1d7740a5946e9cb42ef6b2bdab813e846e62388"
+          }
+        },
+        {
+          "pointer": "/memory/rows/0/objective",
+          "source": {
+            "id": "GAIA_1_2_MEMORY_QUALITY_V1.json",
+            "sha256": "571f9c261e852c592b948607c1d7740a5946e9cb42ef6b2bdab813e846e62388"
+          }
+        }
+      ],
+      "failure_count": 2,
+      "format_failure_count": 0,
+      "research_evidence_refs": [
+        {
+          "pointer": "/rows/0/score",
+          "source": {
+            "id": "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json",
+            "sha256": "fa339ecaa8db9bdfcdc6606dfb6c8cdec463291ac5c1ae0a3b42b4503a750155"
+          }
+        },
+        {
+          "pointer": "/rows/1/score",
+          "source": {
+            "id": "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json",
+            "sha256": "fa339ecaa8db9bdfcdc6606dfb6c8cdec463291ac5c1ae0a3b42b4503a750155"
+          }
+        },
+        {
+          "pointer": "/rows/2/score",
+          "source": {
+            "id": "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json",
+            "sha256": "fa339ecaa8db9bdfcdc6606dfb6c8cdec463291ac5c1ae0a3b42b4503a750155"
+          }
+        }
+      ],
+      "task_id": "spanish"
+    },
+    "performance": {
+      "calls": 2,
+      "latency_s": 13.57619295301265,
+      "reported_output_tokens": 43,
+      "reserved_tokens": 192
+    },
+    "reason": "DIRECT_PROPOSAL_ACCEPTED",
+    "research": {
+      "authority": "NONE",
+      "hypotheses": [
+        {
+          "causal_hypothesis": "The color of the output was blue due to the interaction between the Spanish instruction and casing, causing a mismatch in the expected color (azul) and the observed color (blue).",
+          "estimated_cost": {
+            "duration_s": 180,
+            "model_runs": 4,
+            "tokens": 4096
+          },
+          "evidence_refs": [
+            {
+              "pointer": "/rows/0/score",
+              "source": {
+                "id": "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json",
+                "sha256": "fa339ecaa8db9bdfcdc6606dfb6c8cdec463291ac5c1ae0a3b42b4503a750155"
+              }
+            }
+          ],
+          "id": "hp1",
+          "intervention": "Change the casing to match the expected color (azul) by adjusting the casing settings to ensure consistency with the Spanish instruction.",
+          "metric": {
+            "criterion": "gain >= 1 and regressions == 0",
+            "evaluator": "FROZEN_EXISTING",
+            "name": "exact_objective_passes"
+          },
+          "prediction": "Expected exact output: {\"color\":\"azul\"}",
+          "problem": "spanish has objective or format failures.",
+          "uncertainty": [
+            "The model omitted uncertainty; the causal claim remains unverified."
+          ]
+        }
+      ],
+      "kind": "RESEARCHER"
+    },
+    "review": {
+      "authority": "NONE",
+      "decision": "ACCEPT",
+      "evidence_refs": [
+        {
+          "pointer": "/rows/0/score",
+          "source": {
+            "id": "GAIA_1_2_SPANISH_DIAGNOSTIC_V2.json",
+            "sha256": "fa339ecaa8db9bdfcdc6606dfb6c8cdec463291ac5c1ae0a3b42b4503a750155"
+          }
+        }
+      ],
+      "experiment": {
+        "authority_required": "LOCAL_COMPUTE",
+        "budget": {
+          "duration_s": 180,
+          "model_runs": 4,
+          "tokens": 4096
+        },
+        "evaluator_changes": 0,
+        "execute": false,
+        "metric": {
+          "criterion": "gain >= 1 and regressions == 0",
+          "evaluator": "FROZEN_EXISTING",
+          "name": "exact_objective_passes"
+        },
+        "network_requests": 0,
+        "promotion_allowed": false,
+        "protocol": [
+          "Run the unchanged frozen workload as control.",
+          "Run one pre-registered variant: Change the casing to match the expected color (azul) by adjusting the casing settings to ensure consistency with the Spanish instruction.",
+          "Score both with the frozen evaluator."
+        ],
+        "source_changes": 0
+      },
+      "kind": "REVIEWER",
+      "next_question": "Does the direct intervention improve the frozen objective without regressions?",
+      "selected_hypothesis_id": "hp1"
+    },
+    "schema": "gaia_research_dialogue_v1",
+    "source": {
+      "id": "GAIA_1_2_MEMORY_QUALITY_V1.json",
+      "sha256": "571f9c261e852c592b948607c1d7740a5946e9cb42ef6b2bdab813e846e62388"
+    },
+    "status": "ACCEPTED",
+    "turns": [
+      {
+        "hidden_reasoning_requested": false,
+        "latency_s": 2.406739594996907,
+        "max_tokens": 96,
+        "model_authority": "NONE",
+        "prompt": "Return only JSON {\"hypothesis\":\"...\"}. State one short evidence-linked causal hypothesis for the exact task. No intervention, prose, execution, tools, or authority. DATA={\"diagnosis\":\"SPANISH_INSTRUCTION_AND_CASING_INTERACTION_SUPPORTED\",\"expected\":{\"color\":\"azul\"},\"observed\":\"{\\\"color\\\":\\\"blue\\\"}\",\"task\":\"spanish\"}",
+        "prompt_sha256": "e4d149c6e2ede7c6f9115a86210eb56443679c57e1ad432200e2bf34c01e76fb",
+        "raw_output_stored": false,
+        "response": {
+          "cause": "The color of the output was blue due to the interaction between the Spanish instruction and casing, causing a mismatch in the expected color (azul) and the observed color (blue)."
+        },
+        "response_sha256": "f86db6c9111f3686d05545abc854b3b13a8548e72bdbda9b93bd69974abce8d4",
+        "role": "DIRECT_RESEARCHER",
+        "validation": "ACCEPTED_PARTIAL"
+      },
+      {
+        "hidden_reasoning_requested": false,
+        "latency_s": 1.4207248380116653,
+        "max_tokens": 96,
+        "model_authority": "NONE",
+        "prompt": "Return only JSON {\"intervention\":\"...\"}. Give one concrete testable intervention that directly tests the validated cause and diagnosis. The intervention must explicitly include the exact task label from DATA for traceability. Do not repeat the cause. No prose, execution, tools, or authority. DATA={\"diagnosis\":\"SPANISH_INSTRUCTION_AND_CASING_INTERACTION_SUPPORTED\",\"task\":\"spanish\",\"validated_cause\":\"The color of the output was blue due to the interaction between the Spanish instruction and casing, causing a mismatch in the expected color (azul) and the observed color (blue).\"}",
+        "prompt_sha256": "8900398add1d81d5674d7b175bee2a7e84a5146647d6aa6562aff3dabe17bb19",
+        "raw_output_stored": false,
+        "response": {
+          "change": "Change the casing to match the expected color (azul) by adjusting the casing settings to ensure consistency with the Spanish instruction."
+        },
+        "response_sha256": "b4b63dff49e01d63a6c4f1da33a57c31db72a2c5b0436ca5f0e58b0ba657620b",
+        "role": "DIRECT_RESEARCHER_REPAIR",
+        "validation": "ACCEPTED"
+      }
+    ]
+  },
+  "evaluation": {
+    "authority": "NONE",
+    "checks": {
+      "authority_respected": true,
+      "causal_consistency": true,
+      "falsifiable": true,
+      "novel_intervention": true,
+      "real_references": true,
+      "structural_task_binding": true,
+      "useful_experiment": true,
+      "valid_structure": true
+    },
+    "criteria": [
+      "valid_structure",
+      "real_references",
+      "structural_task_binding",
+      "causal_consistency",
+      "falsifiable",
+      "useful_experiment",
+      "authority_respected",
+      "novel_intervention"
+    ],
+    "criteria_hash": "ba92672756f1147a2e75bd7be1b330417962596067269606ffbf68559c20a2ed",
+    "evaluator_modified_v1": false,
+    "schema": "gaia_research_evaluator_v2",
+    "score": 8,
+    "status": "PASS"
+  },
+  "executions": 0,
+  "network_requests": 0,
+  "promotions": 0,
+  "schema": "gaia_research_v2_holdout_run",
+  "source": {
+    "id": "GAIA_1_2_MEMORY_QUALITY_V1.json",
+    "sha256": "571f9c261e852c592b948607c1d7740a5946e9cb42ef6b2bdab813e846e62388"
+  }
+}

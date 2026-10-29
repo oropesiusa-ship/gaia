@@ -146,3 +146,28 @@ presupuesto y reabrió con el mismo ID/hash sin nuevas inferencias ni duplicados
 Esto cierra el gate de continuidad H, pero no convierte los rechazos en mejora.
 Evidencia: `GAIA_1_2_RESEARCH_CONTINUITY_V3_REAL.json`, SHA-256
 `660642f992059119123f10523e5666dd79ce19b177f2685d4118c38a638c7684`.
+
+## Evaluador estructural V2 y holdout V7
+
+El análisis de V3.1–V5 demostró que V1 confundía coincidencia léxica con relación
+causal. V1 no fue editado ni usado para revalidar retroactivamente candidatas. Se
+pre-registró un evaluador V2 paralelo con ocho criterios, fixtures adversariales,
+binding estructural de tarea y reglas causales fijadas antes del nuevo holdout.
+
+V6 falló limpiamente en dos réplicas por JSON inválido. V7 dividió causa e
+intervención en dos contratos mínimos de 96 tokens, manteniendo todos los campos
+de autoridad, métrica, evidencia y presupuesto bajo binding determinista.
+
+| Ejecución española reservada | V2 score | Llamadas | Tokens reservados | Estado |
+| --- | ---: | ---: | ---: | --- |
+| V7 run 1 | 8/8 | 2 | 192 | PASS |
+| V7 run 2 | 8/8 | 2 | 192 | PASS |
+
+Ambas réplicas produjeron la misma causa e intervención: la interacción entre
+instrucción española/casing explica `azul→blue`, y se propone probar el ajuste de
+casing preservando el literal español. El auditor offline recomputó 8/8, identidad
+de criterios, réplica semántica, presupuestos y ausencia de efectos.
+
+Decisión: `RESEARCH_DIRECT_V7_SPLIT_MINIMAL = ACCEPTED`. Supera el máximo 7/8
+del baseline no novedoso bajo V2. Auditoría SHA-256:
+`6546dbe2c8f0143b50a390be897724967205b84fb7ec54339ecb368826f26d4c`.
