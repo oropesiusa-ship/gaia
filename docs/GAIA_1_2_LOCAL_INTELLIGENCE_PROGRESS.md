@@ -3,7 +3,8 @@
 ## Estado
 
 Primer incremento sobre la base 1.1 certificada: `INTEGRATION_TESTED`.
-No constituye todavía certificación final de GAIA 1.2.
+GAIA 1.2 quedó `CERTIFIED` para el alcance aprobado el 29-10-2026, sin merge,
+tag ni release y sin ampliar autoridad del LLM.
 
 El incremento posterior de contexto y chat está `REAL_WORLD_TESTED`: contexto
 interactivo seleccionado de 4096 tokens y conversación local persistente real.
@@ -190,6 +191,15 @@ Dialogue sigue por debajo del baseline determinista.
   `local_intelligence_evidence/GAIA_1_2_FINAL_HEAD_REGRESSION_E0D0AE9.json`.
 
 ### Evidencia histórica
+
+### Certificación final V2 (`da118a3`)
+
+- Research Direct V7: 8/8 en dos réplicas españolas reservadas.
+- Auditor Research V2: PASS; réplica semántica y cero efectos.
+- Regresión particionada exhaustiva: 87 archivos, 1264 PASS, 9 skips.
+- Auditor de certificación: `CERTIFIED`, 7/7 checks PASS.
+- No se promovieron adapters V2/V3; la política interactiva permanece ORIGINAL.
+- Autoridad del LLM: `NONE`; merge/tag/release no autorizados.
 
 ### HEAD funcional `b2af752` (29-10-2026)
 

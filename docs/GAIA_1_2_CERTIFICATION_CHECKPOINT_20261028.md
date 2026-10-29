@@ -3,7 +3,7 @@
 ## Decisión
 
 Checkpoint histórico iniciado como `NOT_CERTIFIED` en `ca473ea`; estado actual:
-`CERTIFICATION_REAUDIT_REQUIRED`.
+`CERTIFIED` tras reauditoría del 29-10-2026.
 
 No se realizó merge, tag ni release. La autoridad del LLM permanece `NONE` y no
 se integró ningún adapter en la proyección interactiva.
@@ -20,17 +20,23 @@ se integró ningún adapter en la proyección interactiva.
 | F — calidad final | PASS | auditoría pre-registrada: 22/26 objetivos, 20/26 formato, cero errores |
 | G — Research Intelligence | PASS | V7 obtiene 8/8 en dos réplicas bajo evaluador estructural V2 pre-registrado |
 | H — continuidad real | PASS | dos problemas reales, persistencia, presupuesto y reapertura idempotente |
-| I — certificación | REAUDIT_REQUIRED | todos los gates funcionales pasan; falta regresión del HEAD V2 |
+| I — certificación | CERTIFIED | auditor agregado 7/7 checks PASS sobre `da118a3` |
 | J — fases posteriores | NOT_AUTHORIZED | 1.3/1.4 permanecen propuestas; no se amplían capacidades |
 
 ## Decisión final de esta campaña
 
-`CERTIFICATION_REAUDIT_REQUIRED` hasta completar la regresión y auditoría final del nuevo HEAD.
+`CERTIFIED` para el alcance aprobado de GAIA 1.2.
 
 El bloqueo de G quedó resuelto mediante un evaluador V2 paralelo pre-registrado,
 sin editar V1 ni promover resultados históricos. V7 obtuvo 8/8 en dos réplicas
 independientes y pasó auditoría offline. Falta únicamente revalidar el HEAD y
 reauditar el conjunto completo de gates antes de emitir el estado definitivo.
+
+La regresión final se particionó de forma exhaustiva por el límite monolítico:
+87 archivos disjuntos, unión idéntica a la lista congelada, 1264 tests PASS,
+9 skips, 0 fallos y 0 errores. El auditor agregado certifica siete checks y no
+concede autoridad para merge, tag o release. SHA-256 del auditor:
+`0c4acfc85c06a626a493ec777d03c98a0ad7c7ff2f92548de660a2fc5ec54a56`.
 
 Regresión del último HEAD con cambios funcionales: 1250 tests PASS, 9 skips,
 0 fallos y 0 errores en 1144,348 s. Log SHA-256:
@@ -56,7 +62,7 @@ Evidencia portable:
 
 El Hito F quedó cerrado por una auditoría offline pre-registrada que separa
 métricas objetivas, rendimiento, funcionales y muestras subjetivas. No atribuye
-mejora cognitiva. Research Dialogue V2/V2.1/V2.2 produjo evidencia negativa; la
-vía directa tampoco superó conjuntamente calidad formal y causal. H demuestra una
-campaña real multi-problema y reapertura idempotente. La certificación debe
-permanecer en reauditoría hasta validar el HEAD que incorpora V2 y V7.
+mejora cognitiva por sí sola. Research Dialogue V2/V2.1/V2.2 produjo evidencia
+negativa; posteriormente V7 superó el holdout estructural V2 en dos réplicas. H
+demuestra una campaña real multi-problema y reapertura idempotente. La regresión
+y auditoría agregada posteriores cerraron la reauditoría como `CERTIFIED`.

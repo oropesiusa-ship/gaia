@@ -1,0 +1,16 @@
+{
+  "authority": "NONE",
+  "checks": {
+    "adapter_nonpromotion": true,
+    "authority": true,
+    "continuity_gate": true,
+    "no_research_effects": true,
+    "quality_gate": true,
+    "regression_gate": true,
+    "research_v2_gate": true
+  },
+  "evaluated_commit": "da118a3",
+  "merge_tag_release_authorized": false,
+  "schema": "gaia_1_2_certification_audit_v1",
+  "status": "CERTIFIED"
+}
